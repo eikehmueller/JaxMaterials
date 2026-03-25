@@ -32,16 +32,19 @@ def stress_strain(voigt_indices, C_indices):
     epsilon = ArraySymbol("varepsilon", (6,))
     # Independent components of stress tensor in Voigt notation
     sigma = zeros(6)
-    s = r"\begin{equation}\begin{aligned}" + "\n"
+    s_latex = r"\begin{equation}\begin{aligned}" + "\n"
+    s_code = "sigma = jnp.stack(["
     for a in range(6):
         for k in range(3):
             for ell in range(3):
                 b = voigt_map[tuple(sorted([k, ell]))]
                 _a, _b = sorted((a, b))
                 sigma[a] += C[C_map[(_a, _b)]] * epsilon[b]
-        s += f"\\sigma_{{{a}}} &= " + latex(simplify(sigma[a])) + r"\\" + "\n"
-    s += r"\end{aligned}\end{equation}" + "\n"
-    return s
+        s_latex += f"\\sigma_{{{a}}} &= " + latex(simplify(sigma[a])) + r"\\" + "\n"
+        s_code += str(simplify(sigma[a])).replace("varepsilon", "epsilon") + ",\n"
+    s_latex += r"\end{aligned}\end{equation}" + "\n"
+    s_code += "])"
+    return s_latex, s_code
     # TODO: generate Jax code for this
 
 
@@ -52,14 +55,14 @@ def acoustic_matrix(voigt_indices, C_indices, isotropic=False):
     # Acoustic 3x3 matrix
     K = zeros(3, 3)
     # 21 independent components of the 3x3x3x3 elasticity tensor
-    C0 = ArraySymbol("C^{0}", (21,))
+    C0 = ArraySymbol("C0", (21,))
     # Lame coefficients for isotropic material
     mu0, lmbda0 = symbols("mu^0 lambda^0")
     # Fourier modes
-    xi = Array(
-        symbols(" ".join([f"\\mathring{{\\widetilde{{\\xi}}}}_{j}" for j in range(3)]))
-    )
-    s = r"\begin{equation}\begin{aligned}" + "\n"
+    xi = ArraySymbol("xi", (3,))
+    # xi = Array(symbols(" ".join([f"xi{j}" for j in range(3)])))
+    s_latex = r"\begin{equation}\begin{aligned}" + "\n"
+    s_code = ""
     for k in range(3):
         for i in range(3):
             for j in range(3):
@@ -71,7 +74,13 @@ def acoustic_matrix(voigt_indices, C_indices, isotropic=False):
                         )
                     )
                     K[k, i] += C0[C_map[(a, b)]] * xi[j] * xi[ell]
-
+    s_code += "K = jnp.stack([" + "\n"
+    for i in range(3):
+        s_code += "jnp.stack([" + "\n"
+        for j in range(3):
+            s_code += str(K[i, j]) + ",\n"
+        s_code += "])," + "\n"
+    s_code += "])" + "\n"
     for i in range(3):
         for j in range(i + 1):
             v = K[i, j]
@@ -84,22 +93,22 @@ def acoustic_matrix(voigt_indices, C_indices, isotropic=False):
                     v = v.subs(C0[k], lmbda0)
                 for k in range(9, 21):
                     v = v.subs(C0[k], 0)
-            s += (
+            s_latex += (
                 f"K^{0}_{{{i}{j}}} &= "
-                + latex(simplify(v)).replace("{C^{0}}", "C^{0}")
+                + latex(simplify(v))
+                .replace("{C_{0}}", "C^{0}")
+                .replace(r"\xi", r"\mathring{{\widetilde{{\xi}}}}")
                 + "\\\\"
                 + "\n"
             )
-    s += r"\end{aligned}\end{equation}" + "\n"
-    return s
+    s_latex += r"\end{aligned}\end{equation}" + "\n"
+    return s_latex, s_code
     # TODO: generate Jax code for this
 
 
 def fourier_solve(voigt_indices):
     # Fourier modes
-    xi = Array(
-        symbols(" ".join([f"\\mathring{{\\widetilde{{\\xi}}}}_{j}" for j in range(3)]))
-    )
+    xi = Array(symbols("xi_0 xi_1 xi_2"))
     N00, N01, N02, N11, N12, N22 = symbols(
         "N^{0}_{00} N^{0}_{01} N^{0}_{02} N^{0}_{11} N^{0}_{12} N^{0}_{22}"
     )
@@ -112,21 +121,40 @@ def fourier_solve(voigt_indices):
         + permutedims(N_xi_xi, (3, 0, 2, 1))
         + permutedims(N_xi_xi, (0, 3, 2, 1))
     )
-    s = r"\begin{equation}\begin{aligned}" + "\n"
+    s_latex = r"\begin{equation}\begin{aligned}" + "\n"
     count = 0
     for a in range(6):
         for b in range(a, 6):
             k, ell = voigt_indices[a]
             i, j = voigt_indices[b]
             v = simplify(Gamma[k, ell, i, j])
-            s += f"\\widehat{{\\Gamma}}^{{0}}_{{{a}{b}}} &= " + latex(v)
+            s_latex += f"\\widehat{{\\Gamma}}^{{0}}_{{{a}{b}}} &= " + latex(v).replace(
+                r"\xi", r"\mathring{{\widetilde{{\xi}}}}"
+            )
             if count % 2 == 0:
-                s += r", & " + "\n"
+                s_latex += r", & " + "\n"
             else:
-                s += r",\\[1ex]" + "\n"
+                s_latex += r",\\[1ex]" + "\n"
             count += 1
-    s += r"\end{aligned}\end{equation}" + "\n"
-    return s
+    s_code = ""
+    s_code += "Gamma = jnp.stack([" + "\n"
+    for a in range(6):
+        s_code += "jnp.stack([" + "\n"
+        for b in range(6):
+            k, ell = voigt_indices[a]
+            i, j = voigt_indices[b]
+            v = simplify(Gamma[k, ell, i, j])
+            v = str(v)
+            for j in range(3):
+                v = v.replace(f"xi_{j}", f"xi[{j}]")
+            for j in range(3):
+                for k in range(3):
+                    v = v.replace(f"N^{{0}}_{{{j}{k}}}", f"N[{j},{k}]")
+            s_code += v + ",\n"
+        s_code += "])," + "\n"
+    s_code += "])" + "\n"
+    s_latex += r"\end{aligned}\end{equation}" + "\n"
+    return s_latex, s_code
     # TODO: generate Jax code for this
 
 
@@ -172,16 +200,32 @@ C_indices = (
 )
 with open("anisotropic_elasticity.tex", "w", encoding="utf8") as f:
     print(r"% ---- elasticity tensor ----", file=f)
-    print(elasticity(voigt_indices, C_indices), file=f)
+    s_latex = elasticity(voigt_indices, C_indices)
+    print(s_latex, file=f)
+
+s_latex, s_code = stress_strain(voigt_indices, C_indices)
 with open("anisotropic_stress_strain.tex", "w", encoding="utf8") as f:
     print(r"% ---- sigma_{ij} = C_{ijkl} epsilon_{kl} ----", file=f)
-    print(stress_strain(voigt_indices, C_indices), file=f)
+    print(s_latex, file=f)
+with open("anisotropic_stress_strain.py", "w", encoding="utf8") as f:
+    print(s_code, file=f)
+
+s_latex, s_code = acoustic_matrix(voigt_indices, C_indices, isotropic=False)
 with open("anisotropic_acoustic_matrix.tex", "w", encoding="utf8") as f:
     print(r"% ---- acoustic matrix K^0 ----", file=f)
-    print(acoustic_matrix(voigt_indices, C_indices, isotropic=False), file=f)
+    print(s_latex, file=f)
+
+with open("anisotropic_acoustic_matrix.py", "w", encoding="utf8") as f:
+    print(s_code, file=f)
+
+s_latex, s_code = acoustic_matrix(voigt_indices, C_indices, isotropic=True)
 with open("isotropic_acoustic_matrix.tex", "w", encoding="utf8") as f:
     print(r"% ---- acoustic matrix K^0 [isotropic material] ----", file=f)
-    print(acoustic_matrix(voigt_indices, C_indices, isotropic=True), file=f)
+    print(s_latex, file=f)
+
+s_latex, s_code = fourier_solve(voigt_indices)
 with open("anisotropic_fourier_matrix.tex", "w", encoding="utf8") as f:
     print(r"% ---- Fourier solve ----", file=f)
-    print(fourier_solve(voigt_indices), file=f)
+    print(s_latex, file=f)
+with open("anisotropic_fourier_matrix.py", "w", encoding="utf8") as f:
+    print(s_code, file=f)
