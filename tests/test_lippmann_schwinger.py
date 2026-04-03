@@ -17,6 +17,7 @@ from jaxmaterials.solver.lippmann_schwinger import (
     relative_divergence,
     relative_divergence_fourier,
     lippmann_schwinger_isotropic_jax,
+    lippmann_schwinger_anisotropic_jax,
     lippmann_schwinger_isotropic_cuda,
 )
 
@@ -185,6 +186,60 @@ def test_fourier_solve(grid_spec, dtype):
         / np.linalg.norm(r_hat_isotropic)
         < rtol
     )
+
+
+@pytest.mark.parametrize("depth", [0, 2, 4])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_anisotropic_solve(grid_spec, depth, dtype):
+    """Verify that isotropic and anisotropic solver give the same result"""
+    rng = np.random.default_rng(seed=8741823)
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+    mu, lmbda = initialise_material(grid_spec, rng, dtype)
+    zero = np.zeros_like(mu)
+    stiffness_tensor = np.stack(
+        3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zero]
+    )
+
+    atol = 1.0e-5 if dtype == np.float32 else 1.0e-12
+    rtol = 1.0e-20
+    epsilon_isotropic, sigma_isotropic, iter_isotropic = (
+        lippmann_schwinger_isotropic_jax(
+            mu,
+            lmbda,
+            epsilon_bar,
+            grid_spec,
+            rtol=rtol,
+            atol=atol,
+            depth=depth,
+            maxiter=32,
+            dtype=dtype,
+        )
+    )
+    epsilon_anisotropic, sigma_anisotropic, iter_anisotropic = (
+        lippmann_schwinger_anisotropic_jax(
+            stiffness_tensor,
+            epsilon_bar,
+            grid_spec,
+            rtol=rtol,
+            atol=atol,
+            depth=depth,
+            maxiter=32,
+            dtype=dtype,
+        )
+    )
+
+    rtol = 1.0e-6 if dtype == np.float32 else 1.0e-12
+    assert (
+        np.linalg.norm(epsilon_isotropic - epsilon_anisotropic)
+        / np.linalg.norm(epsilon_isotropic)
+        < rtol
+    )
+    assert (
+        np.linalg.norm(sigma_isotropic - sigma_anisotropic)
+        / np.linalg.norm(sigma_isotropic)
+        < rtol
+    )
+    assert iter_isotropic == iter_anisotropic
 
 
 @pytest.mark.parametrize("depth", [0, 2, 4])

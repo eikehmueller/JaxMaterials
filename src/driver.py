@@ -45,9 +45,9 @@ Lx = 1.2
 Ly = 0.8
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 64
-ny = 64
-nz = 64
+nx = 128
+ny = 128
+nz = 128
 
 dtype = jnp.float32
 rtol = 1e-20
