@@ -148,10 +148,13 @@ def fourier_solve(voigt_indices):
         for b in range(6):
             k, ell = voigt_indices[a]
             i, j = voigt_indices[b]
-            v = simplify(Gamma[k, ell, i, j])
+            multiplicity = 1
+            if b > 2:
+                multiplicity *= 2
+            v = simplify(multiplicity * Gamma[k, ell, i, j])
             v = str(v)
             for j in range(3):
-                v = v.replace(f"xi_{j}", f"xi[{j}]")
+                v = v.replace(f"xi_{j}", f"xizero[{j}]")
             for j in range(3):
                 for k in range(3):
                     v = v.replace(f"N^{{0}}_{{{j}{k}}}", f"N_reference[{j},{k}]")

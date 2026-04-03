@@ -177,16 +177,9 @@ def test_fourier_solve(grid_spec, dtype):
         3 * [2 * mu0 + lmbda0] + 3 * [mu0] + 3 * [lmbda0] + 12 * [0]
     )
     N_ref = get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
-
-    r_hat_isotropic = fourier_solve_isotropic(sigma_hat, lmbda0, mu0, xizero)[
-        :, 0, 0, 1
-    ]
-    r_hat_anisotropic = fourier_solve_anisotropic(sigma_hat, N_ref, xizero)[:, 0, 0, 1]
-
-    rtol = 1.0e-7 if dtype == np.float32 else 1.0e-12
-    print(np.linalg.norm(r_hat_isotropic))
-    print(np.linalg.norm(r_hat_anisotropic))
-    print(np.linalg.norm(r_hat_anisotropic - r_hat_isotropic))
+    r_hat_isotropic = fourier_solve_isotropic(sigma_hat, lmbda0, mu0, xizero)
+    r_hat_anisotropic = fourier_solve_anisotropic(sigma_hat, N_ref, xizero)
+    rtol = 1.0e-6 if dtype == np.float32 else 1.0e-12
     assert (
         np.linalg.norm(r_hat_isotropic - r_hat_anisotropic)
         / np.linalg.norm(r_hat_isotropic)

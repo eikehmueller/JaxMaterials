@@ -306,14 +306,11 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
                     N_reference[0, 1] * xizero[0] * xizero[1],
                     N_reference[0, 2] * xizero[0] * xizero[2],
                     xizero[0]
-                    * (N_reference[0, 0] * xizero[1] + N_reference[0, 1] * xizero[0])
-                    / 2,
+                    * (N_reference[0, 0] * xizero[1] + N_reference[0, 1] * xizero[0]),
                     xizero[0]
-                    * (N_reference[0, 0] * xizero[2] + N_reference[0, 2] * xizero[0])
-                    / 2,
+                    * (N_reference[0, 0] * xizero[2] + N_reference[0, 2] * xizero[0]),
                     xizero[0]
-                    * (N_reference[0, 1] * xizero[2] + N_reference[0, 2] * xizero[1])
-                    / 2,
+                    * (N_reference[0, 1] * xizero[2] + N_reference[0, 2] * xizero[1]),
                 ]
             ),
             jnp.stack(
@@ -322,14 +319,11 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
                     N_reference[1, 1] * xizero[1] ** 2,
                     N_reference[1, 2] * xizero[1] * xizero[2],
                     xizero[1]
-                    * (N_reference[0, 1] * xizero[1] + N_reference[1, 1] * xizero[0])
-                    / 2,
+                    * (N_reference[0, 1] * xizero[1] + N_reference[1, 1] * xizero[0]),
                     xizero[1]
-                    * (N_reference[0, 1] * xizero[2] + N_reference[1, 2] * xizero[0])
-                    / 2,
+                    * (N_reference[0, 1] * xizero[2] + N_reference[1, 2] * xizero[0]),
                     xizero[1]
-                    * (N_reference[1, 1] * xizero[2] + N_reference[1, 2] * xizero[1])
-                    / 2,
+                    * (N_reference[1, 1] * xizero[2] + N_reference[1, 2] * xizero[1]),
                 ]
             ),
             jnp.stack(
@@ -338,14 +332,11 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
                     N_reference[1, 2] * xizero[1] * xizero[2],
                     N_reference[2, 2] * xizero[2] ** 2,
                     xizero[2]
-                    * (N_reference[0, 2] * xizero[1] + N_reference[1, 2] * xizero[0])
-                    / 2,
+                    * (N_reference[0, 2] * xizero[1] + N_reference[1, 2] * xizero[0]),
                     xizero[2]
-                    * (N_reference[0, 2] * xizero[2] + N_reference[2, 2] * xizero[0])
-                    / 2,
+                    * (N_reference[0, 2] * xizero[2] + N_reference[2, 2] * xizero[0]),
                     xizero[2]
-                    * (N_reference[1, 2] * xizero[2] + N_reference[2, 2] * xizero[1])
-                    / 2,
+                    * (N_reference[1, 2] * xizero[2] + N_reference[2, 2] * xizero[1]),
                 ]
             ),
             jnp.stack(
@@ -359,17 +350,17 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
                     xizero[2]
                     * (N_reference[0, 2] * xizero[1] + N_reference[1, 2] * xizero[0])
                     / 2,
-                    N_reference[0, 0] * xizero[1] ** 2 / 4
-                    + N_reference[0, 1] * xizero[0] * xizero[1] / 2
-                    + N_reference[1, 1] * xizero[0] ** 2 / 4,
-                    N_reference[0, 0] * xizero[1] * xizero[2] / 4
-                    + N_reference[0, 1] * xizero[0] * xizero[2] / 4
-                    + N_reference[0, 2] * xizero[0] * xizero[1] / 4
-                    + N_reference[1, 2] * xizero[0] ** 2 / 4,
-                    N_reference[0, 1] * xizero[1] * xizero[2] / 4
-                    + N_reference[0, 2] * xizero[1] ** 2 / 4
-                    + N_reference[1, 1] * xizero[0] * xizero[2] / 4
-                    + N_reference[1, 2] * xizero[0] * xizero[1] / 4,
+                    N_reference[0, 0] * xizero[1] ** 2 / 2
+                    + N_reference[0, 1] * xizero[0] * xizero[1]
+                    + N_reference[1, 1] * xizero[0] ** 2 / 2,
+                    N_reference[0, 0] * xizero[1] * xizero[2] / 2
+                    + N_reference[0, 1] * xizero[0] * xizero[2] / 2
+                    + N_reference[0, 2] * xizero[0] * xizero[1] / 2
+                    + N_reference[1, 2] * xizero[0] ** 2 / 2,
+                    N_reference[0, 1] * xizero[1] * xizero[2] / 2
+                    + N_reference[0, 2] * xizero[1] ** 2 / 2
+                    + N_reference[1, 1] * xizero[0] * xizero[2] / 2
+                    + N_reference[1, 2] * xizero[0] * xizero[1] / 2,
                 ]
             ),
             jnp.stack(
@@ -383,17 +374,17 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
                     xizero[2]
                     * (N_reference[0, 2] * xizero[2] + N_reference[2, 2] * xizero[0])
                     / 2,
-                    N_reference[0, 0] * xizero[1] * xizero[2] / 4
-                    + N_reference[0, 1] * xizero[0] * xizero[2] / 4
-                    + N_reference[0, 2] * xizero[0] * xizero[1] / 4
-                    + N_reference[1, 2] * xizero[0] ** 2 / 4,
-                    N_reference[0, 0] * xizero[2] ** 2 / 4
-                    + N_reference[0, 2] * xizero[0] * xizero[2] / 2
-                    + N_reference[2, 2] * xizero[0] ** 2 / 4,
-                    N_reference[0, 1] * xizero[2] ** 2 / 4
-                    + N_reference[0, 2] * xizero[1] * xizero[2] / 4
-                    + N_reference[1, 2] * xizero[0] * xizero[2] / 4
-                    + N_reference[2, 2] * xizero[0] * xizero[1] / 4,
+                    N_reference[0, 0] * xizero[1] * xizero[2] / 2
+                    + N_reference[0, 1] * xizero[0] * xizero[2] / 2
+                    + N_reference[0, 2] * xizero[0] * xizero[1] / 2
+                    + N_reference[1, 2] * xizero[0] ** 2 / 2,
+                    N_reference[0, 0] * xizero[2] ** 2 / 2
+                    + N_reference[0, 2] * xizero[0] * xizero[2]
+                    + N_reference[2, 2] * xizero[0] ** 2 / 2,
+                    N_reference[0, 1] * xizero[2] ** 2 / 2
+                    + N_reference[0, 2] * xizero[1] * xizero[2] / 2
+                    + N_reference[1, 2] * xizero[0] * xizero[2] / 2
+                    + N_reference[2, 2] * xizero[0] * xizero[1] / 2,
                 ]
             ),
             jnp.stack(
@@ -407,17 +398,17 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
                     xizero[2]
                     * (N_reference[1, 2] * xizero[2] + N_reference[2, 2] * xizero[1])
                     / 2,
-                    N_reference[0, 1] * xizero[1] * xizero[2] / 4
-                    + N_reference[0, 2] * xizero[1] ** 2 / 4
-                    + N_reference[1, 1] * xizero[0] * xizero[2] / 4
-                    + N_reference[1, 2] * xizero[0] * xizero[1] / 4,
-                    N_reference[0, 1] * xizero[2] ** 2 / 4
-                    + N_reference[0, 2] * xizero[1] * xizero[2] / 4
-                    + N_reference[1, 2] * xizero[0] * xizero[2] / 4
-                    + N_reference[2, 2] * xizero[0] * xizero[1] / 4,
-                    N_reference[1, 1] * xizero[2] ** 2 / 4
-                    + N_reference[1, 2] * xizero[1] * xizero[2] / 2
-                    + N_reference[2, 2] * xizero[1] ** 2 / 4,
+                    N_reference[0, 1] * xizero[1] * xizero[2] / 2
+                    + N_reference[0, 2] * xizero[1] ** 2 / 2
+                    + N_reference[1, 1] * xizero[0] * xizero[2] / 2
+                    + N_reference[1, 2] * xizero[0] * xizero[1] / 2,
+                    N_reference[0, 1] * xizero[2] ** 2 / 2
+                    + N_reference[0, 2] * xizero[1] * xizero[2] / 2
+                    + N_reference[1, 2] * xizero[0] * xizero[2] / 2
+                    + N_reference[2, 2] * xizero[0] * xizero[1] / 2,
+                    N_reference[1, 1] * xizero[2] ** 2 / 2
+                    + N_reference[1, 2] * xizero[1] * xizero[2]
+                    + N_reference[2, 2] * xizero[1] ** 2 / 2,
                 ]
             ),
         ]
