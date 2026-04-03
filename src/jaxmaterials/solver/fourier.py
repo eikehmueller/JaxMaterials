@@ -3,7 +3,13 @@
 import numpy as np
 from jax import numpy as jnp
 
-__all__ = ["get_xizero", "get_xi", "fourier_solve"]
+__all__ = [
+    "get_xizero",
+    "get_xi",
+    "get_inverse_anisotropic_acoustic_tensor",
+    "fourier_solve_isotropic",
+    "fourier_solve_anisotropic",
+]
 
 
 def get_xi(grid_spec, dtype=jnp.float64):
@@ -85,10 +91,132 @@ def get_xizero(grid_spec, dtype=jnp.float64):
     return (xi_tilde / xi_nrm).astype(dtype)
 
 
-def fourier_solve(tau_hat, lmbda0, mu0, xizero):
-    """Solve residual equation for reference material in Fourier space
+def get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
+    """Acoustic tensor for a homogeneous anisotropic reference material
 
-    Computes hat(epsilon)_{kl} = -Gamma^0_{klij} hat(tau)_{ij}
+    Assemble the 3x3 acoustic tensor for each Fourier mode for a homogeneous isotropic
+    reference material characterised by the stiffness tensor C^{0}.
+    The stiffness tensor is passed as a vector which contains the 21 independent entries of the
+    reference stiffness tensor.
+    Returns a rank 5 tensor of shape (3,3,Nx,Ny,Nz)
+
+    :arg xizero: Fourier vectors
+    :arg stiffness_tensor0: stiffness tensor
+    """
+    return jnp.stack(
+        [
+            jnp.stack(
+                [
+                    stiffness_tensor0[0] * xizero[0] ** 2
+                    + stiffness_tensor0[3] * xizero[1] ** 2
+                    + stiffness_tensor0[4] * xizero[2] ** 2
+                    + 2 * stiffness_tensor0[9] * xizero[0] * xizero[1]
+                    + 2 * stiffness_tensor0[10] * xizero[0] * xizero[2]
+                    + 2 * stiffness_tensor0[18] * xizero[1] * xizero[2],
+                    stiffness_tensor0[3] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[6] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[9] * xizero[0] ** 2
+                    + stiffness_tensor0[11] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[12] * xizero[1] ** 2
+                    + stiffness_tensor0[13] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[18] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[19] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[20] * xizero[2] ** 2,
+                    stiffness_tensor0[4] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[7] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[10] * xizero[0] ** 2
+                    + stiffness_tensor0[11] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[15] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[16] * xizero[2] ** 2
+                    + stiffness_tensor0[18] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[19] * xizero[1] ** 2
+                    + stiffness_tensor0[20] * xizero[1] * xizero[2],
+                ]
+            ),
+            jnp.stack(
+                [
+                    stiffness_tensor0[3] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[6] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[9] * xizero[0] ** 2
+                    + stiffness_tensor0[11] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[12] * xizero[1] ** 2
+                    + stiffness_tensor0[13] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[18] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[19] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[20] * xizero[2] ** 2,
+                    stiffness_tensor0[1] * xizero[1] ** 2
+                    + stiffness_tensor0[3] * xizero[0] ** 2
+                    + stiffness_tensor0[5] * xizero[2] ** 2
+                    + 2 * stiffness_tensor0[12] * xizero[0] * xizero[1]
+                    + 2 * stiffness_tensor0[14] * xizero[1] * xizero[2]
+                    + 2 * stiffness_tensor0[19] * xizero[0] * xizero[2],
+                    stiffness_tensor0[5] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[8] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[13] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[14] * xizero[1] ** 2
+                    + stiffness_tensor0[15] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[17] * xizero[2] ** 2
+                    + stiffness_tensor0[18] * xizero[0] ** 2
+                    + stiffness_tensor0[19] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[20] * xizero[0] * xizero[2],
+                ]
+            ),
+            jnp.stack(
+                [
+                    stiffness_tensor0[4] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[7] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[10] * xizero[0] ** 2
+                    + stiffness_tensor0[11] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[15] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[16] * xizero[2] ** 2
+                    + stiffness_tensor0[18] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[19] * xizero[1] ** 2
+                    + stiffness_tensor0[20] * xizero[1] * xizero[2],
+                    stiffness_tensor0[5] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[8] * xizero[1] * xizero[2]
+                    + stiffness_tensor0[13] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[14] * xizero[1] ** 2
+                    + stiffness_tensor0[15] * xizero[0] * xizero[2]
+                    + stiffness_tensor0[17] * xizero[2] ** 2
+                    + stiffness_tensor0[18] * xizero[0] ** 2
+                    + stiffness_tensor0[19] * xizero[0] * xizero[1]
+                    + stiffness_tensor0[20] * xizero[0] * xizero[2],
+                    stiffness_tensor0[2] * xizero[2] ** 2
+                    + stiffness_tensor0[4] * xizero[0] ** 2
+                    + stiffness_tensor0[5] * xizero[1] ** 2
+                    + 2 * stiffness_tensor0[16] * xizero[0] * xizero[2]
+                    + 2 * stiffness_tensor0[17] * xizero[1] * xizero[2]
+                    + 2 * stiffness_tensor0[20] * xizero[0] * xizero[1],
+                ]
+            ),
+        ]
+    )
+
+
+def get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
+    """Inverse of the acoustic tensor for a homogeneous anisotropic reference material
+
+    Assemble the 3x3 acoustic tensor for each Fourier mode for a homogeneous isotropic
+    reference material characterised by the stiffness tensor C^{0} and invert it.
+    The stiffness tensor is passed as a vector which contains the 21 independent entries of the
+    reference stiffness tensor.
+    Returns a rank 5 tensor of shape (3,3,Nx,Ny,Nz)
+
+    :arg xizero: Fourier vectors
+    :arg stiffness_tensor0: stiffness tensor
+    """
+    K0 = get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
+    K0_transpose = jnp.transpose(K0, axes=(2, 3, 4, 0, 1))
+    N0_transpose = jnp.nan_to_num(jnp.linalg.inv(K0_transpose), posinf=0, neginf=0)
+    xi_nrm = (xizero[0] ** 2 + xizero[1] ** 2 + xizero[2] ** 2) > 1.0e-8
+    return xi_nrm * jnp.transpose(N0_transpose, axes=(3, 4, 0, 1, 2))
+
+
+def fourier_solve_isotropic(tau_hat, lmbda0, mu0, xizero):
+    """Solve residual equation for homogeneous isotropic reference material in Fourier space
+
+    Computes hat(epsilon)_{kl} = -Gamma^0_{klij} hat(tau)_{ij} for a homogeneous isotropic
+    reference material which is characterised by the two Lame parameters lambda^0 and mu^0.
 
     :arg tau_hat: The residual hat(tau) in Fourier space
     :arg lmbda0: coefficient lambda^0 of homogeneous reference material
@@ -157,3 +285,141 @@ def fourier_solve(tau_hat, lmbda0, mu0, xizero):
     return (
         1 / mu0 * (-epsilon_hat_A + (lmbda0 + mu0) / (lmbda0 + 2 * mu0) * epsilon_hat_B)
     )
+
+
+def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
+    """Solve residual equation for homogeneous anisotropic reference material in Fourier space
+
+    Computes hat(epsilon)_{kl} = -Gamma^0_{klij} hat(tau)_{ij} for a homogeneous anisotropic
+    reference material which is characterised by the reference stiffness tensor C^{0}. This
+    is implicitly contained in the inverse of the acoustic tensor
+
+    :arg tau_hat: The residual hat(tau) in Fourier space
+    :arg N_reference: inverse of acoustic tensor for reference material
+    :arg xizero: Normalised momentum vectors
+    """
+    Gamma0 = jnp.stack(
+        [
+            jnp.stack(
+                [
+                    N_reference[0, 0] * xizero[0] ** 2,
+                    N_reference[0, 1] * xizero[0] * xizero[1],
+                    N_reference[0, 2] * xizero[0] * xizero[2],
+                    xizero[0]
+                    * (N_reference[0, 0] * xizero[1] + N_reference[0, 1] * xizero[0])
+                    / 2,
+                    xizero[0]
+                    * (N_reference[0, 0] * xizero[2] + N_reference[0, 2] * xizero[0])
+                    / 2,
+                    xizero[0]
+                    * (N_reference[0, 1] * xizero[2] + N_reference[0, 2] * xizero[1])
+                    / 2,
+                ]
+            ),
+            jnp.stack(
+                [
+                    N_reference[0, 1] * xizero[0] * xizero[1],
+                    N_reference[1, 1] * xizero[1] ** 2,
+                    N_reference[1, 2] * xizero[1] * xizero[2],
+                    xizero[1]
+                    * (N_reference[0, 1] * xizero[1] + N_reference[1, 1] * xizero[0])
+                    / 2,
+                    xizero[1]
+                    * (N_reference[0, 1] * xizero[2] + N_reference[1, 2] * xizero[0])
+                    / 2,
+                    xizero[1]
+                    * (N_reference[1, 1] * xizero[2] + N_reference[1, 2] * xizero[1])
+                    / 2,
+                ]
+            ),
+            jnp.stack(
+                [
+                    N_reference[0, 2] * xizero[0] * xizero[2],
+                    N_reference[1, 2] * xizero[1] * xizero[2],
+                    N_reference[2, 2] * xizero[2] ** 2,
+                    xizero[2]
+                    * (N_reference[0, 2] * xizero[1] + N_reference[1, 2] * xizero[0])
+                    / 2,
+                    xizero[2]
+                    * (N_reference[0, 2] * xizero[2] + N_reference[2, 2] * xizero[0])
+                    / 2,
+                    xizero[2]
+                    * (N_reference[1, 2] * xizero[2] + N_reference[2, 2] * xizero[1])
+                    / 2,
+                ]
+            ),
+            jnp.stack(
+                [
+                    xizero[0]
+                    * (N_reference[0, 0] * xizero[1] + N_reference[0, 1] * xizero[0])
+                    / 2,
+                    xizero[1]
+                    * (N_reference[0, 1] * xizero[1] + N_reference[1, 1] * xizero[0])
+                    / 2,
+                    xizero[2]
+                    * (N_reference[0, 2] * xizero[1] + N_reference[1, 2] * xizero[0])
+                    / 2,
+                    N_reference[0, 0] * xizero[1] ** 2 / 4
+                    + N_reference[0, 1] * xizero[0] * xizero[1] / 2
+                    + N_reference[1, 1] * xizero[0] ** 2 / 4,
+                    N_reference[0, 0] * xizero[1] * xizero[2] / 4
+                    + N_reference[0, 1] * xizero[0] * xizero[2] / 4
+                    + N_reference[0, 2] * xizero[0] * xizero[1] / 4
+                    + N_reference[1, 2] * xizero[0] ** 2 / 4,
+                    N_reference[0, 1] * xizero[1] * xizero[2] / 4
+                    + N_reference[0, 2] * xizero[1] ** 2 / 4
+                    + N_reference[1, 1] * xizero[0] * xizero[2] / 4
+                    + N_reference[1, 2] * xizero[0] * xizero[1] / 4,
+                ]
+            ),
+            jnp.stack(
+                [
+                    xizero[0]
+                    * (N_reference[0, 0] * xizero[2] + N_reference[0, 2] * xizero[0])
+                    / 2,
+                    xizero[1]
+                    * (N_reference[0, 1] * xizero[2] + N_reference[1, 2] * xizero[0])
+                    / 2,
+                    xizero[2]
+                    * (N_reference[0, 2] * xizero[2] + N_reference[2, 2] * xizero[0])
+                    / 2,
+                    N_reference[0, 0] * xizero[1] * xizero[2] / 4
+                    + N_reference[0, 1] * xizero[0] * xizero[2] / 4
+                    + N_reference[0, 2] * xizero[0] * xizero[1] / 4
+                    + N_reference[1, 2] * xizero[0] ** 2 / 4,
+                    N_reference[0, 0] * xizero[2] ** 2 / 4
+                    + N_reference[0, 2] * xizero[0] * xizero[2] / 2
+                    + N_reference[2, 2] * xizero[0] ** 2 / 4,
+                    N_reference[0, 1] * xizero[2] ** 2 / 4
+                    + N_reference[0, 2] * xizero[1] * xizero[2] / 4
+                    + N_reference[1, 2] * xizero[0] * xizero[2] / 4
+                    + N_reference[2, 2] * xizero[0] * xizero[1] / 4,
+                ]
+            ),
+            jnp.stack(
+                [
+                    xizero[0]
+                    * (N_reference[0, 1] * xizero[2] + N_reference[0, 2] * xizero[1])
+                    / 2,
+                    xizero[1]
+                    * (N_reference[1, 1] * xizero[2] + N_reference[1, 2] * xizero[1])
+                    / 2,
+                    xizero[2]
+                    * (N_reference[1, 2] * xizero[2] + N_reference[2, 2] * xizero[1])
+                    / 2,
+                    N_reference[0, 1] * xizero[1] * xizero[2] / 4
+                    + N_reference[0, 2] * xizero[1] ** 2 / 4
+                    + N_reference[1, 1] * xizero[0] * xizero[2] / 4
+                    + N_reference[1, 2] * xizero[0] * xizero[1] / 4,
+                    N_reference[0, 1] * xizero[2] ** 2 / 4
+                    + N_reference[0, 2] * xizero[1] * xizero[2] / 4
+                    + N_reference[1, 2] * xizero[0] * xizero[2] / 4
+                    + N_reference[2, 2] * xizero[0] * xizero[1] / 4,
+                    N_reference[1, 1] * xizero[2] ** 2 / 4
+                    + N_reference[1, 2] * xizero[1] * xizero[2] / 2
+                    + N_reference[2, 2] * xizero[1] ** 2 / 4,
+                ]
+            ),
+        ]
+    )
+    return -jnp.einsum("abijk,bijk->aijk", Gamma0, tau_hat)

@@ -5,30 +5,21 @@ import numpy as np
 import jax
 from jax import numpy as jnp
 from jaxmaterials.solver.derivatives import backward_divergence
-from jaxmaterials.solver.fourier import get_xizero, get_xi, fourier_solve
+from jaxmaterials.solver.fourier import (
+    get_xizero,
+    get_xi,
+    get_inverse_anisotropic_acoustic_tensor,
+    fourier_solve_isotropic,
+    fourier_solve_anisotropic,
+)
+from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 
 __all__ = [
     "relative_divergence",
     "relative_divergence_fourier",
-    "lippmann_schwinger_jax",
-    "lippmann_schwinger_cuda",
+    "lippmann_schwinger_isotropic_jax",
+    "lippmann_schwinger_isotropic_cuda",
 ]
-
-
-def compute_sigma(lmbda, mu, epsilon):
-    """Compute stress from strain
-
-    Returns sigma_{ij} = C_{ijkl}*epsilon_{kl}
-
-    :arg lmbda: Lame parameter lambda
-    :arg mu: Lame parameter mu
-    :arg epsilon: strain field
-    """
-    tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
-    sigma = 2 * mu * epsilon + lmbda * jnp.stack(
-        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
-    )
-    return sigma
 
 
 def relative_divergence(sigma, grid_spec):
@@ -46,12 +37,11 @@ def relative_divergence(sigma, grid_spec):
     return dsigma_nrm / (jnp.sqrt(grid_spec.number_of_voxels) * sigma_avg_nrm)
 
 
-def relative_divergence_fourier(sigma_hat, xi, grid_spec):
+def relative_divergence_fourier(sigma_hat, xi):
     """Compute ratio of the norm of div(sigma) and the norm of the average sigma in Fourier space
 
     :arg sigma_hat: stress in Fourier space
     :arg xi: Fourier vectors
-    :arg grid_spec: grid specification
     """
     dsigma_hat = jnp.stack(
         [
@@ -74,36 +64,66 @@ def relative_divergence_fourier(sigma_hat, xi, grid_spec):
     return dsigma_nrm / sigma_hat_zero_nrm
 
 
-@jax.jit(static_argnames=["grid_spec", "rtol", "atol", "depth", "maxiter", "dtype"])
-def lippmann_schwinger_jax(
-    lmbda,
-    mu,
+# @jax.jit(
+#    static_argnames=[
+#        "isotropic",
+#        "grid_spec",
+#        "rtol",
+#        "atol",
+#        "depth",
+#        "maxiter",
+#        "dtype",
+#    ]
+# )
+def _lippmann_schwinger_jax(
+    material_properties,
     epsilon_bar,
     grid_spec,
-    rtol=1e-6,
-    atol=1e-20,
-    depth=0,
-    maxiter=32,
-    dtype=jnp.float32,
+    isotropic,
+    rtol,
+    atol,
+    depth,
+    maxiter,
+    dtype,
 ):
     """Lippmann Schwinger iteration with Anderson acceleration for linear elasticity
 
-    :arg lmbda: spatially varying Lame parameter lambda
-    :arg mu: spatially varying Lame parameter lambda
+    Computational routine which should not be called directly; use the interface routines
+    lippmann_schwinger_isotropic_jax() and lippmann_schwinger_anisotropic_jax() instead.
+    The dictionary 'material_properties' is of the form {"lambda":lambda,"mu":mu} for an
+    isotropic material and of the form {"stiffness_tensor":C} for an anisotropic material.
+
+    :arg material_properties: dictionary with material properties
     :arg epsilon_bar: mean value of epsilon
     :arg grid_spec: grid specification as a namedtuple
+    :arg isotropic: isotropic material?
     :arg rtol: relative tolerance on normalised stress divergence to check convergence
     :arg atol: absolute tolerance on normalised stress divergence to check convergence
     :arg depth: depth of Anderson acceleration
     :arg maxiter: maximal number of iterations
     :arg dtype: data type
     """
-    # reference values of Lame paraeter
-    mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
-    lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
     # Fourier vectors
     xizero = get_xizero(grid_spec, dtype=dtype)
     xi = get_xi(grid_spec, dtype=dtype)
+    # reference values of Lame parameter
+    if isotropic:
+        mu = material_properties["mu"]
+        lmbda = material_properties["lambda"]
+        mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
+        lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
+    else:
+        stiffness_tensor = material_properties["stiffness_tensor"]
+        stiffness_tensor0 = (
+            1
+            / 2
+            * (
+                jnp.min(stiffness_tensor, axis=(1, 2, 3))
+                + jnp.max(stiffness_tensor, axis=(1, 2, 3))
+            )
+        )
+        N_ref = get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
+
     # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
     epsilon = jnp.zeros(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
@@ -118,10 +138,13 @@ def lippmann_schwinger_jax(
     # Anderson matrix and vectors
     A_anderson = jnp.eye(depth + 1, dtype=dtype)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
-    sigma = compute_sigma(lmbda, mu, epsilon[0, ...])
+    if isotropic:
+        sigma = compute_sigma_isotropic(lmbda, mu, epsilon[0, ...])
+    else:
+        sigma = compute_sigma_anisotropic(stiffness_tensor, epsilon[0, ...])
     # Fourier transform sigma
     sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
-    rel_error = relative_divergence_fourier(sigma_hat, xi, grid_spec)
+    rel_error = relative_divergence_fourier(sigma_hat, xi)
     rel_error_0 = rel_error
 
     def exit_condition(state):
@@ -143,7 +166,10 @@ def lippmann_schwinger_jax(
         """
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
-        r_hat = fourier_solve(sigma_hat, lmbda0, mu0, xizero)
+        if isotropic:
+            r_hat = fourier_solve_isotropic(sigma_hat, lmbda0, mu0, xizero)
+        else:
+            r_hat = fourier_solve_anisotropic(sigma_hat, N_ref, xizero)
         r = jnp.real(jnp.fft.ifftn(r_hat, axes=[-3, -2, -1]))
         residual = jnp.roll(residual, 1, axis=0)
         residual = residual.at[0, ...].set(r)
@@ -160,10 +186,13 @@ def lippmann_schwinger_jax(
         epsilon_tilde = jnp.einsum("s,saijk", alpha, epsilon + residual)
         epsilon = jnp.roll(epsilon, 1, axis=0)
         epsilon = epsilon.at[0, ...].set(epsilon_tilde)
-        sigma = compute_sigma(lmbda, mu, epsilon[0, ...])
+        if isotropic:
+            sigma = compute_sigma_isotropic(lmbda, mu, epsilon[0, ...])
+        else:
+            sigma = compute_sigma_anisotropic(stiffness_tensor, epsilon[0, ...])
         # Fourier transform sigma
         sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
-        rel_error = relative_divergence_fourier(sigma_hat, xi, grid_spec)
+        rel_error = relative_divergence_fourier(sigma_hat, xi)
         iter += 1
         return (
             epsilon,
@@ -196,15 +225,95 @@ def lippmann_schwinger_jax(
     return epsilon[0, ...], sigma, iter
 
 
-def lippmann_schwinger_cuda(
-    lmbda, mu, epsilon_bar, grid_spec, rtol=1e-6, atol=1.0e-20, maxiter=32, verbose=0
+def lippmann_schwinger_isotropic_jax(
+    mu,
+    lmbda,
+    epsilon_bar,
+    grid_spec,
+    rtol=1e-6,
+    atol=1e-20,
+    depth=0,
+    maxiter=32,
+    dtype=jnp.float32,
+):
+    """Lippmann Schwinger iteration linear elasticity in isotropic material
+
+    :arg mu: Lame parameter mu
+    :arg lmbda: Lame parameter lambda
+    :arg epsilon_bar: mean value of epsilon
+    :arg grid_spec: grid specification as a namedtuple
+    :arg rtol: relative tolerance on normalised stress divergence to check convergence
+    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg depth: depth of Anderson acceleration
+    :arg maxiter: maximal number of iterations
+    :arg dtype: data type
+    """
+    return _lippmann_schwinger_jax(
+        {"mu": mu, "lambda": lmbda},
+        epsilon_bar,
+        grid_spec,
+        True,
+        rtol,
+        atol,
+        depth,
+        maxiter,
+        dtype,
+    )
+
+
+def lippmann_schwinger_anisotropic_jax(
+    stiffness_tensor,
+    epsilon_bar,
+    grid_spec,
+    rtol=1e-6,
+    atol=1e-20,
+    depth=0,
+    maxiter=32,
+    dtype=jnp.float32,
+):
+    """Lippmann Schwinger iteration linear elasticity in anisotropic material
+
+    :arg stiffness_tensor: stiffness tensor,
+    :arg epsilon_bar: mean value of epsilon
+    :arg grid_spec: grid specification as a namedtuple
+    :arg rtol: relative tolerance on normalised stress divergence to check convergence
+    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg depth: depth of Anderson acceleration
+    :arg maxiter: maximal number of iterations
+    :arg dtype: data type
+    """
+    return _lippmann_schwinger_jax(
+        {"stiffness_tensor": stiffness_tensor},
+        epsilon_bar,
+        grid_spec,
+        False,
+        rtol,
+        atol,
+        depth,
+        maxiter,
+        dtype,
+    )
+
+
+def lippmann_schwinger_isotropic_cuda(
+    mu,
+    lmbda,
+    epsilon_bar,
+    grid_spec,
+    rtol=1e-6,
+    atol=1.0e-20,
+    maxiter=32,
+    verbose=0,
 ):
     """Wrapper for CUDA Lippmann Schwinger solver
 
     Required access to compiled library liblippmannschwinger.so
 
-    :arg lmbda: spatially varying Lame parameter lambda
-    :arg mu: spatially varying Lame parameter lambda
+    The dictionary material_properties is of the form {"lambda":lambda,"mu":mu} for an
+    isotropic material.
+
+    :arg mu: Lame parameter mu
+    :arg lmbda: Lame parameter lambda
     :arg epsilon_bar: mean value of epsilon
     :arg grid_spec: grid specification as a namedtuple
     :arg rtol: relative tolerance on normalised stress divergence to check convergence
@@ -212,6 +321,7 @@ def lippmann_schwinger_cuda(
     :arg maxiter: maximal number of iterations
     :arg verbose: verbosity level
     """
+    # Check that material is isotropic
     # Load cuda library
     try:
         lib = ctypes.CDLL("liblippmannschwinger.so")

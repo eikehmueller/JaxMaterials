@@ -6,8 +6,9 @@ from jaxmaterials.common import GridSpec
 from jaxmaterials.utilities import save_to_vtk
 from jaxmaterials.utilities import measure_time
 from jaxmaterials.solver.lippmann_schwinger import (
-    lippmann_schwinger_jax,
-    lippmann_schwinger_cuda,
+    lippmann_schwinger_isotropic_jax,
+    lippmann_schwinger_anisotropic_jax,
+    lippmann_schwinger_isotropic_cuda,
 )
 
 
@@ -44,9 +45,9 @@ Lx = 1.2
 Ly = 0.8
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 128
-ny = 128
-nz = 128
+nx = 64
+ny = 64
+nz = 64
 
 dtype = jnp.float32
 rtol = 1e-20
@@ -55,22 +56,64 @@ depth = 0
 
 grid_spec = GridSpec(nx, ny, nz, Lx, Ly, Lz)
 mu, lmbda = initialise_material(grid_spec, dtype=dtype)
+zeros = jnp.zeros(mu.shape, dtype=dtype)
+stiffness_tensor = jnp.stack(
+    3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
+)
 # E_mean = jnp.array([1.0, 2.0, 0.0, 0.0, 0.0, 0.0])
 E_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5])
 
-with measure_time("evaluation [Jax]"):
-    epsilon, sigma, iter = lippmann_schwinger_jax(
-        lmbda, mu, E_mean, grid_spec, maxiter=32, depth=depth, rtol=rtol, atol=atol
+with measure_time("evaluation   (isotropic, Jax)"):
+    epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_jax(
+        mu,
+        lmbda,
+        E_mean,
+        grid_spec,
+        maxiter=32,
+        depth=depth,
+        rtol=rtol,
+        atol=atol,
     )
-    epsilon.block_until_ready()
+    epsilon_isotropic.block_until_ready()
+print(f"  number of iterations = {iter}")
+print()
+
+with measure_time("evaluation (anisotropic, Jax)"):
+    epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_jax(
+        stiffness_tensor,
+        E_mean,
+        grid_spec,
+        maxiter=32,
+        depth=depth,
+        rtol=rtol,
+        atol=atol,
+    )
+    epsilon_anisotropic.block_until_ready()
+print(f"  number of iterations = {iter}")
+print(
+    "difference = ",
+    jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
+    / jnp.linalg.norm(epsilon_isotropic),
+)
+print()
 
 
-with measure_time("evaluation [CUDA]"):
-    epsilon, sigma, iter = lippmann_schwinger_cuda(
-        lmbda, mu, E_mean, grid_spec, maxiter=32, rtol=rtol, atol=atol, verbose=0
+with measure_time("evaluation  (isotropic, CUDA)"):
+    epsilon, sigma, iter = lippmann_schwinger_isotropic_cuda(
+        mu,
+        lmbda,
+        E_mean,
+        grid_spec,
+        maxiter=32,
+        rtol=rtol,
+        atol=atol,
+        verbose=0,
     )
+print(f"  number of iterations = {iter}")
+print()
 
 with measure_time("gradient"):
-    grad_epsilon = jax.jacfwd(lippmann_schwinger_jax, argnums=[2])
-    dg = grad_epsilon(lmbda, mu, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol)
+    grad_epsilon = jax.jacfwd(lippmann_schwinger_isotropic_jax, argnums=[2])
+    dg = grad_epsilon(mu, lmbda, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol)
     dg[0][0].block_until_ready()
+print()

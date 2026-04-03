@@ -41,7 +41,12 @@ def stress_strain(voigt_indices, C_indices):
                 _a, _b = sorted((a, b))
                 sigma[a] += C[C_map[(_a, _b)]] * epsilon[b]
         s_latex += f"\\sigma_{{{a}}} &= " + latex(simplify(sigma[a])) + r"\\" + "\n"
-        s_code += str(simplify(sigma[a])).replace("varepsilon", "epsilon") + ",\n"
+        s_code += (
+            str(simplify(sigma[a]))
+            .replace("varepsilon", "epsilon")
+            .replace("C", "stiffness_tensor")
+            + ",\n"
+        )
     s_latex += r"\end{aligned}\end{equation}" + "\n"
     s_code += "])"
     return s_latex, s_code
@@ -78,7 +83,7 @@ def acoustic_matrix(voigt_indices, C_indices, isotropic=False):
     for i in range(3):
         s_code += "jnp.stack([" + "\n"
         for j in range(3):
-            s_code += str(K[i, j]) + ",\n"
+            s_code += str(K[i, j]).replace("C", "stiffness_tensor") + ",\n"
         s_code += "])," + "\n"
     s_code += "])" + "\n"
     for i in range(3):
@@ -116,10 +121,10 @@ def fourier_solve(voigt_indices):
     N = Array([[N00, N01, N02], [N01, N11, N12], [N02, N12, N22]])
     N_xi_xi = tensorproduct(N, xi, xi)
     Gamma = Rational(1, 4) * (
-        permutedims(N_xi_xi, (3, 0, 1, 2))
-        + permutedims(N_xi_xi, (0, 3, 1, 2))
-        + permutedims(N_xi_xi, (3, 0, 2, 1))
-        + permutedims(N_xi_xi, (0, 3, 2, 1))
+        permutedims(N_xi_xi, (1, 2, 3, 0))
+        + permutedims(N_xi_xi, (1, 2, 0, 3))
+        + permutedims(N_xi_xi, (2, 1, 3, 0))
+        + permutedims(N_xi_xi, (2, 1, 0, 3))
     )
     s_latex = r"\begin{equation}\begin{aligned}" + "\n"
     count = 0
@@ -149,13 +154,12 @@ def fourier_solve(voigt_indices):
                 v = v.replace(f"xi_{j}", f"xi[{j}]")
             for j in range(3):
                 for k in range(3):
-                    v = v.replace(f"N^{{0}}_{{{j}{k}}}", f"N[{j},{k}]")
+                    v = v.replace(f"N^{{0}}_{{{j}{k}}}", f"N_reference[{j},{k}]")
             s_code += v + ",\n"
         s_code += "])," + "\n"
     s_code += "])" + "\n"
     s_latex += r"\end{aligned}\end{equation}" + "\n"
     return s_latex, s_code
-    # TODO: generate Jax code for this
 
 
 # Voigt-indices

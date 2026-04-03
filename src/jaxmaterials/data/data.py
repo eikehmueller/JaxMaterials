@@ -6,7 +6,7 @@ import h5py
 from jaxmaterials.data.distributions_fibres import (
     FibreDistribution2d,
 )
-from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_cuda
+from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic_cuda
 from matplotlib import pyplot as plt
 
 __all__ = ["LayeredFibresDataset", "LayeredFibresDatasetGenerator", "visualise_fibres"]
@@ -180,7 +180,7 @@ class LayeredFibresDatasetGenerator:
                 E_mean[k] = 1.0
                 rtol = 1.0e-4
                 atol = 1.0e-4
-                epsilon, sigma, iter = lippmann_schwinger_cuda(
+                epsilon, sigma, iter = lippmann_schwinger_isotropic_cuda(
                     lmbda, mu, E_mean, self.grid_spec, rtol=rtol, atol=atol, maxiter=100
                 )
                 self._sigma_bar[j, k, :] = jnp.mean(sigma, axis=(1, 2, 3))
