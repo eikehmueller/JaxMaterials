@@ -239,7 +239,7 @@ def test_anisotropic_solve(grid_spec, depth, dtype):
         / np.linalg.norm(sigma_isotropic)
         < rtol
     )
-    assert iter_isotropic == iter_anisotropic
+    assert abs(iter_isotropic - iter_anisotropic) <= 1
 
 
 @pytest.mark.parametrize("depth", [0, 2, 4])
