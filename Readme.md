@@ -1,3 +1,5 @@
+[![Automated testing](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml)
+
 # Jax Materials
 High performance implementation of linear elasticity solvers based on [CUDA](https://developer.nvidia.com/cuda) and [Jax](https://docs.jax.dev/en/latest/index.html#). These solvers will eventually be used in machine learning framework for predicting the effective linear elasticity tensor for materials containing layers of fibres.
 
