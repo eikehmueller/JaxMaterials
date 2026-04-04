@@ -106,7 +106,7 @@ def test_solve(grid_spec, rng, dtype):
 
     :arg grid_spec: specification of computational grid
     :arg rng: random number generator
-    :arg dtype: data type (single or double precision)    
+    :arg dtype: data type (single or double precision)
     """
     sigma_hat = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(
         dtype

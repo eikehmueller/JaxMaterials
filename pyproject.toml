@@ -6,21 +6,21 @@ build-backend = "setuptools.build_meta"
 name = "jaxmaterials"
 version = "1.0"
 dependencies = [
-    "numpy",
-    "matplotlib",
-    "jax",
-    "flax",
-    "optax",
-    "tqdm",
-    "h5py",
-    "torch",
+  "numpy",
+  "matplotlib",
+  "jax",
+  "flax",
+  "optax",
+  "tqdm",
+  "h5py",
+  "torch"
 ]
 requires-python = ">=3.12"
 authors = [
-  {name = "Eike Mueller", email = "e.mueller@bath.ac.uk"},
+  { name = "Eike Mueller", email = "e.mueller@bath.ac.uk" }
 ]
 maintainers = [
-  {name = "Eike Mueller", email = "e.mueller@bath.ac.uk"},
+  { name = "Eike Mueller", email = "e.mueller@bath.ac.uk" }
 ]
 description = "Jax implementation of solvers in linear elasticity."
 readme = "README.md"
@@ -30,9 +30,10 @@ keywords = [
   "machine learning",
   "composite materials",
   "Lippmann Schwinger",
-  "Fourier methods"]
+  "Fourier methods"
+]
 classifiers = [
-    "Programming Language :: Python :: 3"
+  "Programming Language :: Python :: 3"
 ]
 [project.urls]
 Repository = "https://bitbucket.org/em459/jaxmaterials"
