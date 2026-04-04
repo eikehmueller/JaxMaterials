@@ -64,17 +64,17 @@ def relative_divergence_fourier(sigma_hat, xi):
     return dsigma_nrm / sigma_hat_zero_nrm
 
 
-# @jax.jit(
-#    static_argnames=[
-#        "isotropic",
-#        "grid_spec",
-#        "rtol",
-#        "atol",
-#        "depth",
-#        "maxiter",
-#        "dtype",
-#    ]
-# )
+@jax.jit(
+    static_argnames=[
+        "grid_spec",
+        "isotropic",
+        "rtol",
+        "atol",
+        "depth",
+        "maxiter",
+        "dtype",
+    ]
+)
 def _lippmann_schwinger_jax(
     material_properties,
     epsilon_bar,
@@ -236,7 +236,7 @@ def lippmann_schwinger_isotropic_jax(
     maxiter=32,
     dtype=jnp.float32,
 ):
-    """Lippmann Schwinger iteration linear elasticity in isotropic material
+    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in isotropic material
 
     :arg mu: Lame parameter mu
     :arg lmbda: Lame parameter lambda
@@ -271,7 +271,7 @@ def lippmann_schwinger_anisotropic_jax(
     maxiter=32,
     dtype=jnp.float32,
 ):
-    """Lippmann Schwinger iteration linear elasticity in anisotropic material
+    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in anisotropic material
 
     :arg stiffness_tensor: stiffness tensor,
     :arg epsilon_bar: mean value of epsilon

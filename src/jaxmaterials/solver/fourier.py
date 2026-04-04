@@ -6,6 +6,7 @@ from jax import numpy as jnp
 __all__ = [
     "get_xizero",
     "get_xi",
+    "get_anisotropic_acoustic_tensor",
     "get_inverse_anisotropic_acoustic_tensor",
     "fourier_solve_isotropic",
     "fourier_solve_anisotropic",
@@ -13,7 +14,7 @@ __all__ = [
 
 
 def get_xi(grid_spec, dtype=jnp.float64):
-    """Construct the un-normalised frequency vectors
+    """Construct the un-normalised momentum vectors in Fourier space
 
     Let k = (k_0,k_1,k_2) with k_d = 0,1,...,N_d-1 be a three-dimensional Fourier index.
 
@@ -65,7 +66,7 @@ def get_xi(grid_spec, dtype=jnp.float64):
 
 
 def get_xizero(grid_spec, dtype=jnp.float64):
-    """Construct the normalised frequency vectors
+    """Construct the normalised momentum vectors in Fourier space
 
     Let k = (k_0,k_1,k_2) with k_d = 0,1,...,N_d-1 be a three-dimensional Fourier index.
 
@@ -96,9 +97,10 @@ def get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
 
     Assemble the 3x3 acoustic tensor for each Fourier mode for a homogeneous isotropic
     reference material characterised by the stiffness tensor C^{0}.
-    The stiffness tensor is passed as a vector which contains the 21 independent entries of the
-    reference stiffness tensor.
-    Returns a rank 5 tensor of shape (3,3,Nx,Ny,Nz)
+    The stiffness tensor is passed as a vector which contains the 21 independent entries
+    of the reference stiffness tensor.
+
+    Returns a rank 5 tensor of shape (3,3,Nx,Ny,Nz) with the acoustic tensor
 
     :arg xizero: Fourier vectors
     :arg stiffness_tensor0: stiffness tensor

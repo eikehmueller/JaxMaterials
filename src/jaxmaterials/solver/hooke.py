@@ -1,4 +1,7 @@
-"""Hooke's law, which relates stress and strain"""
+"""Hooke's law for isotropic and anisotropic materials
+
+Relates strain epsilon and strain sigma via sigma_{ij} = C_{ijkl}*epsilon_{kl}
+"""
 
 from jax import numpy as jnp
 
