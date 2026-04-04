@@ -20,7 +20,7 @@ jobs:
       with:
         python-version: "3.12"
     - name: Build CUDA code
-    - run: |
+      run: |
         cd cuda
         cmake -B build
         cmake --build build
