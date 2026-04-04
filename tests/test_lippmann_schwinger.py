@@ -56,7 +56,7 @@ def initialise_material(grid_spec, rng, dtype):
     return np.array(mu, dtype=dtype), np.array(lmbda, dtype=dtype)
 
 
-def test_relative_convergence(grid_spec):
+def test_relative_divergence(grid_spec):
     """Verify that the relative divergence is computed consistently in real space
     and Fourier space"""
 
