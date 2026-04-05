@@ -329,9 +329,9 @@ def lippmann_schwinger_isotropic_cuda(
     :arg verbose: verbosity level
     """
     # Check data types
-    assert mu.dtype == dtype
-    assert lmbda.dtype == dtype
-    assert epsilon_bar.dtype == dtype
+    assert mu.dtype == np.float32
+    assert lmbda.dtype == np.float32
+    assert epsilon_bar.dtype == np.float32
 
     # Load cuda library
     try:
