@@ -20,6 +20,19 @@ def grid_spec(request):
     return GridSpec(nx, ny, nz, Lx, Ly, Lz)
 
 
+@pytest.fixture(params=[[512, 384, 256], [453, 347, 297]], ids=["even", "odd"])
+def grid_spec_highres(request):
+    """Return grid specification"""
+    # Domain size in all three spatial direction
+    Lx = 1.2
+    Ly = 0.8
+    Lz = 0.9
+    # Number of grid cells in all three spatial directions
+    nx, ny, nz = request.param
+
+    return GridSpec(nx, ny, nz, Lx, Ly, Lz)
+
+
 @pytest.fixture
 def rng():
     """Random number generator"""
