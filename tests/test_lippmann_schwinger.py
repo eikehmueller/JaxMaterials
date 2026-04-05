@@ -105,7 +105,7 @@ def test_convergence(grid_spec, rng, dtype, depth):
     :arg dtype: data type (single or double precision)
     :arg depth: depth of Anderson acceleration
     """
-    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5])
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     mu, lmbda = initialise_material(grid_spec, rng, dtype)
     atol = 1.0e-5 if dtype == np.float32 else 1.0e-12
     rtol = 1.0e-20

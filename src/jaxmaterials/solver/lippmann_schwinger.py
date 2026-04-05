@@ -248,6 +248,10 @@ def lippmann_schwinger_isotropic_jax(
     :arg maxiter: maximal number of iterations
     :arg dtype: data type
     """
+    # Check data types
+    assert mu.dtype == dtype
+    assert lmbda.dtype == dtype
+    assert epsilon_bar.dtype == dtype
     return _lippmann_schwinger_jax(
         {"mu": mu, "lambda": lmbda},
         epsilon_bar,
@@ -282,6 +286,9 @@ def lippmann_schwinger_anisotropic_jax(
     :arg maxiter: maximal number of iterations
     :arg dtype: data type
     """
+    assert stiffness_tensor.dtype == dtype
+    assert epsilon_bar.dtype == dtype
+
     return _lippmann_schwinger_jax(
         {"stiffness_tensor": stiffness_tensor},
         epsilon_bar,
@@ -321,7 +328,11 @@ def lippmann_schwinger_isotropic_cuda(
     :arg maxiter: maximal number of iterations
     :arg verbose: verbosity level
     """
-    # Check that material is isotropic
+    # Check data types
+    assert mu.dtype == dtype
+    assert lmbda.dtype == dtype
+    assert epsilon_bar.dtype == dtype
+
     # Load cuda library
     try:
         lib = ctypes.CDLL("liblippmannschwinger.so")
