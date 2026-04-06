@@ -14,6 +14,8 @@ jax.config.update("jax_enable_x64", True)
 def test_derivative_constant(grid_spec, direction, dtype):
     """Test backward derivative with constant function
 
+    (test written by github copilot)
+
     The derivative should be 0.
     """
     # Constant function
@@ -34,7 +36,10 @@ def test_derivative_constant(grid_spec, direction, dtype):
 def test_derivative_sine(grid_spec_highres, direction, dtype):
     """Test backward derivative with sinusoidal function f(x,y,z) = sin(2π x/Lx) + sin(2π y/Ly) + sin(2π z/Lz)
 
-    The derivative in direction d should be (2π/L_d) * cos(2π coord_d/L_d).
+    (test originally written by github copilot and modified)
+
+    The derivative in direction d should be proportional to
+    (2π/L_d) * cos(2π coord_d/L_d).
     """
     # Create coordinate arrays
     hx = grid_spec_highres.Lx / grid_spec_highres.nx
@@ -89,7 +94,10 @@ def test_derivative_sine(grid_spec_highres, direction, dtype):
 
 
 def test_backward_derivative_invalid_direction(grid_spec):
-    """Test that backward_derivative raises error for invalid direction"""
+    """Test that backward_derivative raises error for invalid direction
+
+    (test written by github copilot)
+    """
     f = jnp.ones((grid_spec.nx, grid_spec.ny, grid_spec.nz))
 
     with pytest.raises((ValueError, IndexError)):
