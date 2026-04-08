@@ -1,9 +1,39 @@
 [![Automated testing](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml)
 
-# Jax Materials
-High performance implementation of linear elasticity solvers based on [CUDA](https://developer.nvidia.com/cuda) and [Jax](https://docs.jax.dev/en/latest/index.html#). These solvers will eventually be used in machine learning framework for predicting the effective linear elasticity tensor for materials containing layers of fibres.
+# JaxMaterials
 
-**Parts of this repository are still under construction.**
+[Jax](https://docs.jax.dev/en/latest/index.html#)/[CUDA](https://developer.nvidia.com/cuda)-based library for **differentiable materials modelling**, designed to integrate physics-based models into modern machine learning workflows.
+
+Enables gradient-based optimisation of ML surrogate models for material simulations, by combining efficient computation with scalable ML infrastructure which can run on CPUs and GPUs.
+
+## Goals
+
+Materials with fine microstructure, such as carbon fibre composites, are expensive to simulate with classical PDE methods. Upscaling methods require a large number of simulations to infer distributions of material parameters. In addition, it is often desirable to provide
+
+- Sensitivity of output to input parameters
+- Support for running on CPU and GPU hardware
+
+Machine learning surrogate models address this but require:
+
+- Fast code for data generation and inference
+- Differentiable solvers to use methods like [Physics Enhanced Deep Surrogates](https://arxiv.org/abs/2111.05841)
+
+## Features
+
+- Differentiable materials models implemented in JAX  
+- Automatic differentiation for optimisation and ML training  
+- GPU acceleration of differentiable solvers via JAX
+- Highly efficient CUDA solvers for data generation and inference
+- Modular design for extending models and components
+- Compatible with ML pipelines and optimisation frameworks  
+
+## Quick installation
+
+Clone and run
+```
+pip install jaxmaterials
+```
+for the JAX-Python library. See detailed instructions below for CUDA support.
 
 ## Contents
 This repository contains the following code:
