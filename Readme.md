@@ -13,7 +13,7 @@ Materials with fine microstructure, such as carbon fibre composites, are expensi
 - Sensitivity of output to input parameters
 - Support for running on CPU and GPU hardware
 
-Machine learning surrogate models address this but require:
+Machine learning surrogate models can reduce runtime but require:
 
 - Fast code for data generation and inference
 - Differentiable solvers to use methods like [Physics Enhanced Deep Surrogates](https://arxiv.org/abs/2111.05841)
