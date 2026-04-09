@@ -10,13 +10,27 @@ The goal of this code change is to implement the JAX functionality also in the C
 
 Only proceed to the next stage once a stage has been completed and approved by the human developer. If there is any ambiguity in the description, double check with the human developer. Split steps into substeps if you feel that they introduce too many changes in one go. This document might change, so double check regularly.
 
+Verify compile and run focused tests at each stage.
+
+For any code you write, please clearly indicate your authorship by stating your version.
+
+Use consistent naming conventions, for example:
+
+* compute_stress_isotropic / compute_stress_anisotropic
+* acoustic_tensor_anisotropic / fourier_solve_anisotropic
+
 # Step-by-step instructions
 
 ## Step 1
 Do all work in the local branch cuda_anisotropic.
 
 ## Step 2
-Create a new pair of files hooke.hh and hooke.cu which should implement the computation of stress from strain for both the isotropic and anisotropic case. These files should implement the functionality which is currently implemented in hooke.py. This will require removing the class method compute_stress() and associated kernel from the LippmannSchwinger class in the CUDA code; rewrite the files lippmann_schwinger.hh and lippmann_schwinger.cu accordingly and make sure that the code still compiles and runs correctly.
+
+### Step 2a
+Remove the class method compute_stress() and associated kernel from the LippmannSchwinger class in the CUDA code and place them in methods outside the class. Rewrite the files lippmann_schwinger.hh and lippmann_schwinger.cu accordingly and make sure that the code still compiles and runs correctly.
+
+### Step 2a
+Create a new pair of files hooke.hh and hooke.cu which should implement the computation of stress from strain for both the isotropic (which was previously in compute_stress()) and anisotropic case. These files should implement the functionality which is currently implemented in hooke.py. 
 
 Write a CUDA test in the file cuda/src/tests/test_hooke.hh which replicates the Python test in test_hooke.py.
 
@@ -44,9 +58,17 @@ Take the current LippmannSchwinger class and split it into a base class, which w
 ### Step 6b
 Derive a new class for the anisotropic Lippmann Schwinger solver from the same based class. This derived class should now implement an apply method which is specific to the anisotropic case.
 
+### Step 6c
+
 Implement CUDA tests which verify that both classes give the same result when applied to an isotropic material.
 
 ### Step 7
+The goal of this step is to:
+
+* provide a new anisotropic entrypoint
+* support updated input shape handling
+* backward compatibility for existing isotropic calls
+
 Adapt the Python interface for the CUDA code such that it can handle both the current isotropic solver and the new anisotropic CUDA solver implemented in the previous steps.
 
 Write tests which verify that the CUDA and JAX solver give the same results when applied to an anisotropic material, i.e. replicate the test test_jax_matches_cuda() in test_lippmann_schwinger.py for the anisotropic case.
