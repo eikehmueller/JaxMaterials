@@ -10,7 +10,8 @@
 #include <random>
 #include <string>
 
-class FourierTest : public ::testing::TestWithParam<std::string> {
+class FourierTest : public ::testing::TestWithParam<std::string>
+{
 public:
   /** @brief Constructor
    *
@@ -19,12 +20,16 @@ public:
 
 protected:
   /** @brief Initialise tests */
-  void SetUp() override {
-    if (GetParam() == "even") {
+  void SetUp() override
+  {
+    if (GetParam() == "even")
+    {
       grid_spec.nx = 48;
       grid_spec.ny = 64;
       grid_spec.nz = 32;
-    } else {
+    }
+    else
+    {
       grid_spec.nx = 47;
       grid_spec.ny = 61;
       grid_spec.nz = 37;
@@ -43,6 +48,8 @@ protected:
     CUDA_CHECK(cudaMallocHost(&epsilon, 6 * nvoxels * sizeof(float)));
     CUDA_CHECK(cudaMallocHost(&sigma, 6 * nvoxels * sizeof(float)));
     CUDA_CHECK(cudaMallocHost(&div_sigma, 6 * nvoxels * sizeof(float)));
+    CUDA_CHECK(cudaMallocHost(&acoustic_tensor, 9 * nmodes * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&dev_acoustic_tensor, 9 * nmodes * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&dev_xi_zero, 3 * nvoxels * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&dev_tau, 6 * nvoxels * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&dev_tau_hat, 6 * nmodes * sizeof(cufftComplex)));
@@ -60,7 +67,8 @@ protected:
     CUFFT_CHECK(cufftPlanMany(&plan_inverse, 3, n, n_fourier, 1, nmodes, n, 1,
                               nvoxels, CUFFT_C2R, 6));
   }
-  void TearDown() override {
+  void TearDown() override
+  {
     // free memory
     CUDA_CHECK(cudaFree(dev_xi_zero));
     CUDA_CHECK(cudaFree(dev_tau_hat));
@@ -74,6 +82,8 @@ protected:
     CUDA_CHECK(cudaFreeHost(epsilon));
     CUDA_CHECK(cudaFreeHost(sigma));
     CUDA_CHECK(cudaFreeHost(div_sigma));
+    CUDA_CHECK(cudaFreeHost(acoustic_tensor));
+    CUDA_CHECK(cudaFree(dev_acoustic_tensor));
     CUFFT_CHECK(cufftDestroy(plan_forward));
     CUFFT_CHECK(cufftDestroy(plan_inverse));
   }
@@ -106,6 +116,10 @@ protected:
   float *sigma;
   /* Divergence of stress tensor on host */
   float *div_sigma;
+  /* Acoustic tensor on host */
+  float *acoustic_tensor;
+  /* Acoustic tensor on device */
+  float *dev_acoustic_tensor;
   /* Random number generator */
   std::default_random_engine rng;
   /* normal distribution */
@@ -119,7 +133,8 @@ INSTANTIATE_TEST_SUITE_P(Fourier, FourierTest, testing::Values("even", "odd"));
 
 /** @brief Check whether xi-zero is constructed consistently on device and host
  */
-TEST_P(FourierTest, TestXiZero) {
+TEST_P(FourierTest, TestXiZero)
+{
   float tolerance = 1.E-6;
   // halo size
   size_t nvoxels = grid_spec.number_of_voxels();
@@ -140,7 +155,8 @@ TEST_P(FourierTest, TestXiZero) {
 
 /* Check whether norm of complex-Hermitian Fourier vector is computed correctly
  */
-TEST_P(FourierTest, TestFourierNorm) {
+TEST_P(FourierTest, TestFourierNorm)
+{
   // allocate memory
   float *sum;
   float *dev_sum;
@@ -149,12 +165,12 @@ TEST_P(FourierTest, TestFourierNorm) {
   cudaMalloc(&dev_sum, sizeof(float));
   size_t nmodes = grid_spec.number_of_modes();
   size_t batchsize = 6;
-  std::generate(epsilon_hat, epsilon_hat + 6 * nmodes, [&]() {
+  std::generate(epsilon_hat, epsilon_hat + 6 * nmodes, [&]()
+                {
     cufftComplex z;
     z.x = distribution(rng);
     z.y = distribution(rng);
-    return z;
-  });
+    return z; });
 
   // copy data to device
   CUDA_CHECK(cudaMemcpy(dev_epsilon_hat, epsilon_hat,
@@ -163,7 +179,8 @@ TEST_P(FourierTest, TestFourierNorm) {
   float sum_f =
       reduce_fourier(dev_epsilon_hat, dev_sum, sum, batchsize, grid_spec);
   float s = 0;
-  for (int i = 0; i < batchsize * nmodes; ++i) {
+  for (int i = 0; i < batchsize * nmodes; ++i)
+  {
     float nrm2 = epsilon_hat[i].x * epsilon_hat[i].x +
                  epsilon_hat[i].y * epsilon_hat[i].y;
     int r = i % (grid_spec.nz / 2 + 1);
@@ -182,7 +199,8 @@ TEST_P(FourierTest, TestFourierNorm) {
 
 /* Check whether divergence computation is consistent in Fourier- and real space
  */
-TEST_P(FourierTest, TestFourierDivergence) {
+TEST_P(FourierTest, TestFourierDivergence)
+{
   size_t nvoxels = grid_spec.number_of_voxels();
   size_t nmodes = grid_spec.number_of_modes();
   float *dev_xi = nullptr;
@@ -201,7 +219,8 @@ TEST_P(FourierTest, TestFourierDivergence) {
 
   // Initialize epsilon with random numbers
   std::generate(epsilon, epsilon + 6 * nvoxels,
-                [&]() { return distribution(rng); });
+                [&]()
+                { return distribution(rng); });
 
   // compute divergence of epsilon in real space
   backward_divergence_host(epsilon, div_epsilon, grid_spec);
@@ -226,14 +245,18 @@ TEST_P(FourierTest, TestFourierDivergence) {
   size_t nx = grid_spec.nx;
   size_t ny = grid_spec.ny;
   size_t nz = grid_spec.nz;
-  for (int alpha = 0; alpha < 3; ++alpha) {
-    for (int i = 0; i < nx; ++i) {
-      for (int j = 0; j < ny; ++j) {
+  for (int alpha = 0; alpha < 3; ++alpha)
+  {
+    for (int i = 0; i < nx; ++i)
+    {
+      for (int j = 0; j < ny; ++j)
+      {
         div_epsilon_hat_full[FIDX(nx, ny, nz, alpha, i, j, 0)].x =
             div_epsilon_hat[FIDX(nx, ny, nz / 2 + 1, alpha, i, j, 0)].x;
         div_epsilon_hat_full[FIDX(nx, ny, nz, alpha, i, j, 0)].y =
             div_epsilon_hat[FIDX(nx, ny, nz / 2 + 1, alpha, i, j, 0)].y;
-        for (int k = 1; k < nz / 2 + 1; ++k) {
+        for (int k = 1; k < nz / 2 + 1; ++k)
+        {
           cufftComplex z{
               div_epsilon_hat[FIDX(nx, ny, nz / 2 + 1, alpha, i, j, k)].x,
               div_epsilon_hat[FIDX(nx, ny, nz / 2 + 1, alpha, i, j, k)].y};
@@ -272,10 +295,12 @@ TEST_P(FourierTest, TestFourierDivergence) {
  * This test checks that div(sigma^0) = 0 in real space.
  *
  */
-TEST_P(FourierTest, TestDivSigma) {
+TEST_P(FourierTest, TestDivSigma)
+{
   size_t nvoxels = grid_spec.number_of_voxels();
   // Initialize tau with random numbers
-  std::generate(tau, tau + 6 * nvoxels, [&]() { return distribution(rng); });
+  std::generate(tau, tau + 6 * nvoxels, [&]()
+                { return distribution(rng); });
 
   CUDA_CHECK(cudaMemcpy(dev_tau, tau, 6 * nvoxels * sizeof(float),
                         cudaMemcpyHostToDevice));
@@ -300,13 +325,16 @@ TEST_P(FourierTest, TestDivSigma) {
   for (int ell = 0; ell < 6 * nvoxels; ++ell)
     epsilon[ell] *= 1.0 / nvoxels;
   // Compute stress sigma_{ij} = C^0_{ijkl} epsilon_{kl} + tau_{ij}
-  for (int ell = 0; ell < nvoxels; ++ell) {
+  for (int ell = 0; ell < nvoxels; ++ell)
+  {
     float tr_epsilon = epsilon[0 * nvoxels + ell] + epsilon[1 * nvoxels + ell] +
                        epsilon[2 * nvoxels + ell];
-    for (int alpha = 0; alpha < 6; ++alpha) {
+    for (int alpha = 0; alpha < 6; ++alpha)
+    {
       int idx = alpha * nvoxels + ell;
       sigma[idx] = tau[idx] + 2 * mu_0 * epsilon[idx];
-      if (alpha < 3) {
+      if (alpha < 3)
+      {
         sigma[idx] += lambda_0 * tr_epsilon;
       }
     }
@@ -318,6 +346,66 @@ TEST_P(FourierTest, TestDivSigma) {
   float div_nrm = vector_norm(div_sigma, nvoxels);
   float rel_diff = abs(div_nrm / sigma_nrm);
   float tolerance = 5.E-5;
+  EXPECT_NEAR(rel_diff, 0.0, tolerance);
+}
+
+/* Check whether anisotropic acoustic tensor computation agrees with analytical
+ * expression for isotropic material
+ *
+ * @note Implemented by GitHub Copilot (Raptor mini Preview) reviewed by Eike Mueller
+ */
+TEST_P(FourierTest, TestAcousticTensor)
+{
+  size_t nmodes = grid_spec.number_of_modes();
+  // Create isotropic stiffness tensor
+  float stiffness_tensor0[21];
+  for (int i = 0; i < 3; ++i)
+    stiffness_tensor0[i] = 2 * mu_0 + lambda_0;
+  for (int i = 3; i < 6; ++i)
+    stiffness_tensor0[i] = mu_0;
+  for (int i = 6; i < 9; ++i)
+    stiffness_tensor0[i] = lambda_0;
+  for (int i = 9; i < 21; ++i)
+    stiffness_tensor0[i] = 0.0f;
+  // Copy to device
+  float *dev_stiffness_tensor0;
+  CUDA_CHECK(cudaMalloc(&dev_stiffness_tensor0, 21 * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(dev_stiffness_tensor0, stiffness_tensor0, 21 * sizeof(float), cudaMemcpyHostToDevice));
+  // Compute acoustic tensor
+  get_anisotropic_acoustic_tensor_device(dev_acoustic_tensor, dev_xi_zero, dev_stiffness_tensor0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  // Copy back
+  CUDA_CHECK(cudaMemcpy(acoustic_tensor, dev_acoustic_tensor, 9 * nmodes * sizeof(float), cudaMemcpyDeviceToHost));
+  // Compute reference on host
+  float *acoustic_tensor_ref;
+  CUDA_CHECK(cudaMallocHost(&acoustic_tensor_ref, 9 * nmodes * sizeof(float)));
+  size_t nx = grid_spec.nx;
+  size_t ny = grid_spec.ny;
+  size_t nz_half = grid_spec.nz / 2 + 1;
+  for (size_t i = 0; i < nx; ++i)
+    for (size_t j = 0; j < ny; ++j)
+      for (size_t k = 0; k < nz_half; ++k)
+      {
+        float xi[3];
+        for (int alpha = 0; alpha < 3; ++alpha)
+          xi[alpha] = xi_zero[FIDX(nx, ny, nz_half, alpha, i, j, k)];
+        size_t mode_idx = FIDX(nx, ny, nz_half, 0, i, j, k);
+        acoustic_tensor_ref[9 * mode_idx + 0] = mu_0 * (xi[1] * xi[1] + xi[2] * xi[2]) + (lambda_0 + 2 * mu_0) * xi[0] * xi[0]; // K^0_{00}
+        acoustic_tensor_ref[9 * mode_idx + 1] = (lambda_0 + mu_0) * xi[0] * xi[1];                                              // K^0_{01}
+        acoustic_tensor_ref[9 * mode_idx + 2] = (lambda_0 + mu_0) * xi[0] * xi[2];                                              // K^0_{02}
+        acoustic_tensor_ref[9 * mode_idx + 3] = acoustic_tensor_ref[9 * mode_idx + 1];                                          // K^0_{10} = K^0_{01}
+        acoustic_tensor_ref[9 * mode_idx + 4] = mu_0 * (xi[0] * xi[0] + xi[2] * xi[2]) + (lambda_0 + 2 * mu_0) * xi[1] * xi[1]; // K^0_{11}
+        acoustic_tensor_ref[9 * mode_idx + 5] = (lambda_0 + mu_0) * xi[1] * xi[2];                                              // K^0_{12}
+        acoustic_tensor_ref[9 * mode_idx + 6] = acoustic_tensor_ref[9 * mode_idx + 2];                                          // K^0_{20} = K^0_{02}
+        acoustic_tensor_ref[9 * mode_idx + 7] = acoustic_tensor_ref[9 * mode_idx + 5];                                          // K^0_{21} = K^0_{12}
+        acoustic_tensor_ref[9 * mode_idx + 8] = mu_0 * (xi[0] * xi[0] + xi[1] * xi[1]) + (lambda_0 + 2 * mu_0) * xi[2] * xi[2]; // K^_{22}
+      }
+  // Compare
+  float rel_diff = relative_difference(acoustic_tensor, acoustic_tensor_ref, 9 * nmodes);
+  // Free memory
+  CUDA_CHECK(cudaFree(dev_stiffness_tensor0));
+  CUDA_CHECK(cudaFreeHost(acoustic_tensor_ref));
+  float tolerance = 1.E-6;
   EXPECT_NEAR(rel_diff, 0.0, tolerance);
 }
 

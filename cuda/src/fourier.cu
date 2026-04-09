@@ -346,3 +346,99 @@ void fourier_solve_device(cufftComplex *__restrict__ dev_tau_hat,
     fourier_solve_kernel<<<grid, block>>>(dev_tau_hat, dev_epsilon_hat, dev_xi_zero,
                                           C_A, C_B, grid_spec);
 }
+
+/* kernel for computing anisotropic acoustic tensor
+ * @note Implemented by GitHub Copilot (Raptor mini Preview); reviewed by Eike Mueller
+ */
+__global__ void get_anisotropic_acoustic_tensor_kernel(float *dev_acoustic_tensor,
+                                                       float *dev_xi_zero,
+                                                       const float *stiffness_tensor0,
+                                                       const GridSpec grid_spec)
+{
+    size_t nx = grid_spec.nx;
+    size_t ny = grid_spec.ny;
+    size_t nz = grid_spec.nz;
+    size_t nz_half = nz / 2 + 1;
+    int k_a = blockDim.z * blockIdx.z + threadIdx.z;
+    int k_b = blockDim.y * blockIdx.y + threadIdx.y;
+    int k_c = blockDim.x * blockIdx.x + threadIdx.x;
+    if ((k_a < nx) && (k_b < ny) && (k_c < nz_half))
+    {
+        float xi[3];
+        for (int alpha = 0; alpha < 3; ++alpha)
+            xi[alpha] = dev_xi_zero[FIDX(nx, ny, nz_half, alpha, k_a, k_b, k_c)];
+        float k00 = stiffness_tensor0[0] * xi[0] * xi[0] +
+                   stiffness_tensor0[3] * xi[1] * xi[1] +
+                   stiffness_tensor0[4] * xi[2] * xi[2] +
+                   2 * stiffness_tensor0[9] * xi[0] * xi[1] +
+                   2 * stiffness_tensor0[10] * xi[0] * xi[2] +
+                   2 * stiffness_tensor0[18] * xi[1] * xi[2];
+        float k01 = stiffness_tensor0[3] * xi[0] * xi[1] +
+                   stiffness_tensor0[6] * xi[0] * xi[1] +
+                   stiffness_tensor0[9] * xi[0] * xi[0] +
+                   stiffness_tensor0[11] * xi[0] * xi[2] +
+                   stiffness_tensor0[12] * xi[1] * xi[1] +
+                   stiffness_tensor0[13] * xi[1] * xi[2] +
+                   stiffness_tensor0[18] * xi[0] * xi[2] +
+                   stiffness_tensor0[19] * xi[1] * xi[2] +
+                   stiffness_tensor0[20] * xi[2] * xi[2];
+        float k02 = stiffness_tensor0[4] * xi[0] * xi[2] +
+                   stiffness_tensor0[7] * xi[0] * xi[2] +
+                   stiffness_tensor0[10] * xi[0] * xi[0] +
+                   stiffness_tensor0[11] * xi[0] * xi[1] +
+                   stiffness_tensor0[15] * xi[1] * xi[2] +
+                   stiffness_tensor0[16] * xi[2] * xi[2] +
+                   stiffness_tensor0[18] * xi[0] * xi[1] +
+                   stiffness_tensor0[19] * xi[1] * xi[1] +
+                   stiffness_tensor0[20] * xi[1] * xi[2];
+        float k11 = stiffness_tensor0[1] * xi[1] * xi[1] +
+                   stiffness_tensor0[3] * xi[0] * xi[0] +
+                   stiffness_tensor0[5] * xi[2] * xi[2] +
+                   2 * stiffness_tensor0[12] * xi[0] * xi[1] +
+                   2 * stiffness_tensor0[14] * xi[1] * xi[2] +
+                   2 * stiffness_tensor0[19] * xi[0] * xi[2];
+        float k12 = stiffness_tensor0[5] * xi[1] * xi[2] +
+                   stiffness_tensor0[8] * xi[1] * xi[2] +
+                   stiffness_tensor0[13] * xi[0] * xi[1] +
+                   stiffness_tensor0[14] * xi[1] * xi[1] +
+                   stiffness_tensor0[15] * xi[0] * xi[2] +
+                   stiffness_tensor0[17] * xi[2] * xi[2] +
+                   stiffness_tensor0[18] * xi[0] * xi[0] +
+                   stiffness_tensor0[19] * xi[0] * xi[1] +
+                   stiffness_tensor0[20] * xi[0] * xi[2];
+        float k22 = stiffness_tensor0[2] * xi[2] * xi[2] +
+                   stiffness_tensor0[4] * xi[0] * xi[0] +
+                   stiffness_tensor0[5] * xi[1] * xi[1] +
+                   2 * stiffness_tensor0[16] * xi[0] * xi[2] +
+                   2 * stiffness_tensor0[17] * xi[1] * xi[2] +
+                   2 * stiffness_tensor0[20] * xi[0] * xi[1];
+        size_t mode_idx = FIDX(nx, ny, nz_half, 0, k_a, k_b, k_c);
+        dev_acoustic_tensor[9 * mode_idx + 0] = k00;
+        dev_acoustic_tensor[9 * mode_idx + 1] = k01;
+        dev_acoustic_tensor[9 * mode_idx + 2] = k02;
+        dev_acoustic_tensor[9 * mode_idx + 3] = k01;
+        dev_acoustic_tensor[9 * mode_idx + 4] = k11;
+        dev_acoustic_tensor[9 * mode_idx + 5] = k12;
+        dev_acoustic_tensor[9 * mode_idx + 6] = k02;
+        dev_acoustic_tensor[9 * mode_idx + 7] = k12;
+        dev_acoustic_tensor[9 * mode_idx + 8] = k22;
+    }
+}
+
+/* Compute anisotropic acoustic tensor
+ * @note Implemented by GitHub Copilot (Raptor mini Preview) on 2026-04-09.
+ */
+void get_anisotropic_acoustic_tensor_device(float *dev_acoustic_tensor,
+                                            float *dev_xi_zero,
+                                            const float *dev_stiffness_tensor0,
+                                            const GridSpec grid_spec)
+{
+    size_t nx = grid_spec.nx;
+    size_t ny = grid_spec.ny;
+    size_t nz = grid_spec.nz;
+    dim3 grid((nz / 2 + 1 + BLOCKSIZE_Z - 1) / BLOCKSIZE_Z,
+              (ny + BLOCKSIZE_Y - 1) / BLOCKSIZE_Y,
+              (nx + BLOCKSIZE_X - 1) / BLOCKSIZE_X);
+    dim3 block(BLOCKSIZE_Z, BLOCKSIZE_Y, BLOCKSIZE_X);
+    get_anisotropic_acoustic_tensor_kernel<<<grid, block>>>(dev_acoustic_tensor, dev_xi_zero, dev_stiffness_tensor0, grid_spec);
+}

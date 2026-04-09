@@ -121,4 +121,20 @@ void fourier_solve_device(cufftComplex *__restrict__ dev_tau_hat,
                           float *__restrict__ dev_xi_zero, const float lambda_0,
                           const float mu_0, const GridSpec grid_spec);
 
+/** @brief Compute anisotropic acoustic tensor
+ *
+ * Compute the 3x3 acoustic tensor A_{ij} = C_{ijkl} xi_k xi_l for each Fourier mode
+ *
+ * @note Implemented by GitHub Copilot (Raptor mini Preview); reviewed by Eike Mueller
+ *
+ * @param[out] dev_acoustic_tensor acoustic tensor (device array, size 9*nmodes)
+ * @param[in] dev_xi_zero Fourier vectors xi_zero (device array, size 3*nmodes)
+ * @param[in] dev_stiffness_tensor0 stiffness tensor of reference material (device array, size 21)
+ * @param[in] grid_spec Grid specification
+ */
+void get_anisotropic_acoustic_tensor_device(float *dev_acoustic_tensor,
+                                            float *dev_xi_zero,
+                                            const float *dev_stiffness_tensor0,
+                                            const GridSpec grid_spec);
+
 #endif // FOURIER_HH
