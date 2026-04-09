@@ -8,6 +8,7 @@
 #include "common.hh"
 #include "derivatives.hh"
 #include "fourier.hh"
+#include "hooke.hh"
 
 /** @brief Class for Lippmann Schwinger solver
  *
@@ -34,22 +35,6 @@ public:
      * Free all allocated memory
      */
     ~LippmannSchwingerSolver();
-
-    /** @brief Compute stress on device
-     *
-     * Given epsilon and spatially varying Lame parameters lambda, mu compute the
-     * stress sigma according to sigma_{ij} = C_{ijkl} epsilon_{kl} where
-     *
-     *      C_{ijkl} = lambda*delta_{ij}delta_{kl} + mu*(delta_{ik}delta_{jl}+delta_{il}delta_{jk})
-     *
-     * @param[in] dev_epsilon strain epsilon in real space (device array, size 6*nvoxels)
-     * @param[out] dev_sigma resulting stress sigma in real space (device array, size 6*nvoxels)
-     * @param[in] dev_lambda Lame parameter lambda (device array, size nvoxels)
-     * @param[in] dev_mu Lame parameter mu (device array, size nvoxels)
-     */
-    void compute_stress(float *__restrict__ dev_epsilon,
-                        float *__restrict__ dev_sigma,
-                        float *__restrict__ dev_lambda, float *__restrict__ dev_mu);
 
     /** @brief Solve for a given set of Lame parameters and mean strain
      *

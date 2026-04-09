@@ -1,8 +1,8 @@
 /** @brief Support for computations in Fourier space */
 #ifndef FOURIER_HH
 #define FOURIER_HH FOURIER_HH
-#include "cufft.h"
 #include "common.hh"
+#include "cufft.h"
 
 /** @brief Construct un-normalised Fourier vectors tilde{xi}_j on device
  *
@@ -36,7 +36,8 @@ void initialize_xi_device(float *dev_xi, const GridSpec grid_spec);
  *
  * and ring{tilde{xi}}_j = 0 if ||tilde{xi}_j|| = 0
  *
- * @param[out] dev_xi_zero vectors ring{tilde{xi}} (device array, size 3*nvoxels)
+ * @param[out] dev_xi_zero vectors ring{tilde{xi}} (device array, size
+ * 3*nvoxels)
  * @param[in] grid_spec specification of grid
  */
 void initialize_xizero_device(float *dev_xi_zero, const GridSpec grid_spec);
@@ -50,11 +51,12 @@ void initialize_xizero_device(float *dev_xi_zero, const GridSpec grid_spec);
  */
 void initialize_xizero_host(float *xi_zero, const GridSpec grid_spec);
 
-/** @brief Compute sum of squared absolute values of complex-Hermitian Fourier array
+/** @brief Compute sum of squared absolute values of complex-Hermitian Fourier
+ * array
  *
- * The array dev_u is assumed to represent a four-dimensional complex-Hermitian Fourier field of shape
- * (B,nx,ny,nz/2+1), i.e. n = B*nx*ny*(nz/2+1) entries in total. The storage format is row-major, with
- * the final index running fastest.
+ * The array dev_u is assumed to represent a four-dimensional complex-Hermitian
+ * Fourier field of shape (B,nx,ny,nz/2+1), i.e. n = B*nx*ny*(nz/2+1) entries in
+ * total. The storage format is row-major, with the final index running fastest.
  *
  * This kernel computes the following sum:
  *
@@ -65,14 +67,15 @@ void initialize_xizero_host(float *xi_zero, const GridSpec grid_spec);
  * @param[in] n size of input array dev_u
  * @param[in] nz number of modes in the z-direction
  */
-__global__ void reduce_fourier_kernel(cufftComplex *dev_u, float *dev_sum, const int n, const int nz);
+__global__ void reduce_fourier_kernel(cufftComplex *dev_u, float *dev_sum,
+                                      const int n, const int nz);
 
 /** @brief Compute norm of complex-Hermitian Fourier field
  *
  *
- * The array dev_u is assumed to represent a four-dimensional complex-Hermitian Fourier field of shape
- * (B,nx,ny,nz/2+1), i.e. n = B*nx*ny*(nz/2+1) entries in total. The storage format is row-major, with
- * the final index running fastest.
+ * The array dev_u is assumed to represent a four-dimensional complex-Hermitian
+ * Fourier field of shape (B,nx,ny,nz/2+1), i.e. n = B*nx*ny*(nz/2+1) entries in
+ * total. The storage format is row-major, with the final index running fastest.
  *
  * @param[in] dev_u the device array to be summed, size n
  * @param[inout] dev_sum temporary scratch space for sum on device
@@ -80,28 +83,31 @@ __global__ void reduce_fourier_kernel(cufftComplex *dev_u, float *dev_sum, const
  * @param[in] batchsize number of fields B
  * @param[in]  grid_spec Specification of computational grid
  */
-float reduce_fourier(cufftComplex *dev_u, float *dev_sum, float *sum, const size_t batchsize, const GridSpec grid_spec);
+float reduce_fourier(cufftComplex *dev_u, float *dev_sum, float *sum,
+                     const size_t batchsize, const GridSpec grid_spec);
 
 /** @brief Compute divergence in Fourier space
  *
  * Compute xi.sigma
  *
- * @param[in] dev_sigma_hat stress in Fourier space (device array, size 6*Nvoxels)
- * @param[out] dev_div_sigma_hat resulting divergence xi.sigma (device array, size 3*Nvoxels)
+ * @param[in] dev_sigma_hat stress in Fourier space (device array, size
+ * 6*Nvoxels)
+ * @param[out] dev_div_sigma_hat resulting divergence xi.sigma (device array,
+ * size 3*Nvoxels)
  * @param[in] dev_xi Fourier vectors (device array, size 3*Nvoxels)
  * @param[in] grid_spec specification of computational grid
  */
 void divergence_fourier(cufftComplex *__restrict__ dev_sigma_hat,
                         cufftComplex *__restrict__ dev_div_sigma_hat,
-                        float *__restrict__ dev_xi,
-                        const GridSpec grid_spec);
+                        float *__restrict__ dev_xi, const GridSpec grid_spec);
 
 /** @brief Solve elasticity equation for homogeneous isotropic reference
  * material
  *
  * Compute hat{epsilon} = -Gamma^0 hat{tau}
  *
- * @param[in] dev_tau_hat right hand side hat{tau} (device array, size 6*nvoxels)
+ * @param[in] dev_tau_hat right hand side hat{tau} (device array, size
+ * 6*nvoxels)
  * @param[out] dev_epsilon_hat resulting hat{epsilon} (device array, size
  * 6*nvoxels)
  * @param[in] dev_xi_zero Fourier vectors xi_zero (device array, size 3*n),
@@ -112,8 +118,7 @@ void divergence_fourier(cufftComplex *__restrict__ dev_sigma_hat,
  */
 void fourier_solve_device(cufftComplex *__restrict__ dev_tau_hat,
                           cufftComplex *__restrict__ dev_epsilon_hat,
-                          float *__restrict__ dev_xi_zero,
-                          const float lambda_0,
+                          float *__restrict__ dev_xi_zero, const float lambda_0,
                           const float mu_0, const GridSpec grid_spec);
 
 #endif // FOURIER_HH

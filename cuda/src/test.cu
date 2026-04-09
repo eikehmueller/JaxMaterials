@@ -2,6 +2,7 @@
 #include "common.hh"
 #include "tests/test_derivatives.hh"
 #include "tests/test_fourier.hh"
+#include "tests/test_hooke.hh"
 #include "tests/test_lippmann_schwinger.hh"
 #include <gtest/gtest.h>
 

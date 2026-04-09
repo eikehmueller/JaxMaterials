@@ -15,35 +15,6 @@ __global__ void set_epsilon_bar_kernel(float *__restrict__ dev_epsilon,
       dev_epsilon[alpha * nvoxels + ell] = dev_epsilon_bar[alpha];
 }
 
-/* Kernel for computing stress sigma_{ij} = C_{ijkl} epsilon_{kl} with
- *
- *     C_{ijkl} = lambda*delta_{ij}delta_{kl} + mu*(delta_{ik}delta_{jl}+delta_{il}delta_{jk})
- */
-__global__ void compute_stress_kernel(float *__restrict__ dev_epsilon,
-                                      float *__restrict__ dev_sigma,
-                                      float *__restrict__ dev_lambda,
-                                      float *__restrict__ dev_mu,
-                                      const size_t nvoxels)
-{
-  int ell = blockDim.x * blockIdx.x + threadIdx.x;
-  if (ell < nvoxels)
-  {
-    float lambda = dev_lambda[ell];
-    float mu = dev_mu[ell];
-    float tr_epsilon = dev_epsilon[ell] + dev_epsilon[nvoxels + ell] + dev_epsilon[2 * nvoxels + ell];
-    for (int alpha = 0; alpha < 3; ++alpha)
-    {
-      int idx = alpha * nvoxels + ell;
-      dev_sigma[idx] = 2 * mu * dev_epsilon[idx] + lambda * tr_epsilon;
-    }
-    for (int alpha = 3; alpha < 6; ++alpha)
-    {
-      int idx = alpha * nvoxels + ell;
-      dev_sigma[idx] = 2 * mu * dev_epsilon[idx];
-    }
-  }
-}
-
 /* Kernel for incrementing solution epsilon -> epsilon + alpha*r */
 __global__ void increment_solution_kernel(float *__restrict__ dev_epsilon,
                                           float *__restrict__ dev_r,
@@ -66,18 +37,6 @@ void LippmannSchwingerSolver::set_epsilon_bar(float *__restrict__ dev_epsilon,
   size_t nvoxels = grid_spec.number_of_voxels();
   const size_t nblocks = (nvoxels + BLOCKSIZE - 1) / BLOCKSIZE;
   set_epsilon_bar_kernel<<<nblocks, BLOCKSIZE>>>(dev_epsilon, epsilon_bar, nvoxels);
-}
-
-/* Compute stress sigma_{ij} = C_{ijkl} epsilon_{kl} on device */
-void LippmannSchwingerSolver::compute_stress(float *__restrict__ dev_epsilon,
-                                             float *__restrict__ dev_sigma,
-                                             float *__restrict__ dev_lambda,
-                                             float *__restrict__ dev_mu)
-{
-  size_t nvoxels = grid_spec.number_of_voxels();
-  const size_t nblocks = (nvoxels + BLOCKSIZE - 1) / BLOCKSIZE;
-  compute_stress_kernel<<<nblocks, BLOCKSIZE>>>(dev_epsilon, dev_sigma,
-                                                dev_lambda, dev_mu, nvoxels);
 }
 
 /* Increment solution epsilon -> epsilon + 1/nvoxels * r */
@@ -192,7 +151,7 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
   for (iter = 0; iter < maxiter; ++iter)
   {
     /* ==== STEP 1 ==== Compute stress: sigma_{ij} = C_{ijkl} epsilon_{kl} */
-    compute_stress(dev_epsilon, dev_sigma, dev_lambda, dev_mu);
+    compute_stress_isotropic(dev_epsilon, dev_sigma, dev_lambda, dev_mu, grid_spec);
     /* ==== STEP 2 ==== Fourier transform:  hat(sigma) = FFT(sigma)*/
     CUFFT_CHECK(cufftExecR2C(plan_forward, dev_sigma, dev_sigma_hat));
     CUDA_CHECK(cudaDeviceSynchronize());
