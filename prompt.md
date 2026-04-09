@@ -29,7 +29,7 @@ Do all work in the local branch cuda_anisotropic.
 ### Step 2a
 Remove the class method compute_stress() and associated kernel from the LippmannSchwinger class in the CUDA code and place them in methods outside the class. Rewrite the files lippmann_schwinger.hh and lippmann_schwinger.cu accordingly and make sure that the code still compiles and runs correctly.
 
-### Step 2a
+### Step 2b
 Create a new pair of files hooke.hh and hooke.cu which should implement the computation of stress from strain for both the isotropic (which was previously in compute_stress()) and anisotropic case. These files should implement the functionality which is currently implemented in hooke.py. 
 
 Write a CUDA test in the file cuda/src/tests/test_hooke.hh which replicates the Python test in test_hooke.py.
