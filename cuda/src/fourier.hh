@@ -137,4 +137,22 @@ void get_anisotropic_acoustic_tensor_device(float *dev_acoustic_tensor,
                                             const float *dev_stiffness_tensor0,
                                             const GridSpec grid_spec);
 
+/** @brief Compute inverse of the anisotropic acoustic tensor
+ *
+ * Invert the 3x3 acoustic tensor A_{ij} = C_{ijkl} xi_k xi_l for each Fourier mode.
+ * The acoustic tensor should be pre-computed using get_anisotropic_acoustic_tensor_device()
+ * and passed to this function.
+ *
+ * @note Implemented by GitHub Copilot; Version 2.0; reviewed by Eike Mueller
+ *
+ * @param[out] dev_inverse_acoustic_tensor inverse acoustic tensor (device array, size 9*nmodes)
+ * @param[in] dev_acoustic_tensor acoustic tensor (device array, size 9*nmodes)
+ * @param[in] dev_xi_zero Fourier vectors xi_zero (device array, size 3*nmodes)
+ * @param[in] grid_spec Grid specification
+ */
+void get_inverse_anisotropic_acoustic_tensor_device(float *dev_inverse_acoustic_tensor,
+                                                    const float *dev_acoustic_tensor,
+                                                    float *dev_xi_zero,
+                                                    const GridSpec grid_spec);
+
 #endif // FOURIER_HH

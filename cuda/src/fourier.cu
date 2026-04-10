@@ -442,3 +442,88 @@ void get_anisotropic_acoustic_tensor_device(float *dev_acoustic_tensor,
     dim3 block(BLOCKSIZE_Z, BLOCKSIZE_Y, BLOCKSIZE_X);
     get_anisotropic_acoustic_tensor_kernel<<<grid, block>>>(dev_acoustic_tensor, dev_xi_zero, dev_stiffness_tensor0, grid_spec);
 }
+
+/* kernel for inverting anisotropic acoustic tensor
+ * @note Implemented by GitHub Copilot; Version 2.0; reviewed by Eike Mueller
+ */
+__global__ void invert_acoustic_tensor_kernel(float *dev_inverse_acoustic_tensor,
+                                              const float *dev_acoustic_tensor,
+                                              float *dev_xi_zero,
+                                              const GridSpec grid_spec)
+{
+    size_t nx = grid_spec.nx;
+    size_t ny = grid_spec.ny;
+    size_t nz = grid_spec.nz;
+    size_t nz_half = nz / 2 + 1;
+    int k_a = blockDim.z * blockIdx.z + threadIdx.z;
+    int k_b = blockDim.y * blockIdx.y + threadIdx.y;
+    int k_c = blockDim.x * blockIdx.x + threadIdx.x;
+    if ((k_a < nx) && (k_b < ny) && (k_c < nz_half))
+    {
+        float xi[3];
+        for (int alpha = 0; alpha < 3; ++alpha)
+            xi[alpha] = dev_xi_zero[FIDX(nx, ny, nz_half, alpha, k_a, k_b, k_c)];
+
+        // Read acoustic tensor elements
+        size_t mode_idx = FIDX(nx, ny, nz_half, 0, k_a, k_b, k_c);
+        float k00 = dev_acoustic_tensor[9 * mode_idx + 0];
+        float k01 = dev_acoustic_tensor[9 * mode_idx + 1];
+        float k02 = dev_acoustic_tensor[9 * mode_idx + 2];
+        float k11 = dev_acoustic_tensor[9 * mode_idx + 4];
+        float k12 = dev_acoustic_tensor[9 * mode_idx + 5];
+        float k22 = dev_acoustic_tensor[9 * mode_idx + 8];
+
+        // Compute adjugate matrix elements
+        float adj00 = (k11 * k22 - k12 * k12);
+        float adj01 = -(k01 * k22 - k02 * k12);
+        float adj02 = (k01 * k12 - k02 * k11);
+        float adj11 = (k00 * k22 - k02 * k02);
+        float adj12 = -(k00 * k12 - k02 * k01);
+        float adj22 = (k00 * k11 - k01 * k01);
+
+        // Compute determinant of 3x3 matrix
+        float det = k00 * adj00 + k01 * adj01 + k02 * adj02;
+
+        // Check if xi_nrm > 1.0e-8 to apply mask
+        float xi_nrm_sq = xi[0] * xi[0] + xi[1] * xi[1] + xi[2] * xi[2];
+        bool xi_valid = xi_nrm_sq > 1.0e-8;
+
+        // Compute inverse using adjugate matrix formula
+        float inv_det = 1.0f / det;
+
+        // Store inverse, handling NaN/Inf and applying mask
+        dev_inverse_acoustic_tensor[9 * mode_idx + 0] = xi_valid ? adj00 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 1] = xi_valid ? adj01 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 2] = xi_valid ? adj02 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 3] = xi_valid ? adj01 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 4] = xi_valid ? adj11 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 5] = xi_valid ? adj12 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 6] = xi_valid ? adj02 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 7] = xi_valid ? adj12 * inv_det : 0.0f;
+        dev_inverse_acoustic_tensor[9 * mode_idx + 8] = xi_valid ? adj22 * inv_det : 0.0f;
+    }
+}
+
+/* Compute inverse of anisotropic acoustic tensor
+ *
+ * User is responsible for allocating memory and computing the acoustic tensor.
+ *
+ * @note Implemented by GitHub Copilot; Version 2.0; reviewed by Eike Mueller
+ */
+void get_inverse_anisotropic_acoustic_tensor_device(float *dev_inverse_acoustic_tensor,
+                                                    const float *dev_acoustic_tensor,
+                                                    float *dev_xi_zero,
+                                                    const GridSpec grid_spec)
+{
+    size_t nx = grid_spec.nx;
+    size_t ny = grid_spec.ny;
+    size_t nz = grid_spec.nz;
+    dim3 grid((nz / 2 + 1 + BLOCKSIZE_Z - 1) / BLOCKSIZE_Z,
+              (ny + BLOCKSIZE_Y - 1) / BLOCKSIZE_Y,
+              (nx + BLOCKSIZE_X - 1) / BLOCKSIZE_X);
+    dim3 block(BLOCKSIZE_Z, BLOCKSIZE_Y, BLOCKSIZE_X);
+    invert_acoustic_tensor_kernel<<<grid, block>>>(dev_inverse_acoustic_tensor,
+                                                   dev_acoustic_tensor,
+                                                   dev_xi_zero,
+                                                   grid_spec);
+}

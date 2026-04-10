@@ -409,4 +409,211 @@ TEST_P(FourierTest, TestAcousticTensor)
   EXPECT_NEAR(rel_diff, 0.0, tolerance);
 }
 
+TEST_P(FourierTest, TestInverseAcousticTensor)
+{
+  // Implemented by GitHub copilot; reviewed by Eike Mueller
+  size_t nmodes = grid_spec.number_of_modes();
+  // Create isotropic stiffness tensor
+  float stiffness_tensor0[21];
+  for (int i = 0; i < 3; ++i)
+    stiffness_tensor0[i] = 2 * mu_0 + lambda_0;
+  for (int i = 3; i < 6; ++i)
+    stiffness_tensor0[i] = mu_0;
+  for (int i = 6; i < 9; ++i)
+    stiffness_tensor0[i] = lambda_0;
+  for (int i = 9; i < 21; ++i)
+    stiffness_tensor0[i] = 0.0f;
+
+  // Copy to device
+  float *dev_stiffness_tensor0;
+  float *dev_acoustic_tensor;
+  float *dev_inverse_acoustic_tensor;
+  CUDA_CHECK(cudaMalloc(&dev_stiffness_tensor0, 21 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(dev_stiffness_tensor0, stiffness_tensor0, 21 * sizeof(float), cudaMemcpyHostToDevice));
+
+  // Compute acoustic tensor on device
+  get_anisotropic_acoustic_tensor_device(dev_acoustic_tensor, dev_xi_zero, dev_stiffness_tensor0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Compute inverse acoustic tensor on device
+  get_inverse_anisotropic_acoustic_tensor_device(dev_inverse_acoustic_tensor, dev_acoustic_tensor, dev_xi_zero, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Copy back
+  float *inverse_acoustic_tensor;
+  CUDA_CHECK(cudaMallocHost(&inverse_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(inverse_acoustic_tensor, dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float), cudaMemcpyDeviceToHost));
+
+  // Compute reference on host
+  float *inverse_acoustic_tensor_ref;
+  CUDA_CHECK(cudaMallocHost(&inverse_acoustic_tensor_ref, 9 * nmodes * sizeof(float)));
+  size_t nx = grid_spec.nx;
+  size_t ny = grid_spec.ny;
+  size_t nz_half = grid_spec.nz / 2 + 1;
+  float rho = (lambda_0 + mu_0) / (lambda_0 + 2 * mu_0);
+  for (size_t i = 0; i < nx; ++i)
+    for (size_t j = 0; j < ny; ++j)
+      for (size_t k = 0; k < nz_half; ++k)
+      {
+        float xi[3];
+        for (int alpha = 0; alpha < 3; ++alpha)
+          xi[alpha] = xi_zero[FIDX(nx, ny, nz_half, alpha, i, j, k)];
+
+        // Check if xi_norm > 1.0e-8
+        float xi_nrm_sq = xi[0] * xi[0] + xi[1] * xi[1] + xi[2] * xi[2];
+        float mask = (xi_nrm_sq > 1.0e-8) ? 1.0f : 0.0f;
+
+        size_t mode_idx = FIDX(nx, ny, nz_half, 0, i, j, k);
+        float factor = mask / mu_0;
+
+        // Analytical inverse for isotropic material
+        inverse_acoustic_tensor_ref[9 * mode_idx + 0] = factor * (1.0f - rho * xi[0] * xi[0]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 1] = factor * (-rho * xi[0] * xi[1]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 2] = factor * (-rho * xi[0] * xi[2]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 3] = factor * (-rho * xi[1] * xi[0]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 4] = factor * (1.0f - rho * xi[1] * xi[1]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 5] = factor * (-rho * xi[1] * xi[2]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 6] = factor * (-rho * xi[2] * xi[0]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 7] = factor * (-rho * xi[2] * xi[1]);
+        inverse_acoustic_tensor_ref[9 * mode_idx + 8] = factor * (1.0f - rho * xi[2] * xi[2]);
+      }
+
+  // Compare
+  float rel_diff = relative_difference(inverse_acoustic_tensor, inverse_acoustic_tensor_ref, 9 * nmodes);
+
+  // Free memory
+  CUDA_CHECK(cudaFree(dev_stiffness_tensor0));
+  CUDA_CHECK(cudaFree(dev_acoustic_tensor));
+  CUDA_CHECK(cudaFree(dev_inverse_acoustic_tensor));
+  CUDA_CHECK(cudaFreeHost(inverse_acoustic_tensor));
+  CUDA_CHECK(cudaFreeHost(inverse_acoustic_tensor_ref));
+
+  float tolerance = 1.E-6;
+  EXPECT_NEAR(rel_diff, 0.0, tolerance);
+}
+
+TEST_P(FourierTest, TestInverseAcousticTensorAnisotropic)
+{
+  // Verify that K * K^{-1} = I for a general anisotropic material
+  // Implementation by GitHub Copilot; reviewed by Eike Mueller
+  size_t nmodes = grid_spec.number_of_modes();
+
+  // Create random anisotropic stiffness tensor
+  float stiffness_tensor0[21];
+  float delta = 0.2f;
+  std::uniform_real_distribution<float> real_dist(-delta, delta);
+  for (int i = 0; i < 3; ++i)
+    stiffness_tensor0[i] = (2 * mu_0 + lambda_0) * (1.0f + real_dist(rng));
+  for (int i = 3; i < 6; ++i)
+    stiffness_tensor0[i] = mu_0 * (1.0f + real_dist(rng));
+  for (int i = 6; i < 9; ++i)
+    stiffness_tensor0[i] = lambda_0 * (1.0f + real_dist(rng));
+  for (int i = 9; i < 21; ++i)
+    stiffness_tensor0[i] = real_dist(rng);
+
+  // Copy to device
+  float *dev_stiffness_tensor0;
+  float *dev_acoustic_tensor;
+  float *dev_inverse_acoustic_tensor;
+  CUDA_CHECK(cudaMalloc(&dev_stiffness_tensor0, 21 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(dev_stiffness_tensor0, stiffness_tensor0, 21 * sizeof(float), cudaMemcpyHostToDevice));
+
+  // Compute acoustic tensor on device
+  get_anisotropic_acoustic_tensor_device(dev_acoustic_tensor, dev_xi_zero, dev_stiffness_tensor0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Compute inverse acoustic tensor on device
+  get_inverse_anisotropic_acoustic_tensor_device(dev_inverse_acoustic_tensor, dev_acoustic_tensor, dev_xi_zero, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Copy back
+  float *acoustic_tensor_h;
+  float *inverse_acoustic_tensor_h;
+  CUDA_CHECK(cudaMallocHost(&acoustic_tensor_h, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&inverse_acoustic_tensor_h, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMemcpy(acoustic_tensor_h, dev_acoustic_tensor, 9 * nmodes * sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(inverse_acoustic_tensor_h, dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float), cudaMemcpyDeviceToHost));
+
+  // Verify K * K^{-1} = I for each Fourier mode
+  size_t nx = grid_spec.nx;
+  size_t ny = grid_spec.ny;
+  size_t nz_half = grid_spec.nz / 2 + 1;
+  float max_error = 0.0f;
+
+  for (size_t i = 0; i < nx; ++i)
+    for (size_t j = 0; j < ny; ++j)
+      for (size_t k = 0; k < nz_half; ++k)
+      {
+        float xi_0[3];
+        for (int alpha = 0; alpha < 3; ++alpha)
+          xi_0[alpha] = xi_zero[FIDX(nx, ny, nz_half, alpha, i, j, k)];
+        float xi_nrm_sq = xi_0[0] * xi_0[0] + xi_0[1] * xi_0[1] + xi_0[2] * xi_0[2];
+
+        size_t mode_idx = FIDX(nx, ny, nz_half, 0, i, j, k);
+        // verify that inverse is zero for xi=0 modes
+        if (xi_nrm_sq < 1.0e-8)
+        {
+          for (int a = 0; a < 9; ++a)
+          {
+
+            float error = abs(inverse_acoustic_tensor_h[9 * mode_idx + a]);
+            max_error = fmax(max_error, error);
+          }
+        }
+        else
+        {
+
+          // Extract 3x3 matrices
+          float K[3][3], K_inv[3][3];
+          for (int row = 0; row < 3; ++row)
+            for (int col = 0; col < 3; ++col)
+            {
+              K[row][col] = acoustic_tensor_h[9 * mode_idx + 3 * row + col];
+              K_inv[row][col] = inverse_acoustic_tensor_h[9 * mode_idx + 3 * row + col];
+            }
+
+          // Compute K * K_inv
+          float product[3][3];
+          for (int row = 0; row < 3; ++row)
+          {
+            for (int col = 0; col < 3; ++col)
+            {
+              product[row][col] = 0.0f;
+              for (int m = 0; m < 3; ++m)
+              {
+                product[row][col] += K[row][m] * K_inv[m][col];
+              }
+            }
+          }
+
+          // Check against identity
+          for (int row = 0; row < 3; ++row)
+          {
+            for (int col = 0; col < 3; ++col)
+            {
+              float expected = (row == col) ? 1.0f : 0.0f;
+              float error = abs(product[row][col] - expected);
+              max_error = fmax(max_error, error);
+            }
+          }
+        }
+      }
+
+  // Free memory
+  CUDA_CHECK(cudaFree(dev_stiffness_tensor0));
+  CUDA_CHECK(cudaFree(dev_acoustic_tensor));
+  CUDA_CHECK(cudaFree(dev_inverse_acoustic_tensor));
+  CUDA_CHECK(cudaFreeHost(acoustic_tensor_h));
+  CUDA_CHECK(cudaFreeHost(inverse_acoustic_tensor_h));
+
+  // Tolerance: single precision matrix inversion can introduce larger errors
+  // depending on condition number of the matrix
+  float tolerance = 1.E-6;
+  EXPECT_NEAR(max_error, 0.0, tolerance);
+}
+
 #endif // TEST_FOURIER_HH
