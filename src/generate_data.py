@@ -4,7 +4,7 @@ import numpy as np
 from jaxmaterials.common import GridSpec
 from jaxmaterials.data.distributions_fibres import FibreRadiusDistribution
 from jaxmaterials.data.data import (
-    LayeredFibresDataset,
+    IsotropicMaterialDataset,
     LayeredFibresDatasetGenerator,
     visualise_fibres,
 )
@@ -68,13 +68,13 @@ if visualise:
             fibre_positions,
             fibre_radii,
             fibre_orientations,
-            filename=f"fibres_{k+1:03d}.pdf",
+            filename=f"fibres_{k + 1:03d}.pdf",
         )
 
 filename = "fibres.h5"
 dataset_generator.generate()
 dataset_generator.save_hdf5(filename)
-dataset = LayeredFibresDataset(filename)
+dataset = IsotropicMaterialDataset(filename)
 
 # nsamples = len(dataset)
 # sigma = np.empty((nsamples, 6, 6))
@@ -97,5 +97,5 @@ if savetovtk:
         save_to_vtk(
             {"mu": data[0], "lambda": data[1]},
             grid_spec,
-            filename=f"data_{k+1:03d}.vtk",
+            filename=f"data_{k + 1:03d}.vtk",
         )

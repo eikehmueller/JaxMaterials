@@ -9,10 +9,14 @@ from jaxmaterials.data.distributions_fibres import (
 from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic_cuda
 from matplotlib import pyplot as plt
 
-__all__ = ["LayeredFibresDataset", "LayeredFibresDatasetGenerator", "visualise_fibres"]
+__all__ = [
+    "IsotropicMaterialDataset",
+    "LayeredFibresDatasetGenerator",
+    "visualise_fibres",
+]
 
 
-class LayeredFibresDataset(torch.utils.data.Dataset):
+class IsotropicMaterialDataset(torch.utils.data.Dataset):
     """Dataset as loaded from disk"""
 
     def __init__(self, filename, features_last=False):
@@ -317,9 +321,9 @@ class LayeredFibresDatasetGenerator:
         """Save the dataset to disk
 
         :arg filename: name of file to save to"""
-        assert hasattr(self, "_lame_parameters") and hasattr(
-            self, "_sigma_bar"
-        ), "Data not not generated yet, call generate() first."
+        assert hasattr(self, "_lame_parameters") and hasattr(self, "_sigma_bar"), (
+            "Data not not generated yet, call generate() first."
+        )
         with h5py.File(filename, "w") as f:
             group = f.create_group("base")
             group.create_dataset("lame_parameters", data=self._lame_parameters)

@@ -5,7 +5,7 @@ import torch
 import optax
 from jax import numpy as jnp
 from flax import linen as nn
-from jaxmaterials.data.data import LayeredFibresDataset
+from jaxmaterials.data.data import IsotropicMaterialDataset
 
 
 class SimpleCNN(nn.Module):
@@ -50,7 +50,7 @@ epochs = 32
 filename = "fibres.h5"
 
 # load data from disk and split into training/validation data
-dataset = LayeredFibresDataset(filename, features_last=True)
+dataset = IsotropicMaterialDataset(filename, features_last=True)
 n_samples = len(dataset)
 gen = torch.Generator().manual_seed(141467)
 train_dataset, valid_dataset = torch.utils.data.random_split(dataset, [0.8, 0.2], gen)
