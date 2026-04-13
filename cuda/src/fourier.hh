@@ -155,4 +155,25 @@ void get_inverse_anisotropic_acoustic_tensor_device(float *dev_inverse_acoustic_
                                                     float *dev_xi_zero,
                                                     const GridSpec grid_spec);
 
+/** @brief Solve elasticity equation for homogeneous anisotropic reference
+ * material
+ *
+ * Compute hat{epsilon} = -Gamma^0 hat{tau} where Gamma^0 is constructed from
+ * the inverse anisotropic acoustic tensor.
+ *
+ * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller
+ *
+ * @param[in] dev_tau_hat right hand side hat{tau} (device array, size 6*nmodes)
+ * @param[out] dev_epsilon_hat resulting hat{epsilon} (device array, size 6*nmodes)
+ * @param[in] dev_inverse_acoustic_tensor inverse acoustic tensor for the
+ *             reference material (device array, size 9*nmodes)
+ * @param[in] dev_xi_zero Fourier vectors xi_zero (device array, size 3*nmodes)
+ * @param[in] grid_spec Grid specification
+ */
+void fourier_solve_anisotropic_device(cufftComplex *__restrict__ dev_tau_hat,
+                                      cufftComplex *__restrict__ dev_epsilon_hat,
+                                      const float *dev_inverse_acoustic_tensor,
+                                      float *__restrict__ dev_xi_zero,
+                                      const GridSpec grid_spec);
+
 #endif // FOURIER_HH

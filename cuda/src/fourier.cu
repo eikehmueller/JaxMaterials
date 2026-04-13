@@ -527,3 +527,128 @@ void get_inverse_anisotropic_acoustic_tensor_device(float *dev_inverse_acoustic_
                                                    dev_xi_zero,
                                                    grid_spec);
 }
+
+/* kernel for Fourier solve in homogeneous anisotropic reference material
+ *
+ * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller
+ */
+__global__ void fourier_solve_anisotropic_kernel(cufftComplex *__restrict__ dev_tau_hat,
+                                                 cufftComplex *__restrict__ dev_epsilon_hat,
+                                                 const float *dev_inverse_acoustic_tensor,
+                                                 float *__restrict__ dev_xi_zero,
+                                                 const GridSpec grid_spec)
+{
+    size_t nx = grid_spec.nx;
+    size_t ny = grid_spec.ny;
+    size_t nz = grid_spec.nz;
+    size_t nz_half = nz / 2 + 1;
+    int k_a = blockDim.z * blockIdx.z + threadIdx.z;
+    int k_b = blockDim.y * blockIdx.y + threadIdx.y;
+    int k_c = blockDim.x * blockIdx.x + threadIdx.x;
+    if ((k_a < nx) && (k_b < ny) && (k_c < nz_half))
+    {
+        size_t mode_idx = FIDX(nx, ny, nz_half, 0, k_a, k_b, k_c);
+
+        float xi0 = dev_xi_zero[FIDX(nx, ny, nz_half, 0, k_a, k_b, k_c)];
+        float xi1 = dev_xi_zero[FIDX(nx, ny, nz_half, 1, k_a, k_b, k_c)];
+        float xi2 = dev_xi_zero[FIDX(nx, ny, nz_half, 2, k_a, k_b, k_c)];
+
+        float N00 = dev_inverse_acoustic_tensor[9 * mode_idx + 0];
+        float N01 = dev_inverse_acoustic_tensor[9 * mode_idx + 1];
+        float N02 = dev_inverse_acoustic_tensor[9 * mode_idx + 2];
+        float N11 = dev_inverse_acoustic_tensor[9 * mode_idx + 4];
+        float N12 = dev_inverse_acoustic_tensor[9 * mode_idx + 5];
+        float N22 = dev_inverse_acoustic_tensor[9 * mode_idx + 8];
+
+        float G[6][6];
+
+        G[0][0] = N00 * xi0 * xi0;
+        G[0][1] = N01 * xi0 * xi1;
+        G[0][2] = N02 * xi0 * xi2;
+        G[0][3] = xi0 * (N00 * xi1 + N01 * xi0);
+        G[0][4] = xi0 * (N00 * xi2 + N02 * xi0);
+        G[0][5] = xi0 * (N01 * xi2 + N02 * xi1);
+
+        G[1][0] = N01 * xi0 * xi1;
+        G[1][1] = N11 * xi1 * xi1;
+        G[1][2] = N12 * xi1 * xi2;
+        G[1][3] = xi1 * (N01 * xi1 + N11 * xi0);
+        G[1][4] = xi1 * (N01 * xi2 + N12 * xi0);
+        G[1][5] = xi1 * (N11 * xi2 + N12 * xi1);
+
+        G[2][0] = N02 * xi0 * xi2;
+        G[2][1] = N12 * xi1 * xi2;
+        G[2][2] = N22 * xi2 * xi2;
+        G[2][3] = xi2 * (N02 * xi1 + N12 * xi0);
+        G[2][4] = xi2 * (N02 * xi2 + N22 * xi0);
+        G[2][5] = xi2 * (N12 * xi2 + N22 * xi1);
+
+        G[3][0] = 0.5f * xi0 * (N00 * xi1 + N01 * xi0);
+        G[3][1] = 0.5f * xi1 * (N01 * xi1 + N11 * xi0);
+        G[3][2] = 0.5f * xi2 * (N02 * xi1 + N12 * xi0);
+        G[3][3] = 0.5f * N00 * xi1 * xi1 + N01 * xi0 * xi1 + 0.5f * N11 * xi0 * xi0;
+        G[3][4] = 0.5f * N00 * xi1 * xi2 + 0.5f * N01 * xi0 * xi2 +
+                  0.5f * N02 * xi0 * xi1 + 0.5f * N12 * xi0 * xi0;
+        G[3][5] = 0.5f * N01 * xi1 * xi2 + 0.5f * N02 * xi1 * xi1 +
+                  0.5f * N11 * xi0 * xi2 + 0.5f * N12 * xi0 * xi1;
+
+        G[4][0] = 0.5f * xi0 * (N00 * xi2 + N02 * xi0);
+        G[4][1] = 0.5f * xi1 * (N01 * xi2 + N12 * xi0);
+        G[4][2] = 0.5f * xi2 * (N02 * xi2 + N22 * xi0);
+        G[4][3] = 0.5f * N00 * xi1 * xi2 + 0.5f * N01 * xi0 * xi2 +
+                  0.5f * N02 * xi0 * xi1 + 0.5f * N12 * xi0 * xi0;
+        G[4][4] = 0.5f * N00 * xi2 * xi2 + N02 * xi0 * xi2 + 0.5f * N22 * xi0 * xi0;
+        G[4][5] = 0.5f * N01 * xi2 * xi2 + 0.5f * N02 * xi1 * xi2 +
+                  0.5f * N12 * xi0 * xi2 + 0.5f * N22 * xi0 * xi1;
+
+        G[5][0] = 0.5f * xi0 * (N01 * xi2 + N02 * xi1);
+        G[5][1] = 0.5f * xi1 * (N11 * xi2 + N12 * xi1);
+        G[5][2] = 0.5f * xi2 * (N12 * xi2 + N22 * xi1);
+        G[5][3] = 0.5f * N01 * xi1 * xi2 + 0.5f * N02 * xi1 * xi1 +
+                  0.5f * N11 * xi0 * xi2 + 0.5f * N12 * xi0 * xi1;
+        G[5][4] = 0.5f * N01 * xi2 * xi2 + 0.5f * N02 * xi1 * xi2 +
+                  0.5f * N12 * xi0 * xi2 + 0.5f * N22 * xi0 * xi1;
+        G[5][5] = 0.5f * N11 * xi2 * xi2 + N12 * xi1 * xi2 + 0.5f * N22 * xi1 * xi1;
+
+        cufftComplex tau_hat[6];
+        cufftComplex epsilon_hat[6];
+        for (int alpha = 0; alpha < 6; ++alpha)
+        {
+            tau_hat[alpha] = dev_tau_hat[FIDX(nx, ny, nz_half, alpha, k_a, k_b, k_c)];
+            epsilon_hat[alpha].x = 0.0f;
+            epsilon_hat[alpha].y = 0.0f;
+        }
+
+        for (int alpha = 0; alpha < 6; ++alpha)
+        {
+            for (int beta = 0; beta < 6; ++beta)
+            {
+                epsilon_hat[alpha].x -= G[alpha][beta] * tau_hat[beta].x;
+                epsilon_hat[alpha].y -= G[alpha][beta] * tau_hat[beta].y;
+            }
+            dev_epsilon_hat[FIDX(nx, ny, nz_half, alpha, k_a, k_b, k_c)] = epsilon_hat[alpha];
+        }
+    }
+}
+
+/* Fourier solve for homogeneous anisotropic reference material
+ *
+ * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller
+ */
+void fourier_solve_anisotropic_device(cufftComplex *__restrict__ dev_tau_hat,
+                                      cufftComplex *__restrict__ dev_epsilon_hat,
+                                      const float *dev_inverse_acoustic_tensor,
+                                      float *__restrict__ dev_xi_zero,
+                                      const GridSpec grid_spec)
+{
+    size_t nx = grid_spec.nx;
+    size_t ny = grid_spec.ny;
+    size_t nz = grid_spec.nz;
+    dim3 grid((nz / 2 + 1 + BLOCKSIZE_Z - 1) / BLOCKSIZE_Z,
+              (ny + BLOCKSIZE_Y - 1) / BLOCKSIZE_Y,
+              (nx + BLOCKSIZE_X - 1) / BLOCKSIZE_X);
+    dim3 block(BLOCKSIZE_Z, BLOCKSIZE_Y, BLOCKSIZE_X);
+    fourier_solve_anisotropic_kernel<<<grid, block>>>(dev_tau_hat, dev_epsilon_hat,
+                                                      dev_inverse_acoustic_tensor,
+                                                      dev_xi_zero, grid_spec);
+}

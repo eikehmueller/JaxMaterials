@@ -616,4 +616,94 @@ TEST_P(FourierTest, TestInverseAcousticTensorAnisotropic)
   EXPECT_NEAR(max_error, 0.0, tolerance);
 }
 
+TEST_P(FourierTest, TestFourierSolveAnisotropicMatchesIsotropic)
+{
+  // Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller
+  // Verify that anisotropic Fourier solve reduces to isotropic solve for
+  // isotropic reference stiffness.
+  size_t nvoxels = grid_spec.number_of_voxels();
+  size_t nmodes = grid_spec.number_of_modes();
+
+  // Create isotropic stiffness tensor (21 independent components)
+  float stiffness_tensor0[21];
+  for (int i = 0; i < 3; ++i)
+    stiffness_tensor0[i] = 2 * mu_0 + lambda_0;
+  for (int i = 3; i < 6; ++i)
+    stiffness_tensor0[i] = mu_0;
+  for (int i = 6; i < 9; ++i)
+    stiffness_tensor0[i] = lambda_0;
+  for (int i = 9; i < 21; ++i)
+    stiffness_tensor0[i] = 0.0f;
+
+  // Allocate temporary device/host arrays
+  float *dev_stiffness_tensor0 = nullptr;
+  float *dev_inverse_acoustic_tensor = nullptr;
+  cufftComplex *dev_epsilon_hat_anisotropic = nullptr;
+  cufftComplex *epsilon_hat_isotropic = nullptr;
+  cufftComplex *epsilon_hat_anisotropic = nullptr;
+  CUDA_CHECK(cudaMalloc(&dev_stiffness_tensor0, 21 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_epsilon_hat_anisotropic, 6 * nmodes * sizeof(cufftComplex)));
+  CUDA_CHECK(cudaMallocHost(&epsilon_hat_isotropic, 6 * nmodes * sizeof(cufftComplex)));
+  CUDA_CHECK(cudaMallocHost(&epsilon_hat_anisotropic, 6 * nmodes * sizeof(cufftComplex)));
+
+  CUDA_CHECK(cudaMemcpy(dev_stiffness_tensor0, stiffness_tensor0, 21 * sizeof(float),
+                        cudaMemcpyHostToDevice));
+
+  // Random right hand side in real space -> Fourier space
+  std::generate(tau, tau + 6 * nvoxels, [&]()
+                { return distribution(rng); });
+  CUDA_CHECK(cudaMemcpy(dev_tau, tau, 6 * nvoxels * sizeof(float),
+                        cudaMemcpyHostToDevice));
+  CUFFT_CHECK(cufftExecR2C(plan_forward, dev_tau, dev_tau_hat));
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Isotropic reference solve
+  fourier_solve_device(dev_tau_hat, dev_epsilon_hat, dev_xi_zero, lambda_0,
+                       mu_0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Build inverse acoustic tensor and run anisotropic reference solve
+  get_anisotropic_acoustic_tensor_device(dev_acoustic_tensor, dev_xi_zero,
+                                         dev_stiffness_tensor0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  get_inverse_anisotropic_acoustic_tensor_device(dev_inverse_acoustic_tensor,
+                                                 dev_acoustic_tensor,
+                                                 dev_xi_zero, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  fourier_solve_anisotropic_device(dev_tau_hat, dev_epsilon_hat_anisotropic,
+                                   dev_inverse_acoustic_tensor, dev_xi_zero,
+                                   grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Compare both Fourier-space solutions
+  CUDA_CHECK(cudaMemcpy(epsilon_hat_isotropic, dev_epsilon_hat,
+                        6 * nmodes * sizeof(cufftComplex),
+                        cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(epsilon_hat_anisotropic, dev_epsilon_hat_anisotropic,
+                        6 * nmodes * sizeof(cufftComplex),
+                        cudaMemcpyDeviceToHost));
+
+  double ref_nrm2 = 0.0;
+  double diff_nrm2 = 0.0;
+  for (size_t i = 0; i < 6 * nmodes; ++i)
+  {
+    double dx = (double)epsilon_hat_anisotropic[i].x - (double)epsilon_hat_isotropic[i].x;
+    double dy = (double)epsilon_hat_anisotropic[i].y - (double)epsilon_hat_isotropic[i].y;
+    diff_nrm2 += dx * dx + dy * dy;
+    ref_nrm2 += (double)epsilon_hat_isotropic[i].x * (double)epsilon_hat_isotropic[i].x +
+                (double)epsilon_hat_isotropic[i].y * (double)epsilon_hat_isotropic[i].y;
+  }
+  float rel_diff = sqrt(diff_nrm2 / ref_nrm2);
+
+  CUDA_CHECK(cudaFree(dev_stiffness_tensor0));
+  CUDA_CHECK(cudaFree(dev_inverse_acoustic_tensor));
+  CUDA_CHECK(cudaFree(dev_epsilon_hat_anisotropic));
+  CUDA_CHECK(cudaFreeHost(epsilon_hat_isotropic));
+  CUDA_CHECK(cudaFreeHost(epsilon_hat_anisotropic));
+
+  float tolerance = 2.E-6;
+  EXPECT_NEAR(rel_diff, 0.0, tolerance);
+}
+
 #endif // TEST_FOURIER_HH
