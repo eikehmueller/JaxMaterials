@@ -11,6 +11,7 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic_jax,
     lippmann_schwinger_anisotropic_jax,
     lippmann_schwinger_isotropic_cuda,
+    lippmann_schwinger_anisotropic_cuda,
 )
 from fixtures import initialise_material, grid_spec, rng
 
@@ -133,7 +134,7 @@ def test_convergence(grid_spec, rng, dtype, depth):
     assert rel_div < atol
 
 
-def test_jax_matches_cuda(grid_spec, rng):
+def test_jax_matches_cuda_isotropic(grid_spec, rng):
     """Verify that CUDA and Jax solvers give identical results for isotropic materials
     (skipped if no GPU is available)
 
@@ -174,4 +175,78 @@ def test_jax_matches_cuda(grid_spec, rng):
     rel_diff_sigma_2 = np.sum((sigma_cuda - sigma_jax) ** 2) / np.sum(sigma_jax**2)
     assert rel_diff_epsilon_2 < 5e-3
     assert rel_diff_sigma_2 < 2e-3
+    assert abs(iter_jax - iter_cuda) <= 1
+
+
+def test_jax_matches_cuda_anisotropic(grid_spec, rng):
+    """Verify that CUDA and JAX anisotropic solvers match on anisotropic materials
+    (skipped if no GPU is available).
+
+    :arg grid_spec: grid specification
+    :arg rng: random number generator
+    """
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=np.float32)
+    mu, lmbda = initialise_material(grid_spec, rng, dtype=np.float32)
+
+    # Build mildly anisotropic stiffness tensor around isotropic baseline.
+    delta = 0.1
+    perturb = lambda scale: scale * (1.0 + rng.uniform(-delta, delta, size=mu.shape))
+    stiffness_tensor = np.stack(
+        [
+            perturb(2 * mu + lmbda),
+            perturb(2 * mu + lmbda),
+            perturb(2 * mu + lmbda),
+            perturb(mu),
+            perturb(mu),
+            perturb(mu),
+            perturb(lmbda),
+            perturb(lmbda),
+            perturb(lmbda),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.2 * mu),
+            perturb(0.1 * mu),
+            perturb(0.1 * mu),
+            perturb(0.1 * mu),
+        ]
+    ).astype(np.float32)
+
+    atol = 1e-5
+    rtol = 1.0e-20
+    try:
+        epsilon_cuda, sigma_cuda, iter_cuda = lippmann_schwinger_anisotropic_cuda(
+            stiffness_tensor,
+            epsilon_bar,
+            grid_spec,
+            rtol=rtol,
+            atol=atol,
+            maxiter=32,
+            verbose=0,
+        )
+    except Exception:
+        pytest.skip(reason="CUDA code not available")
+
+    epsilon_jax, sigma_jax, iter_jax = lippmann_schwinger_anisotropic_jax(
+        stiffness_tensor,
+        epsilon_bar,
+        grid_spec,
+        rtol=rtol,
+        atol=atol,
+        depth=0,
+        maxiter=32,
+        dtype=np.float32,
+    )
+
+    rel_diff_epsilon_2 = np.sum((epsilon_cuda - epsilon_jax) ** 2) / np.sum(
+        epsilon_jax**2
+    )
+    rel_diff_sigma_2 = np.sum((sigma_cuda - sigma_jax) ** 2) / np.sum(sigma_jax**2)
+    assert rel_diff_epsilon_2 < 2e-5
+    assert rel_diff_sigma_2 < 2e-5
     assert abs(iter_jax - iter_cuda) <= 1

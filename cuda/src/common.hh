@@ -97,8 +97,7 @@ struct GridSpec
  *
  * @param[out] u: field (host pointer)
  * @param[out] u_ref: reference field to compare to (host pointer)
- * @param[in] ndof number of unknowns
- */
+ * @param[in] ndof number of unknowns */
 float relative_difference(float *u, float *u_ref, const size_t ndof);
 
 /** @brief Compute norm of real-valued vector field

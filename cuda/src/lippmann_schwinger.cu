@@ -15,35 +15,6 @@ __global__ void set_epsilon_bar_kernel(float *__restrict__ dev_epsilon,
       dev_epsilon[alpha * nvoxels + ell] = dev_epsilon_bar[alpha];
 }
 
-/* Kernel for computing stress sigma_{ij} = C_{ijkl} epsilon_{kl} with
- *
- *     C_{ijkl} = lambda*delta_{ij}delta_{kl} + mu*(delta_{ik}delta_{jl}+delta_{il}delta_{jk})
- */
-__global__ void compute_stress_kernel(float *__restrict__ dev_epsilon,
-                                      float *__restrict__ dev_sigma,
-                                      float *__restrict__ dev_lambda,
-                                      float *__restrict__ dev_mu,
-                                      const size_t nvoxels)
-{
-  int ell = blockDim.x * blockIdx.x + threadIdx.x;
-  if (ell < nvoxels)
-  {
-    float lambda = dev_lambda[ell];
-    float mu = dev_mu[ell];
-    float tr_epsilon = dev_epsilon[ell] + dev_epsilon[nvoxels + ell] + dev_epsilon[2 * nvoxels + ell];
-    for (int alpha = 0; alpha < 3; ++alpha)
-    {
-      int idx = alpha * nvoxels + ell;
-      dev_sigma[idx] = 2 * mu * dev_epsilon[idx] + lambda * tr_epsilon;
-    }
-    for (int alpha = 3; alpha < 6; ++alpha)
-    {
-      int idx = alpha * nvoxels + ell;
-      dev_sigma[idx] = 2 * mu * dev_epsilon[idx];
-    }
-  }
-}
-
 /* Kernel for incrementing solution epsilon -> epsilon + alpha*r */
 __global__ void increment_solution_kernel(float *__restrict__ dev_epsilon,
                                           float *__restrict__ dev_r,
@@ -60,29 +31,17 @@ __global__ void increment_solution_kernel(float *__restrict__ dev_epsilon,
 /* **** class methods **** */
 
 /* Set the values of epsilon to bar(epsilon) on the device */
-void LippmannSchwingerSolver::set_epsilon_bar(float *__restrict__ dev_epsilon,
-                                              float *__restrict__ epsilon_bar)
+void LippmannSchwingerSolverBase::set_epsilon_bar(float *__restrict__ dev_epsilon,
+                                                  float *__restrict__ epsilon_bar)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   const size_t nblocks = (nvoxels + BLOCKSIZE - 1) / BLOCKSIZE;
   set_epsilon_bar_kernel<<<nblocks, BLOCKSIZE>>>(dev_epsilon, epsilon_bar, nvoxels);
 }
 
-/* Compute stress sigma_{ij} = C_{ijkl} epsilon_{kl} on device */
-void LippmannSchwingerSolver::compute_stress(float *__restrict__ dev_epsilon,
-                                             float *__restrict__ dev_sigma,
-                                             float *__restrict__ dev_lambda,
-                                             float *__restrict__ dev_mu)
-{
-  size_t nvoxels = grid_spec.number_of_voxels();
-  const size_t nblocks = (nvoxels + BLOCKSIZE - 1) / BLOCKSIZE;
-  compute_stress_kernel<<<nblocks, BLOCKSIZE>>>(dev_epsilon, dev_sigma,
-                                                dev_lambda, dev_mu, nvoxels);
-}
-
 /* Increment solution epsilon -> epsilon + 1/nvoxels * r */
-void LippmannSchwingerSolver::increment_solution(float *__restrict__ dev_epsilon,
-                                                 float *__restrict__ dev_r)
+void LippmannSchwingerSolverBase::increment_solution(float *__restrict__ dev_epsilon,
+                                                     float *__restrict__ dev_r)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   size_t ndof = 6 * nvoxels;
@@ -92,7 +51,7 @@ void LippmannSchwingerSolver::increment_solution(float *__restrict__ dev_epsilon
 }
 
 /* Compute normalised divergence for stopping criterion in Fourier space */
-float LippmannSchwingerSolver::relative_divergence_norm(cufftComplex *__restrict__ dev_sigma_hat)
+float LippmannSchwingerSolverBase::relative_divergence_norm(cufftComplex *__restrict__ dev_sigma_hat)
 {
   // Compute divergence in Fourier space
   divergence_fourier(dev_sigma_hat, dev_div_sigma_hat, dev_xi, grid_spec);
@@ -109,7 +68,8 @@ float LippmannSchwingerSolver::relative_divergence_norm(cufftComplex *__restrict
 }
 
 /* Constructor */
-LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const int verbose) : grid_spec(grid_spec), verbose(verbose)
+LippmannSchwingerSolverBase::LippmannSchwingerSolverBase(const GridSpec grid_spec, const int verbose)
+    : grid_spec(grid_spec), verbose(verbose)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   size_t nmodes = grid_spec.number_of_modes();
@@ -120,8 +80,6 @@ LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const
   CUFFT_CHECK(cufftPlanMany(&plan_inverse, 3, n, n_fourier, 1, nmodes, n, 1, nvoxels, CUFFT_C2R, 6));
   CUDA_CHECK(cudaMalloc(&dev_xi_zero, 3 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_xi, 3 * nvoxels * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&dev_lambda, 6 * nvoxels * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&dev_mu, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_epsilon, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_sigma, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_div_sigma, 3 * nvoxels * sizeof(float)));
@@ -140,13 +98,11 @@ LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const
 }
 
 /* Destructor */
-LippmannSchwingerSolver::~LippmannSchwingerSolver()
+LippmannSchwingerSolverBase::~LippmannSchwingerSolverBase()
 {
   // free memory
   CUDA_CHECK(cudaFree(dev_xi));
   CUDA_CHECK(cudaFree(dev_xi_zero));
-  CUDA_CHECK(cudaFree(dev_lambda));
-  CUDA_CHECK(cudaFree(dev_mu));
   CUDA_CHECK(cudaFree(dev_epsilon));
   CUDA_CHECK(cudaFree(dev_sigma));
   CUDA_CHECK(cudaFree(dev_div_sigma));
@@ -160,6 +116,43 @@ LippmannSchwingerSolver::~LippmannSchwingerSolver()
   CUDA_CHECK(cudaFreeHost(sum));
   CUFFT_CHECK(cufftDestroy(plan_forward));
   CUFFT_CHECK(cufftDestroy(plan_inverse));
+}
+
+/* Constructor */
+LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const int verbose)
+    : LippmannSchwingerSolverBase(grid_spec, verbose)
+{
+  size_t nvoxels = this->grid_spec.number_of_voxels();
+  CUDA_CHECK(cudaMalloc(&dev_lambda, nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_mu, nvoxels * sizeof(float)));
+}
+
+/* Destructor */
+LippmannSchwingerSolver::~LippmannSchwingerSolver()
+{
+  CUDA_CHECK(cudaFree(dev_lambda));
+  CUDA_CHECK(cudaFree(dev_mu));
+}
+
+/* Constructor */
+LippmannSchwingerAnisotropicSolver::LippmannSchwingerAnisotropicSolver(const GridSpec grid_spec, const int verbose)
+    : LippmannSchwingerSolverBase(grid_spec, verbose)
+{
+  size_t nvoxels = this->grid_spec.number_of_voxels();
+  size_t nmodes = this->grid_spec.number_of_modes();
+  CUDA_CHECK(cudaMalloc(&dev_stiffness, 21 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_stiffness_tensor0, 21 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float)));
+}
+
+/* Destructor */
+LippmannSchwingerAnisotropicSolver::~LippmannSchwingerAnisotropicSolver()
+{
+  CUDA_CHECK(cudaFree(dev_stiffness));
+  CUDA_CHECK(cudaFree(dev_stiffness_tensor0));
+  CUDA_CHECK(cudaFree(dev_acoustic_tensor));
+  CUDA_CHECK(cudaFree(dev_inverse_acoustic_tensor));
 }
 
 /* apply solver */
@@ -192,7 +185,7 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
   for (iter = 0; iter < maxiter; ++iter)
   {
     /* ==== STEP 1 ==== Compute stress: sigma_{ij} = C_{ijkl} epsilon_{kl} */
-    compute_stress(dev_epsilon, dev_sigma, dev_lambda, dev_mu);
+    compute_stress_isotropic(dev_epsilon, dev_sigma, dev_lambda, dev_mu, grid_spec);
     /* ==== STEP 2 ==== Fourier transform:  hat(sigma) = FFT(sigma)*/
     CUFFT_CHECK(cufftExecR2C(plan_forward, dev_sigma, dev_sigma_hat));
     CUDA_CHECK(cudaDeviceSynchronize());
@@ -232,15 +225,111 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
 
   return iter;
 }
+
+/* apply solver (anisotropic) */
+int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
+                                              float *epsilon_bar,
+                                              float *epsilon,
+                                              float *sigma,
+                                              float rtol, float atol, int maxiter)
+{
+  size_t nvoxels = grid_spec.number_of_voxels();
+
+  // Build homogeneous reference stiffness tensor from spatial min/max values.
+  float stiffness_tensor0[21];
+  for (int alpha = 0; alpha < 21; ++alpha)
+  {
+    float minval = stiffness[alpha * nvoxels];
+    float maxval = stiffness[alpha * nvoxels];
+    for (size_t ell = 1; ell < nvoxels; ++ell)
+    {
+      float value = stiffness[alpha * nvoxels + ell];
+      minval = std::min(minval, value);
+      maxval = std::max(maxval, value);
+    }
+    stiffness_tensor0[alpha] = 0.5f * (minval + maxval);
+  }
+
+  // Copy material data to device and construct anisotropic Fourier operator.
+  CUDA_CHECK(cudaMemcpy(dev_stiffness, stiffness, 21 * nvoxels * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(dev_epsilon_bar, epsilon_bar, 6 * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(dev_stiffness_tensor0, stiffness_tensor0, 21 * sizeof(float), cudaMemcpyHostToDevice));
+  get_anisotropic_acoustic_tensor_device(dev_acoustic_tensor, dev_xi_zero,
+                                         dev_stiffness_tensor0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  get_inverse_anisotropic_acoustic_tensor_device(dev_inverse_acoustic_tensor,
+                                                 dev_acoustic_tensor,
+                                                 dev_xi_zero, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Set average value of epsilon.
+  set_epsilon_bar(dev_epsilon, dev_epsilon_bar);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Main Lippmann-Schwinger loop.
+  float rel_div_norm = 0;
+  float rel_div_norm0;
+  int iter;
+  if (verbose == 2)
+  {
+    printf("==== Lippmann Schwinger anisotropic solver ====\n");
+    printf("  iteration           ||r||   ||r||/||r_0||\n");
+  }
+  for (iter = 0; iter < maxiter; ++iter)
+  {
+    /* ==== STEP 1 ==== Compute stress: sigma_{ij} = C_{ijkl} epsilon_{kl} */
+    compute_stress_anisotropic(dev_epsilon, dev_sigma, dev_stiffness, grid_spec);
+    /* ==== STEP 2 ==== Fourier transform:  hat(sigma) = FFT(sigma) */
+    CUFFT_CHECK(cufftExecR2C(plan_forward, dev_sigma, dev_sigma_hat));
+    CUDA_CHECK(cudaDeviceSynchronize());
+    /* ==== STEP 3 ==== Check convergence */
+    rel_div_norm = relative_divergence_norm(dev_sigma_hat);
+    if (iter == 0)
+      rel_div_norm0 = rel_div_norm;
+    if (verbose > 1)
+      printf("     %4d          %8.4e  %8.4e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+    if (rel_div_norm < max(rtol * rel_div_norm0, atol))
+      break;
+    /* ==== STEP 4 ==== Solve in Fourier space: hat(r) = -Gamma^{0} hat(sigma) */
+    fourier_solve_anisotropic_device(dev_sigma_hat, dev_residual_hat,
+                                     dev_inverse_acoustic_tensor,
+                                     dev_xi_zero, grid_spec);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    /* ==== STEP 5 ==== Inverse Fourier transform: r = FFT^{-1}(hat(r)) */
+    CUFFT_CHECK(cufftExecC2R(plan_inverse, dev_residual_hat, dev_residual));
+    CUDA_CHECK(cudaDeviceSynchronize());
+    /* ==== STEP 6 ==== Update solution: epsilon -> epsilon + r */
+    increment_solution(dev_epsilon, dev_residual);
+    CUDA_CHECK(cudaDeviceSynchronize());
+  }
+  if (verbose > 0)
+  {
+    if (verbose == 1)
+      printf("  LS anisotropic ");
+    else
+      printf("  ");
+    if (iter < maxiter)
+      printf("converged");
+    else
+      printf("failed to converge");
+    printf(" after %4d its, ||r|| = %6.3e ||r||/||r_0|| = %6.3e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+  }
+
+  // Copy solution back to host.
+  CUDA_CHECK(cudaMemcpy(epsilon, dev_epsilon, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(sigma, dev_sigma, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
+
+  return iter;
+}
 /* Lippmann Schwinger iteration */
 extern "C"
 {
-  int lippmann_schwinger_solve(float *lambda, float *mu, float *epsilon_bar,
-                               float *epsilon, float *sigma,
-                               int *voxels,
-                               float *extents,
-                               float rtol, float atol, int maxiter,
-                               int verbose)
+  int lippmann_schwinger_solve_isotropic(float *lambda, float *mu, float *epsilon_bar,
+                                         float *epsilon, float *sigma,
+                                         int *voxels,
+                                         float *extents,
+                                         float rtol, float atol, int maxiter,
+                                         int verbose)
   {
     GridSpec grid_spec;
     grid_spec.nx = voxels[0];
@@ -251,6 +340,30 @@ extern "C"
     grid_spec.Lz = extents[2];
     LippmannSchwingerSolver solver(grid_spec, verbose);
     int iter = solver.apply(lambda, mu, epsilon_bar,
+                            epsilon, sigma,
+                            rtol, atol, maxiter);
+    return iter;
+  }
+
+  int lippmann_schwinger_solve_anisotropic(float *stiffness,
+                                           float *epsilon_bar,
+                                           float *epsilon,
+                                           float *sigma,
+                                           int *voxels,
+                                           float *extents,
+                                           float rtol, float atol,
+                                           int maxiter,
+                                           int verbose)
+  {
+    GridSpec grid_spec;
+    grid_spec.nx = voxels[0];
+    grid_spec.ny = voxels[1];
+    grid_spec.nz = voxels[2];
+    grid_spec.Lx = extents[0];
+    grid_spec.Ly = extents[1];
+    grid_spec.Lz = extents[2];
+    LippmannSchwingerAnisotropicSolver solver(grid_spec, verbose);
+    int iter = solver.apply(stiffness, epsilon_bar,
                             epsilon, sigma,
                             rtol, atol, maxiter);
     return iter;

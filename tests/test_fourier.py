@@ -71,9 +71,9 @@ def test_inverse_acoustic_tensor(grid_spec, dtype):
     )
     N0 = get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
     rho = (lmbda0 + mu0) / (lmbda0 + 2 * mu0)
-    xi_nrm = (xizero[0] ** 2 + xizero[1] ** 2 + xizero[2] ** 2) > 1.0e-8
+    mask = (xizero[0] ** 2 + xizero[1] ** 2 + xizero[2] ** 2) > 1.0e-8
     N0_reference = (
-        xi_nrm
+        mask
         / mu0
         * np.stack(
             [
