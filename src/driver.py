@@ -9,6 +9,7 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic_jax,
     lippmann_schwinger_anisotropic_jax,
     lippmann_schwinger_isotropic_cuda,
+    lippmann_schwinger_anisotropic_cuda,
 )
 
 
@@ -45,9 +46,9 @@ Lx = 1.2
 Ly = 0.8
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 128
-ny = 128
-nz = 128
+nx = 100
+ny = 100
+nz = 100
 
 dtype = jnp.float32
 rtol = 1e-20
@@ -61,7 +62,7 @@ stiffness_tensor = jnp.stack(
     3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
 )
 # E_mean = jnp.array([1.0, 2.0, 0.0, 0.0, 0.0, 0.0])
-E_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5])
+E_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
 with measure_time("evaluation   (isotropic, Jax)"):
     epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_jax(
@@ -99,7 +100,7 @@ print()
 
 
 with measure_time("evaluation  (isotropic, CUDA)"):
-    epsilon, sigma, iter = lippmann_schwinger_isotropic_cuda(
+    epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
         mu,
         lmbda,
         E_mean,
@@ -112,8 +113,32 @@ with measure_time("evaluation  (isotropic, CUDA)"):
 print(f"  number of iterations = {iter}")
 print()
 
-with measure_time("gradient"):
+with measure_time("evaluation  (anisotropic, CUDA)"):
+    epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
+        stiffness_tensor,
+        E_mean,
+        grid_spec,
+        maxiter=32,
+        rtol=rtol,
+        atol=atol,
+        verbose=0,
+    )
+print(f"  number of iterations = {iter}")
+print(
+    "difference = ",
+    jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
+    / jnp.linalg.norm(epsilon_isotropic),
+)
+print()
+
+with measure_time("gradient (isotropic)"):
     grad_epsilon = jax.jacfwd(lippmann_schwinger_isotropic_jax, argnums=[2])
     dg = grad_epsilon(mu, lmbda, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol)
+    dg[0][0].block_until_ready()
+with measure_time("gradient (anisotropic)"):
+    grad_epsilon = jax.jacfwd(lippmann_schwinger_anisotropic_jax, argnums=[1])
+    dg = grad_epsilon(
+        stiffness_tensor, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol
+    )
     dg[0][0].block_until_ready()
 print()

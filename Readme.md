@@ -27,6 +27,12 @@ Machine learning surrogate models can reduce runtime but require:
 - Modular design for extending models and components
 - Compatible with ML pipelines and optimisation frameworks  
 
+## Achievements
+
+The following figures compares the performance of the JAX and CUDA solvers for isotropic and anisotropic materials.
+
+![Performance of JAX and CUDA solvers](figures/performance.png)
+
 ## Quick installation
 
 Clone and run
