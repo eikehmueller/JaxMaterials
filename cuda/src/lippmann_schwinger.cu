@@ -31,8 +31,8 @@ __global__ void increment_solution_kernel(float *__restrict__ dev_epsilon,
 /* **** class methods **** */
 
 /* Set the values of epsilon to bar(epsilon) on the device */
-void LippmannSchwingerSolver::set_epsilon_bar(float *__restrict__ dev_epsilon,
-                                              float *__restrict__ epsilon_bar)
+void LippmannSchwingerSolverBase::set_epsilon_bar(float *__restrict__ dev_epsilon,
+                                                  float *__restrict__ epsilon_bar)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   const size_t nblocks = (nvoxels + BLOCKSIZE - 1) / BLOCKSIZE;
@@ -40,8 +40,8 @@ void LippmannSchwingerSolver::set_epsilon_bar(float *__restrict__ dev_epsilon,
 }
 
 /* Increment solution epsilon -> epsilon + 1/nvoxels * r */
-void LippmannSchwingerSolver::increment_solution(float *__restrict__ dev_epsilon,
-                                                 float *__restrict__ dev_r)
+void LippmannSchwingerSolverBase::increment_solution(float *__restrict__ dev_epsilon,
+                                                     float *__restrict__ dev_r)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   size_t ndof = 6 * nvoxels;
@@ -51,7 +51,7 @@ void LippmannSchwingerSolver::increment_solution(float *__restrict__ dev_epsilon
 }
 
 /* Compute normalised divergence for stopping criterion in Fourier space */
-float LippmannSchwingerSolver::relative_divergence_norm(cufftComplex *__restrict__ dev_sigma_hat)
+float LippmannSchwingerSolverBase::relative_divergence_norm(cufftComplex *__restrict__ dev_sigma_hat)
 {
   // Compute divergence in Fourier space
   divergence_fourier(dev_sigma_hat, dev_div_sigma_hat, dev_xi, grid_spec);
@@ -68,7 +68,8 @@ float LippmannSchwingerSolver::relative_divergence_norm(cufftComplex *__restrict
 }
 
 /* Constructor */
-LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const int verbose) : grid_spec(grid_spec), verbose(verbose)
+LippmannSchwingerSolverBase::LippmannSchwingerSolverBase(const GridSpec grid_spec, const int verbose)
+    : grid_spec(grid_spec), verbose(verbose)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   size_t nmodes = grid_spec.number_of_modes();
@@ -79,8 +80,6 @@ LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const
   CUFFT_CHECK(cufftPlanMany(&plan_inverse, 3, n, n_fourier, 1, nmodes, n, 1, nvoxels, CUFFT_C2R, 6));
   CUDA_CHECK(cudaMalloc(&dev_xi_zero, 3 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_xi, 3 * nvoxels * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&dev_lambda, 6 * nvoxels * sizeof(float)));
-  CUDA_CHECK(cudaMalloc(&dev_mu, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_epsilon, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_sigma, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMalloc(&dev_div_sigma, 3 * nvoxels * sizeof(float)));
@@ -99,13 +98,11 @@ LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const
 }
 
 /* Destructor */
-LippmannSchwingerSolver::~LippmannSchwingerSolver()
+LippmannSchwingerSolverBase::~LippmannSchwingerSolverBase()
 {
   // free memory
   CUDA_CHECK(cudaFree(dev_xi));
   CUDA_CHECK(cudaFree(dev_xi_zero));
-  CUDA_CHECK(cudaFree(dev_lambda));
-  CUDA_CHECK(cudaFree(dev_mu));
   CUDA_CHECK(cudaFree(dev_epsilon));
   CUDA_CHECK(cudaFree(dev_sigma));
   CUDA_CHECK(cudaFree(dev_div_sigma));
@@ -119,6 +116,22 @@ LippmannSchwingerSolver::~LippmannSchwingerSolver()
   CUDA_CHECK(cudaFreeHost(sum));
   CUFFT_CHECK(cufftDestroy(plan_forward));
   CUFFT_CHECK(cufftDestroy(plan_inverse));
+}
+
+/* Constructor */
+LippmannSchwingerSolver::LippmannSchwingerSolver(const GridSpec grid_spec, const int verbose)
+    : LippmannSchwingerSolverBase(grid_spec, verbose)
+{
+  size_t nvoxels = this->grid_spec.number_of_voxels();
+  CUDA_CHECK(cudaMalloc(&dev_lambda, nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_mu, nvoxels * sizeof(float)));
+}
+
+/* Destructor */
+LippmannSchwingerSolver::~LippmannSchwingerSolver()
+{
+  CUDA_CHECK(cudaFree(dev_lambda));
+  CUDA_CHECK(cudaFree(dev_mu));
 }
 
 /* apply solver */

@@ -10,15 +10,12 @@
 #include "fourier.hh"
 #include "hooke.hh"
 
-/** @brief Class for Lippmann Schwinger solver
+/** @brief Base class for Lippmann Schwinger solvers
  *
  * Provides functionality for solving the equations of linear elasticity on a fixed computational
  * grid.
- *
- * The apply routine can be called for different Lame parameters lambda, mu and different mean
- * strain values.
  */
-class LippmannSchwingerSolver
+class LippmannSchwingerSolverBase
 {
 public:
     /** @brief Constructor
@@ -28,35 +25,13 @@ public:
      * @param[in] grid_spec specification of computational grid
      * @param[in] verbose verbosity level: 0 = no output, 1 = print summary, >1 = print at every iteration
      */
-    LippmannSchwingerSolver(const GridSpec grid_spec, const int verbose = 0);
+    LippmannSchwingerSolverBase(const GridSpec grid_spec, const int verbose = 0);
 
     /** @brief Destructor
      *
      * Free all allocated memory
      */
-    ~LippmannSchwingerSolver();
-
-    /** @brief Solve for a given set of Lame parameters and mean strain
-     *
-     * Apply the Lippmann Schwinger iteration for a given set of Lame parameters lambda, mu
-     * and mean strain field bar(epsilon). The equation is solved to a given tolerance on the
-     * normalised divergence, as defined in relative_divergence_norm().
-     *
-     * @param[in] lambda Lame parameter lambda (host array, size nvoxels)
-     * @param[in] mu Lame parameter mu (host array, size nvoxels)
-     * @param[in] epsilon_bar average value of epsilon (host array, size 6)
-     * @param[out] epsilon Resulting strain (host array, size 6*nvoxels)
-     * @param[out] sigma Resulting stress (host array, size 6*nvoxels)
-     * @param[in] rtol relative tolerance on normalised divergence
-     * @param[in] atol absolute tolerance on normalised divergence
-     * @param[in] maxiter maximum number of iterations
-     */
-    int apply(float *__restrict__ lambda,
-              float *__restrict__ mu,
-              float *__restrict__ epsilon_bar,
-              float *__restrict__ epsilon,
-              float *__restrict__ sigma,
-              float rtol, float atol, int maxiter = 100);
+    virtual ~LippmannSchwingerSolverBase();
 
     /** @brief Compute normalised divergence for stopping criterion in Fourier space
      *
@@ -108,10 +83,6 @@ protected:
     float *dev_xi;
     /** @brief normalised Fourier vectors */
     float *dev_xi_zero;
-    /** @brief Lame parameter lamba on device */
-    float *dev_lambda;
-    /** @brief Lame parameter mu on device */
-    float *dev_mu;
     /** @brief temporary for sum on device */
     float *dev_sum;
     /** @brief temporary for sum on host */
@@ -138,6 +109,64 @@ protected:
     cufftHandle plan_forward;
     /** @brief cuFFT plan for inverse FFT */
     cufftHandle plan_inverse;
+};
+
+/** @brief Lippmann Schwinger solver for isotropic materials
+ *
+ * The apply routine can be called for different Lame parameters lambda, mu and different mean
+ * strain values.
+ *
+ * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+ */
+class LippmannSchwingerSolver : public LippmannSchwingerSolverBase
+{
+public:
+    /** @brief Constructor
+     *
+     * Create a new isotropic Lippmann-Schwinger solver instance, initialise all
+     * isotropic state variables and allocate required memory.
+     *
+     * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+     *
+     * @param[in] grid_spec specification of computational grid
+     * @param[in] verbose verbosity level: 0 = no output, 1 = print summary,
+     *                    >1 = print at every iteration
+     */
+    LippmannSchwingerSolver(const GridSpec grid_spec, const int verbose = 0);
+
+    /** @brief Destructor */
+    ~LippmannSchwingerSolver();
+
+    /** @brief Solve for a given set of Lame parameters and mean strain
+     *
+     * Apply the Lippmann-Schwinger iteration for a given set of Lame parameters
+     * lambda, mu and mean strain field bar(epsilon). The equation is solved to a
+     * given tolerance on the normalised divergence, as defined in
+     * relative_divergence_norm().
+     *
+     * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+     *
+     * @param[in] lambda Lame parameter lambda (host array, size nvoxels)
+     * @param[in] mu Lame parameter mu (host array, size nvoxels)
+     * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
+     * @param[out] sigma resulting stress (host array, size 6*nvoxels)
+     * @param[in] rtol relative tolerance on normalised divergence
+     * @param[in] atol absolute tolerance on normalised divergence
+     * @param[in] maxiter maximum number of iterations
+     */
+    int apply(float *__restrict__ lambda,
+              float *__restrict__ mu,
+              float *__restrict__ epsilon_bar,
+              float *__restrict__ epsilon,
+              float *__restrict__ sigma,
+              float rtol, float atol, int maxiter = 100);
+
+private:
+    /** @brief Lame parameter lambda on device */
+    float *dev_lambda;
+    /** @brief Lame parameter mu on device */
+    float *dev_mu;
 };
 
 /** @brief Solve linear elasticity problem with Lippmann-Schwinger iteration
