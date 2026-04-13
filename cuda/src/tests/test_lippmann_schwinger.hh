@@ -179,4 +179,82 @@ TEST_P(LippmannSchwingerTest, TestConvergence)
   EXPECT_LT(div_sigma_nrm / sigma_avg_nrm, 1.E-2);
 }
 
+/** @brief Check anisotropic and isotropic solvers agree for isotropic materials
+ *
+ * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+ */
+TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
+{
+  size_t nvoxels = grid_spec.number_of_voxels();
+  float *mu = nullptr;
+  float *lambda = nullptr;
+  float *stiffness = nullptr;
+  float *epsilon_isotropic = nullptr;
+  float *sigma_isotropic = nullptr;
+  float *epsilon_anisotropic = nullptr;
+  float *sigma_anisotropic = nullptr;
+  float epsilon_bar[6] = {1.0, 0.4, 0.3, 0.1, -0.4, 0.7};
+  CUDA_CHECK(cudaMallocHost(&mu, nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&lambda, nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&stiffness, 21 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&epsilon_isotropic, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&sigma_isotropic, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&epsilon_anisotropic, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&sigma_anisotropic, 6 * nvoxels * sizeof(float)));
+
+  std::default_random_engine rng;
+  std::uniform_real_distribution<float> distribution(0.8, 0.9);
+  std::generate(mu, mu + nvoxels, [&]()
+                { return distribution(rng); });
+  std::generate(lambda, lambda + nvoxels, [&]()
+                { return distribution(rng); });
+
+  for (size_t ell = 0; ell < nvoxels; ++ell)
+  {
+    float lambda_ell = lambda[ell];
+    float mu_ell = mu[ell];
+    stiffness[0 * nvoxels + ell] = 2 * mu_ell + lambda_ell;
+    stiffness[1 * nvoxels + ell] = 2 * mu_ell + lambda_ell;
+    stiffness[2 * nvoxels + ell] = 2 * mu_ell + lambda_ell;
+    stiffness[3 * nvoxels + ell] = mu_ell;
+    stiffness[4 * nvoxels + ell] = mu_ell;
+    stiffness[5 * nvoxels + ell] = mu_ell;
+    stiffness[6 * nvoxels + ell] = lambda_ell;
+    stiffness[7 * nvoxels + ell] = lambda_ell;
+    stiffness[8 * nvoxels + ell] = lambda_ell;
+    for (int alpha = 9; alpha < 21; ++alpha)
+      stiffness[alpha * nvoxels + ell] = 0.0f;
+  }
+
+  LippmannSchwingerSolver isotropic_solver(grid_spec);
+  LippmannSchwingerAnisotropicSolver anisotropic_solver(grid_spec);
+  float rtol = 1.E-20;
+  float atol = 1.E-4;
+  int iter_isotropic = isotropic_solver.apply(lambda, mu, epsilon_bar,
+                                              epsilon_isotropic, sigma_isotropic,
+                                              rtol, atol);
+  int iter_anisotropic = anisotropic_solver.apply(stiffness, epsilon_bar,
+                                                  epsilon_anisotropic, sigma_anisotropic,
+                                                  rtol, atol);
+
+  float rel_diff_epsilon = relative_difference(epsilon_anisotropic,
+                                               epsilon_isotropic,
+                                               6 * nvoxels);
+  float rel_diff_sigma = relative_difference(sigma_anisotropic,
+                                             sigma_isotropic,
+                                             6 * nvoxels);
+
+  CUDA_CHECK(cudaFreeHost(mu));
+  CUDA_CHECK(cudaFreeHost(lambda));
+  CUDA_CHECK(cudaFreeHost(stiffness));
+  CUDA_CHECK(cudaFreeHost(epsilon_isotropic));
+  CUDA_CHECK(cudaFreeHost(sigma_isotropic));
+  CUDA_CHECK(cudaFreeHost(epsilon_anisotropic));
+  CUDA_CHECK(cudaFreeHost(sigma_anisotropic));
+
+  EXPECT_LE(abs(iter_anisotropic - iter_isotropic), 1);
+  EXPECT_NEAR(rel_diff_epsilon, 0.0, 2.E-5);
+  EXPECT_NEAR(rel_diff_sigma, 0.0, 2.E-5);
+}
+
 #endif // TEST_LIPPMANN_SCHWINGER_HH
