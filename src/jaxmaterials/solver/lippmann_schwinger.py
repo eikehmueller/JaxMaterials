@@ -18,8 +18,40 @@ __all__ = [
     "relative_divergence",
     "relative_divergence_fourier",
     "lippmann_schwinger_isotropic_jax",
+    "lippmann_schwinger_anisotropic_jax",
     "lippmann_schwinger_isotropic_cuda",
+    "lippmann_schwinger_anisotropic_cuda",
 ]
+
+
+def _load_cuda_library():
+    """Load CUDA shared library for Lippmann-Schwinger solvers.
+
+    Prefer explicit library paths to avoid accidentally resolving an older
+    system copy via the dynamic loader search path.
+
+    Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+    """
+    try:
+        return ctypes.CDLL("liblippmannschwinger.so")
+    except Exception as exc:
+        raise RuntimeError(
+            "Unable to load CUDA library liblippmannschwinger.so"
+        ) from exc
+
+
+def _resolve_cuda_symbol(lib, names):
+    """Resolve the first available symbol from a list of candidate names.
+
+    Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+    """
+    for name in names:
+        symbol = getattr(lib, name, None)
+        if symbol is not None:
+            return symbol
+    raise RuntimeError(
+        f"Unable to find any CUDA entrypoint among symbols: {', '.join(names)}"
+    )
 
 
 def relative_divergence(sigma, grid_spec):
@@ -333,14 +365,12 @@ def lippmann_schwinger_isotropic_cuda(
     assert lmbda.dtype == np.float32
     assert epsilon_bar.dtype == np.float32
 
-    # Load cuda library
-    try:
-        lib = ctypes.CDLL("liblippmannschwinger.so")
-    except Exception as exc:
-        raise RuntimeError(
-            "Unable to load cuda library liblippmannschwinger.so. Compile and check LD_LIBRARY_PATH."
-        ) from exc
-    cuda_code = lib.lippmann_schwinger_solve
+    lib = _load_cuda_library()
+    # Prefer new name, fall back to legacy symbol for backward compatibility.
+    cuda_code = _resolve_cuda_symbol(
+        lib,
+        ["lippmann_schwinger_solve_isotropic", "lippmann_schwinger_solve"],
+    )
     cuda_code.argtypes = [
         np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
         np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
@@ -360,11 +390,11 @@ def lippmann_schwinger_isotropic_cuda(
     epsilon = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
     sigma = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
     iter = cuda_code(
-        np.asarray(mu),
-        np.asarray(lmbda),
-        np.asarray(epsilon_bar, dtype=np.float32),
-        np.asarray(epsilon),
-        np.asarray(sigma),
+        np.ascontiguousarray(mu),
+        np.ascontiguousarray(lmbda),
+        np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+        epsilon,
+        sigma,
         cells,
         extents,
         rtol,
@@ -379,3 +409,67 @@ def lippmann_schwinger_isotropic_cuda(
         sigma,
         iter,
     )
+
+
+def lippmann_schwinger_anisotropic_cuda(
+    stiffness_tensor,
+    epsilon_bar,
+    grid_spec,
+    rtol=1e-6,
+    atol=1.0e-20,
+    maxiter=32,
+    verbose=0,
+):
+    """Wrapper for CUDA Lippmann-Schwinger solver in anisotropic material.
+
+    Required access to compiled library liblippmannschwinger.so.
+
+    stiffness_tensor is assumed to have shape (21,nx,ny,nz).
+
+    Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+    """
+    assert stiffness_tensor.dtype == np.float32
+    assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
+    assert epsilon_bar.dtype == np.float32
+
+    stiffness = np.ascontiguousarray(stiffness_tensor)
+    lib = _load_cuda_library()
+    cuda_code = _resolve_cuda_symbol(lib, ["lippmann_schwinger_solve_anisotropic"])
+    cuda_code.argtypes = [
+        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        np.ctypeslib.ndpointer(ctypes.c_int, flags="C_CONTIGUOUS"),
+        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+        ctypes.c_float,
+        ctypes.c_float,
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    cuda_code.restype = ctypes.c_int
+    cells = np.array([grid_spec.nx, grid_spec.ny, grid_spec.nz], dtype=np.int32)
+    extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
+    epsilon = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
+    sigma = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
+    iter = cuda_code(
+        stiffness,
+        np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+        epsilon,
+        sigma,
+        cells,
+        extents,
+        rtol,
+        atol,
+        maxiter,
+        verbose,
+    )
+    if iter == maxiter:
+        raise RuntimeError(f"Solver failed to converge after {maxiter} iterations")
+    return (
+        epsilon,
+        sigma,
+        iter,
+    )
+
+

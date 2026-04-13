@@ -2,7 +2,7 @@ include(GoogleTest)
 add_subdirectory(tests)
 
 # Lippmann Schwinger solver library
-add_library(lippmannschwinger STATIC)
+add_library(lippmannschwinger SHARED)
 
 target_sources(lippmannschwinger
     PRIVATE        
