@@ -134,6 +134,27 @@ LippmannSchwingerSolver::~LippmannSchwingerSolver()
   CUDA_CHECK(cudaFree(dev_mu));
 }
 
+/* Constructor */
+LippmannSchwingerAnisotropicSolver::LippmannSchwingerAnisotropicSolver(const GridSpec grid_spec, const int verbose)
+    : LippmannSchwingerSolverBase(grid_spec, verbose)
+{
+  size_t nvoxels = this->grid_spec.number_of_voxels();
+  size_t nmodes = this->grid_spec.number_of_modes();
+  CUDA_CHECK(cudaMalloc(&dev_stiffness, 21 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_stiffness_tensor0, 21 * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_acoustic_tensor, 9 * nmodes * sizeof(float)));
+  CUDA_CHECK(cudaMalloc(&dev_inverse_acoustic_tensor, 9 * nmodes * sizeof(float)));
+}
+
+/* Destructor */
+LippmannSchwingerAnisotropicSolver::~LippmannSchwingerAnisotropicSolver()
+{
+  CUDA_CHECK(cudaFree(dev_stiffness));
+  CUDA_CHECK(cudaFree(dev_stiffness_tensor0));
+  CUDA_CHECK(cudaFree(dev_acoustic_tensor));
+  CUDA_CHECK(cudaFree(dev_inverse_acoustic_tensor));
+}
+
 /* apply solver */
 int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
                                    float *epsilon, float *sigma,
@@ -204,15 +225,111 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
 
   return iter;
 }
+
+/* apply solver (anisotropic) */
+int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
+                                              float *epsilon_bar,
+                                              float *epsilon,
+                                              float *sigma,
+                                              float rtol, float atol, int maxiter)
+{
+  size_t nvoxels = grid_spec.number_of_voxels();
+
+  // Build homogeneous reference stiffness tensor from spatial min/max values.
+  float stiffness_tensor0[21];
+  for (int alpha = 0; alpha < 21; ++alpha)
+  {
+    float minval = stiffness[alpha * nvoxels];
+    float maxval = stiffness[alpha * nvoxels];
+    for (size_t ell = 1; ell < nvoxels; ++ell)
+    {
+      float value = stiffness[alpha * nvoxels + ell];
+      minval = std::min(minval, value);
+      maxval = std::max(maxval, value);
+    }
+    stiffness_tensor0[alpha] = 0.5f * (minval + maxval);
+  }
+
+  // Copy material data to device and construct anisotropic Fourier operator.
+  CUDA_CHECK(cudaMemcpy(dev_stiffness, stiffness, 21 * nvoxels * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(dev_epsilon_bar, epsilon_bar, 6 * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(dev_stiffness_tensor0, stiffness_tensor0, 21 * sizeof(float), cudaMemcpyHostToDevice));
+  get_anisotropic_acoustic_tensor_device(dev_acoustic_tensor, dev_xi_zero,
+                                         dev_stiffness_tensor0, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+  get_inverse_anisotropic_acoustic_tensor_device(dev_inverse_acoustic_tensor,
+                                                 dev_acoustic_tensor,
+                                                 dev_xi_zero, grid_spec);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Set average value of epsilon.
+  set_epsilon_bar(dev_epsilon, dev_epsilon_bar);
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+  // Main Lippmann-Schwinger loop.
+  float rel_div_norm = 0;
+  float rel_div_norm0;
+  int iter;
+  if (verbose == 2)
+  {
+    printf("==== Lippmann Schwinger anisotropic solver ====\n");
+    printf("  iteration           ||r||   ||r||/||r_0||\n");
+  }
+  for (iter = 0; iter < maxiter; ++iter)
+  {
+    /* ==== STEP 1 ==== Compute stress: sigma_{ij} = C_{ijkl} epsilon_{kl} */
+    compute_stress_anisotropic(dev_epsilon, dev_sigma, dev_stiffness, grid_spec);
+    /* ==== STEP 2 ==== Fourier transform:  hat(sigma) = FFT(sigma) */
+    CUFFT_CHECK(cufftExecR2C(plan_forward, dev_sigma, dev_sigma_hat));
+    CUDA_CHECK(cudaDeviceSynchronize());
+    /* ==== STEP 3 ==== Check convergence */
+    rel_div_norm = relative_divergence_norm(dev_sigma_hat);
+    if (iter == 0)
+      rel_div_norm0 = rel_div_norm;
+    if (verbose > 1)
+      printf("     %4d          %8.4e  %8.4e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+    if (rel_div_norm < max(rtol * rel_div_norm0, atol))
+      break;
+    /* ==== STEP 4 ==== Solve in Fourier space: hat(r) = -Gamma^{0} hat(sigma) */
+    fourier_solve_anisotropic_device(dev_sigma_hat, dev_residual_hat,
+                                     dev_inverse_acoustic_tensor,
+                                     dev_xi_zero, grid_spec);
+    CUDA_CHECK(cudaDeviceSynchronize());
+    /* ==== STEP 5 ==== Inverse Fourier transform: r = FFT^{-1}(hat(r)) */
+    CUFFT_CHECK(cufftExecC2R(plan_inverse, dev_residual_hat, dev_residual));
+    CUDA_CHECK(cudaDeviceSynchronize());
+    /* ==== STEP 6 ==== Update solution: epsilon -> epsilon + r */
+    increment_solution(dev_epsilon, dev_residual);
+    CUDA_CHECK(cudaDeviceSynchronize());
+  }
+  if (verbose > 0)
+  {
+    if (verbose == 1)
+      printf("  LS anisotropic ");
+    else
+      printf("  ");
+    if (iter < maxiter)
+      printf("converged");
+    else
+      printf("failed to converge");
+    printf(" after %4d its, ||r|| = %6.3e ||r||/||r_0|| = %6.3e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+  }
+
+  // Copy solution back to host.
+  CUDA_CHECK(cudaMemcpy(epsilon, dev_epsilon, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(sigma, dev_sigma, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
+
+  return iter;
+}
 /* Lippmann Schwinger iteration */
 extern "C"
 {
-  int lippmann_schwinger_solve(float *lambda, float *mu, float *epsilon_bar,
-                               float *epsilon, float *sigma,
-                               int *voxels,
-                               float *extents,
-                               float rtol, float atol, int maxiter,
-                               int verbose)
+  int lippmann_schwinger_solve_isotropic(float *lambda, float *mu, float *epsilon_bar,
+                                         float *epsilon, float *sigma,
+                                         int *voxels,
+                                         float *extents,
+                                         float rtol, float atol, int maxiter,
+                                         int verbose)
   {
     GridSpec grid_spec;
     grid_spec.nx = voxels[0];
@@ -223,6 +340,30 @@ extern "C"
     grid_spec.Lz = extents[2];
     LippmannSchwingerSolver solver(grid_spec, verbose);
     int iter = solver.apply(lambda, mu, epsilon_bar,
+                            epsilon, sigma,
+                            rtol, atol, maxiter);
+    return iter;
+  }
+
+  int lippmann_schwinger_solve_anisotropic(float *stiffness,
+                                           float *epsilon_bar,
+                                           float *epsilon,
+                                           float *sigma,
+                                           int *voxels,
+                                           float *extents,
+                                           float rtol, float atol,
+                                           int maxiter,
+                                           int verbose)
+  {
+    GridSpec grid_spec;
+    grid_spec.nx = voxels[0];
+    grid_spec.ny = voxels[1];
+    grid_spec.nz = voxels[2];
+    grid_spec.Lx = extents[0];
+    grid_spec.Ly = extents[1];
+    grid_spec.Lz = extents[2];
+    LippmannSchwingerAnisotropicSolver solver(grid_spec, verbose);
+    int iter = solver.apply(stiffness, epsilon_bar,
                             epsilon, sigma,
                             rtol, atol, maxiter);
     return iter;

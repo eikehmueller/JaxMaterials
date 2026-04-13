@@ -169,6 +169,66 @@ private:
     float *dev_mu;
 };
 
+/** @brief Lippmann Schwinger solver for anisotropic materials
+ *
+ * The apply routine can be called for different stiffness tensors and mean
+ * strain values.
+ *
+ * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+ */
+class LippmannSchwingerAnisotropicSolver : public LippmannSchwingerSolverBase
+{
+public:
+    /** @brief Constructor
+     *
+     * Create a new anisotropic Lippmann-Schwinger solver instance, initialise
+     * anisotropic state variables and allocate required memory.
+     *
+     * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+     *
+     * @param[in] grid_spec specification of computational grid
+     * @param[in] verbose verbosity level: 0 = no output, 1 = print summary,
+     *                    >1 = print at every iteration
+     */
+    LippmannSchwingerAnisotropicSolver(const GridSpec grid_spec, const int verbose = 0);
+
+    /** @brief Destructor */
+    ~LippmannSchwingerAnisotropicSolver();
+
+    /** @brief Solve for a given stiffness tensor and mean strain
+     *
+     * Apply the Lippmann-Schwinger iteration for a given stiffness tensor C and
+     * mean strain field bar(epsilon). The equation is solved to a given
+     * tolerance on the normalised divergence, as defined in
+     * relative_divergence_norm().
+     *
+     * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+     *
+     * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
+     * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
+     * @param[out] sigma resulting stress (host array, size 6*nvoxels)
+     * @param[in] rtol relative tolerance on normalised divergence
+     * @param[in] atol absolute tolerance on normalised divergence
+     * @param[in] maxiter maximum number of iterations
+     */
+    int apply(float *__restrict__ stiffness,
+              float *__restrict__ epsilon_bar,
+              float *__restrict__ epsilon,
+              float *__restrict__ sigma,
+              float rtol, float atol, int maxiter = 100);
+
+private:
+    /** @brief stiffness tensor on device */
+    float *dev_stiffness;
+    /** @brief reference stiffness tensor on device */
+    float *dev_stiffness_tensor0;
+    /** @brief anisotropic acoustic tensor on device */
+    float *dev_acoustic_tensor;
+    /** @brief inverse anisotropic acoustic tensor on device */
+    float *dev_inverse_acoustic_tensor;
+};
+
 /** @brief Solve linear elasticity problem with Lippmann-Schwinger iteration
  *
  * Provides an interface which can be called externally
@@ -189,12 +249,41 @@ private:
  */
 extern "C"
 {
-    int lippmann_schwinger_solve(float *lambda, float *mu, float *epsilon_bar,
-                                 float *epsilon, float *sigma,
-                                 int *voxels,
-                                 float *extents,
-                                 float rtol, float atol, int maxiter,
-                                 int verbose);
+    int lippmann_schwinger_solve_isotropic(float *lambda, float *mu, float *epsilon_bar,
+                                           float *epsilon, float *sigma,
+                                           int *voxels,
+                                           float *extents,
+                                           float rtol, float atol, int maxiter,
+                                           int verbose);
+
+    /** @brief Solve anisotropic linear elasticity problem with Lippmann-Schwinger iteration
+     *
+     * Provides an anisotropic interface which can be called externally.
+     *
+     * @note Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
+     *
+     * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
+     * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
+     * @param[out] sigma resulting stress (host array, size 6*nvoxels)
+     * @param[in] voxels number of voxels (nx,ny,nz)
+     * @param[in] extents size of domain in each direction (Lx,Ly,Lz)
+     * @param[in] rtol relative tolerance on normalised divergence
+     * @param[in] atol absolute tolerance on normalised divergence
+     * @param[in] maxiter maximum number of iterations
+     * @param[in] verbose verbosity level
+     *
+     * Returns the actual number of iterations.
+     */
+    int lippmann_schwinger_solve_anisotropic(float *stiffness,
+                                             float *epsilon_bar,
+                                             float *epsilon,
+                                             float *sigma,
+                                             int *voxels,
+                                             float *extents,
+                                             float rtol, float atol,
+                                             int maxiter,
+                                             int verbose);
 }
 
 #endif // LIPPMANN_SCHWINGER_HH
