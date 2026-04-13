@@ -29,7 +29,7 @@ Machine learning surrogate models can reduce runtime but require:
 
 ## Achievements
 
-The following figures compares the performance of the (an-) isotropic JAX and CUDA solvers when applied to an anisotropic material.
+The following figures compares the performance of the (an-) isotropic JAX and CUDA solvers when applied to an isotropic material.
 
 ![Performance of JAX and CUDA solvers](figures/performance.png)
 
