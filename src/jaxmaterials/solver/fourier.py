@@ -210,8 +210,11 @@ def get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
     """
     K0 = get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
     K0_transpose = jnp.transpose(K0, axes=(2, 3, 4, 0, 1))
-    N0_transpose = jnp.nan_to_num(jnp.linalg.inv(K0_transpose), posinf=0, neginf=0)
     xi_nrm = (xizero[0] ** 2 + xizero[1] ** 2 + xizero[2] ** 2) > 1.0e-8
+    # Avoid inverting a singular zero-frequency block, which can produce NaN gradients.
+    eye3 = jnp.eye(3, dtype=K0_transpose.dtype)
+    K0_safe = jnp.where(xi_nrm[..., None, None], K0_transpose, eye3)
+    N0_transpose = jnp.linalg.inv(K0_safe)
     return xi_nrm * jnp.transpose(N0_transpose, axes=(3, 4, 0, 1, 2))
 
 
