@@ -23,7 +23,7 @@ Machine learning surrogate models can reduce runtime but require:
 - Differentiable materials models implemented in JAX  
 - Automatic differentiation for optimisation and ML training  
 - GPU acceleration of differentiable solvers via JAX
-- Highly efficient CUDA solvers for data generation and inference
+- Bespoke CUDA solvers for data generation and inference
 - Modular design for extending models and components
 - Compatible with ML pipelines and optimisation frameworks  
 

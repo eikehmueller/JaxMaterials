@@ -1,17 +1,16 @@
-time [evaluation   (isotropic, Jax)] =     4.48 s
+time [evaluation   (isotropic, Jax)] =    0.068 s
   number of iterations = 5
 
-time [evaluation (anisotropic, Jax)] =     4.52 s
+time [evaluation (anisotropic, Jax)] =    0.106 s
   number of iterations = 5
 difference =  1.8725913e-07
 
-time [evaluation  (isotropic, CUDA)] =     0.04 s
+time [evaluation  (isotropic, CUDA)] =    0.032 s
   number of iterations = 5
 
-time [evaluation  (anisotropic, CUDA)] =     0.15 s
+time [evaluation  (anisotropic, CUDA)] =    0.120 s
   number of iterations = 5
 difference =  1.6990252e-07
 
-time [gradient (isotropic)] =     6.11 s
-time [gradient (anisotropic)] =     7.24 s
-
+time [gradient (isotropic)] =    0.472 s
+time [gradient (anisotropic)] =    0.555 s

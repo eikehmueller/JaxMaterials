@@ -54,6 +54,7 @@ dtype = jnp.float32
 rtol = 1e-20
 atol = 1e-4
 depth = 0
+repeat = 10
 
 grid_spec = GridSpec(nx, ny, nz, Lx, Ly, Lz)
 mu, lmbda = initialise_material(grid_spec, dtype=dtype)
@@ -64,65 +65,43 @@ stiffness_tensor = jnp.stack(
 # E_mean = jnp.array([1.0, 2.0, 0.0, 0.0, 0.0, 0.0])
 E_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
-with measure_time("evaluation   (isotropic, Jax)"):
-    epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_jax(
-        mu,
-        lmbda,
-        E_mean,
-        grid_spec,
-        maxiter=32,
-        depth=depth,
-        rtol=rtol,
-        atol=atol,
-    )
-    epsilon_isotropic.block_until_ready()
+with measure_time("evaluation   (isotropic, Jax)", warmup=True, repeat=repeat) as run:
+
+    def body():
+        epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_jax(
+            mu,
+            lmbda,
+            E_mean,
+            grid_spec,
+            maxiter=32,
+            depth=depth,
+            rtol=rtol,
+            atol=atol,
+        )
+        epsilon_isotropic.block_until_ready()
+        return epsilon_isotropic, iter
+
+    epsilon_isotropic, iter = run(body)
+
 print(f"  number of iterations = {iter}")
 print()
 
-with measure_time("evaluation (anisotropic, Jax)"):
-    epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_jax(
-        stiffness_tensor,
-        E_mean,
-        grid_spec,
-        maxiter=32,
-        depth=depth,
-        rtol=rtol,
-        atol=atol,
-    )
-    epsilon_anisotropic.block_until_ready()
-print(f"  number of iterations = {iter}")
-print(
-    "difference = ",
-    jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
-    / jnp.linalg.norm(epsilon_isotropic),
-)
-print()
+with measure_time("evaluation (anisotropic, Jax)", repeat=repeat, warmup=True) as run:
 
+    def body():
+        epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_jax(
+            stiffness_tensor,
+            E_mean,
+            grid_spec,
+            maxiter=32,
+            depth=depth,
+            rtol=rtol,
+            atol=atol,
+        )
+        epsilon_anisotropic.block_until_ready()
+        return epsilon_anisotropic, iter
 
-with measure_time("evaluation  (isotropic, CUDA)"):
-    epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
-        mu,
-        lmbda,
-        E_mean,
-        grid_spec,
-        maxiter=32,
-        rtol=rtol,
-        atol=atol,
-        verbose=0,
-    )
-print(f"  number of iterations = {iter}")
-print()
-
-with measure_time("evaluation  (anisotropic, CUDA)"):
-    epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
-        stiffness_tensor,
-        E_mean,
-        grid_spec,
-        maxiter=32,
-        rtol=rtol,
-        atol=atol,
-        verbose=0,
-    )
+    epsilon_anisotropic, iter = run(body)
 print(f"  number of iterations = {iter}")
 print(
     "difference = ",
@@ -131,14 +110,67 @@ print(
 )
 print()
 
-with measure_time("gradient (isotropic)"):
-    grad_epsilon = jax.jacfwd(lippmann_schwinger_isotropic_jax, argnums=[2])
-    dg = grad_epsilon(mu, lmbda, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol)
-    dg[0][0].block_until_ready()
-with measure_time("gradient (anisotropic)"):
-    grad_epsilon = jax.jacfwd(lippmann_schwinger_anisotropic_jax, argnums=[1])
-    dg = grad_epsilon(
-        stiffness_tensor, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol
-    )
-    dg[0][0].block_until_ready()
+
+with measure_time("evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True) as run:
+
+    def body():
+        epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
+            mu,
+            lmbda,
+            E_mean,
+            grid_spec,
+            maxiter=32,
+            rtol=rtol,
+            atol=atol,
+            verbose=0,
+        )
+        return epsilon_isotropic, iter
+
+    epsilon_isotropic, iter = run(body)
+print(f"  number of iterations = {iter}")
+print()
+
+with measure_time("evaluation  (anisotropic, CUDA)", repeat=repeat, warmup=True) as run:
+
+    def body():
+        epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
+            stiffness_tensor,
+            E_mean,
+            grid_spec,
+            maxiter=32,
+            rtol=rtol,
+            atol=atol,
+            verbose=0,
+        )
+        return epsilon_anisotropic, iter
+
+    epsilon_anisotropic, iter = run(body)
+print(f"  number of iterations = {iter}")
+print(
+    "difference = ",
+    jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
+    / jnp.linalg.norm(epsilon_isotropic),
+)
+print()
+
+with measure_time("gradient (isotropic)", repeat=repeat, warmup=True) as run:
+
+    def body():
+        grad_epsilon = jax.jacfwd(lippmann_schwinger_isotropic_jax, argnums=[2])
+        dg = grad_epsilon(
+            mu, lmbda, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol
+        )
+        dg[0][0].block_until_ready()
+
+    run(body)
+with measure_time("gradient (anisotropic)", repeat=repeat, warmup=True) as run:
+
+    def body():
+        grad_epsilon = jax.jacfwd(lippmann_schwinger_anisotropic_jax, argnums=[1])
+        dg = grad_epsilon(
+            stiffness_tensor, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol
+        )
+        dg[0][0].block_until_ready()
+
+    run(body)
 print()

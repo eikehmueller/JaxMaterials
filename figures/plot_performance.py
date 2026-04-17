@@ -118,22 +118,12 @@ def plot_performance(times: dict[str, float], output: Path) -> None:
         cuda_time = values[cuda_idx]
         y_arrow = y_pos[cuda_idx] - 0.42
         speedup = jax_time / cuda_time
-
-        arrow = FancyArrowPatch(
-            (cuda_time, y_arrow),
-            (jax_time, y_arrow),
-            arrowstyle="<|-|>",
-            mutation_scale=24,
-            linewidth=8,
-            color="#7a7a7a",
-            zorder=3,
-        )
-        ax.add_patch(arrow)
+        gain = "speedup" if speedup > 1 else "slowdown"
         ax.text(
-            0.5 * (cuda_time + jax_time),
-            y_arrow + 0.3,
-            f"{speedup:.0f}x speedup",
-            ha="center",
+            max(cuda_time, jax_time) + 0.05,
+            y_arrow + 0.0,
+            f"{speedup:.1f}x {gain}",
+            ha="left",
             va="center",
             fontsize=18,
             color="#5f5f5f",
