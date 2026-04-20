@@ -407,7 +407,7 @@ Assume that we have an objective function
 \begin{equation}
     J = J(\varepsilon(\cdot),\sigma(\cdot)).
 \end{equation}
-Define the \textit{partial} functional derivatives of $J$ with respect to strain $\varepsilon(x)$ and stress $\sigma(x) = C(x):\varepsilon(x)$ as
+Define the \textit{partial} functional derivatives of $J$ with respect to strain $\varepsilon(x)$ and stress $\sigma(x) = C(x)\varepsilon(x)$ as
 \begin{xalignat}{2}
     E(x) &:= \frac{\delta J}{\delta \varepsilon(x)}, &
     S(x) &:= \frac{\delta J}{\delta \sigma(x)},\label{eqn:J_derivatives}
@@ -427,11 +427,11 @@ in the isotropic case.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 To express the derivatives in \eqref{eqn:func_deriv_anisotropic}, \eqref{eqn:func_deriv_isotropic} in terms of the given $E(x)$, $S(x)$ with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation
 \begin{equation}
-\varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) : \tau(y)\;dy
+\varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) \tau(y)\;dy
 \end{equation}
-with $\tau(x) = \left(C(x)-C^0(x)\right):\varepsilon(x)$. This can be written in condensed form as $\varepsilon = \overline{\varepsilon}-\Gamma^0 * \left((C-C^0):\varepsilon\right)$ Define the residual operator
+with $\tau(x) = \left(C(x)-C^0(x)\right)\varepsilon(x)$. This can be written in condensed form as $\varepsilon = \overline{\varepsilon}-\Gamma^0 * \left((C-C^0)\varepsilon\right)$ Define the residual operator
 \begin{equation}
-    \mathcal{A}(\varepsilon;C,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left((C-C^0) : \varepsilon\right) - \overline{\varepsilon}
+    \mathcal{A}(\varepsilon;C,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left((C-C^0) \varepsilon\right) - \overline{\varepsilon}
 \end{equation}
 and introduce the Lagrangian
 \begin{equation}
@@ -444,25 +444,25 @@ The Lagrange multiplier $\Lambda(x)$ has been introduced to make $\mathcal{L}$ i
 To compute the derivative of the integral on the right hand side of \eqref{eqn:lagrangian}, observe that
 \begin{equation}
     \begin{aligned}
-        \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right):\varepsilon(y)\;dy\;dz\right)\\
+        \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right)\varepsilon(y)\;dy\;dz\right)\\
 &=\Lambda(x) + \int_\Omega \Lambda(z):\Gamma^0(z-x)\left(C(x)-C^0\right)\;dz \\
-&=\Lambda(x) +  \left(C(x)-C^0\right)\int_\Omega  \Gamma^0(x-z) : \Lambda(z)\;dz
+&=\Lambda(x) +  \left(C(x)-C^0\right):\int_\Omega  \Gamma^0(x-z) \Lambda(z)\;dz
     \end{aligned}
 \end{equation}
-where the last identity follows from $\Gamma^0(-x) = \Gamma^0(-x)$ and $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$. This leads to
+where the last identity follows from $\Gamma^0(-x) = \Gamma^0(-x)$, $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$ and $C_{ijk\ell}=C_{k\ell ij}$. This leads to
 \begin{equation}
 0 = \frac{\delta\mathcal{L}}{\delta\varepsilon} = \frac{\delta \mathcal{J}}{\delta \varepsilon} + \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right)
 \end{equation}
-Note that the derivatives in \eqref{eqn:J_derivatives} are \textit{partial} derivatives. Using the definition of the strain $\sigma(x) = C(x):\varepsilon(x)$, the \textit{total} derivative which appears on the right hand side of the adjoint equation is 
+Note that the derivatives in \eqref{eqn:J_derivatives} are \textit{partial} derivatives. Using the definition of the stress $\sigma(x) = C(x)\varepsilon(x)$, the \textit{total} derivative which appears on the right hand side of the adjoint equation is 
 \begin{equation}
     \begin{aligned}
-\frac{\delta \mathcal{J}}{\delta \varepsilon(x)} &= \frac{\delta J}{\delta \varepsilon(x)}+ C(x): \frac{\delta J}{\delta \sigma(x)}\\
-&=E(x)+ C(x): S(x).
+\frac{\delta \mathcal{J}}{\delta \varepsilon(x)} &= \frac{\delta J}{\delta \varepsilon(x)}+ C(x)\frac{\delta J}{\delta \sigma(x)}\\
+&=E(x)+ C(x)S(x).
     \end{aligned}
 \end{equation}
 Hence, the adjoint equation is
 \begin{equation}
-    \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right) = \mathcal{E}\qquad\text{with $\mathcal{E}(x):= -\left(E(x)+ C(x): S(x)\right)$}
+    \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right) = \mathcal{E}\qquad\text{with $\mathcal{E}(x):= -\left(E(x)+ C(x)S(x)\right)$}
 \end{equation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Derivatives with respect to $C(x)$ and $\overline{\varepsilon}$}
