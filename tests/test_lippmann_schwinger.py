@@ -5,9 +5,9 @@ import jax
 
 
 from jaxmaterials.solver.fourier import get_xi
+from jaxmaterials.solver.backend import relative_divergence, relative_divergence_fourier
+
 from jaxmaterials.solver.lippmann_schwinger import (
-    relative_divergence,
-    relative_divergence_fourier,
     lippmann_schwinger_isotropic_jax,
     lippmann_schwinger_anisotropic_jax,
     lippmann_schwinger_isotropic_cuda,
