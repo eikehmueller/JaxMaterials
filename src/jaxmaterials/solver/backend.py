@@ -16,6 +16,7 @@ __all__ = [
     "relative_divergence",
     "relative_divergence_fourier",
     "_lippmann_schwinger_jax",
+    "_lippmann_schwinger_adjoint_jax",
 ]
 
 
@@ -210,3 +211,96 @@ def _lippmann_schwinger_jax(
     )
 
     return epsilon[0, ...], sigma, iter
+
+
+@jax.jit(static_argnames=["grid_spec", "isotropic", "dtype"])
+def _lippmann_schwinger_adjoint_jax(
+    material_properties,
+    f_rhs,
+    grid_spec,
+    isotropic,
+    rtol,
+    atol,
+    maxiter,
+    dtype,
+):
+    """Lippmann Schwinger iteration for adjoint equation of linear elasticity
+
+    Computational routine which should not be called directly.
+    The dictionary 'material_properties' is of the form {"lambda":lambda,"mu":mu} for an
+    isotropic material and of the form {"stiffness_tensor":C} for an anisotropic material.
+
+    :arg material_properties: dictionary with material properties
+    :arg f_rhs: right hand side function
+    :arg grid_spec: grid specification as a namedtuple
+    :arg isotropic: isotropic material?
+    :arg rtol: relative tolerance on normalised stress divergence to check convergence
+    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg maxiter: maximal number of iterations
+    :arg dtype: data type
+    """
+    # Fourier vectors
+    xizero = get_xizero(grid_spec, dtype=dtype)
+    # reference values of Lame parameter
+    if isotropic:
+        mu = material_properties["mu"]
+        lmbda = material_properties["lambda"]
+        mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
+        lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
+    else:
+        stiffness_tensor = material_properties["stiffness_tensor"]
+        stiffness_tensor0 = (
+            1
+            / 2
+            * (
+                jnp.min(stiffness_tensor, axis=(1, 2, 3))
+                + jnp.max(stiffness_tensor, axis=(1, 2, 3))
+            )
+        )
+        N_ref = get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
+
+    # storage for adjoint solution, array of shape (6,Nx,Ny,Nz)
+    Lambda = f_rhs
+    increment_nrm = jnp.linalg.norm(Lambda)
+
+    def exit_condition(state):
+        """Check exit condition
+
+        :arg state: current iteration state (epsilon, residual, sigma, A, iter, rel_error, rel_error_0)
+        """
+        Lambda, increment_nrm, iter = state
+        nrm = jnp.linalg.norm(Lambda)
+        return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (iter < maxiter)
+
+    def loop_body(state):
+        """Update strain, residual and stress according to update rule
+
+        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, iter, rel_error)
+        """
+        Lambda, increment_nrm, iter = state
+        dLambda = Lambda
+        Lambda_hat = jnp.fft.fftn(dLambda, axes=(-3, -2, -1))
+        if isotropic:
+            Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
+        else:
+            Theta_hat = fourier_solve_anisotropic(Lambda_hat, N_ref, xizero)
+        Theta = jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
+        if isotropic:
+            Delta = compute_sigma_isotropic(lmbda - lmbda0, mu - mu0, Theta)
+        else:
+            Delta = compute_sigma_anisotropic(
+                stiffness_tensor - stiffness_tensor0[..., None, None, None], Theta
+            )
+        Lambda_prev = Lambda
+        Lambda = f_rhs + Delta
+        iter += 1
+        increment_nrm = jnp.linalg.norm(Lambda - Lambda_prev)
+        return Lambda, increment_nrm, iter
+
+    Lambda, increment_nrm, iter = jax.lax.while_loop(
+        exit_condition,
+        loop_body,
+        init_val=(Lambda, increment_nrm, 0),
+    )
+
+    return Lambda, iter

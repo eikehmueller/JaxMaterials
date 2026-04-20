@@ -3,7 +3,10 @@
 import ctypes
 import numpy as np
 from jax import numpy as jnp
-from jaxmaterials.solver.backend import _lippmann_schwinger_jax
+from jaxmaterials.solver.backend import (
+    _lippmann_schwinger_jax,
+    _lippmann_schwinger_adjoint_jax,
+)
 
 __all__ = [
     "lippmann_schwinger_isotropic_jax",
@@ -115,6 +118,78 @@ def lippmann_schwinger_anisotropic_jax(
         rtol,
         atol,
         depth,
+        maxiter,
+        dtype,
+    )
+
+
+def lippmann_schwinger_adjoint_isotropic_jax(
+    mu,
+    lmbda,
+    f_rhs,
+    grid_spec,
+    rtol=1e-6,
+    atol=1e-20,
+    maxiter=32,
+    dtype=jnp.float32,
+):
+    """Wrapper for adjoint Lippmann Schwinger in isotropic material
+
+    :arg mu: Lame parameter mu
+    :arg lmbda: Lame parameter lambda
+    :arg f_rhs: right hand side field
+    :arg grid_spec: grid specification as a namedtuple
+    :arg rtol: relative tolerance on normalised stress divergence to check convergence
+    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg maxiter: maximal number of iterations
+    :arg dtype: data type
+    """
+    # Check data types
+    assert mu.dtype == dtype
+    assert lmbda.dtype == dtype
+    assert f_rhs.dtype == dtype
+    return _lippmann_schwinger_adjoint_jax(
+        {"mu": mu, "lambda": lmbda},
+        f_rhs,
+        grid_spec,
+        True,
+        rtol,
+        atol,
+        maxiter,
+        dtype,
+    )
+
+
+def lippmann_schwinger_adjoint_anisotropic_jax(
+    stiffness_tensor,
+    f_rhs,
+    grid_spec,
+    rtol=1e-6,
+    atol=1e-20,
+    maxiter=32,
+    dtype=jnp.float32,
+):
+    """Wrapper for adjoint Lippmann Schwinger in anisotropic material
+
+    :arg stiffness_tensor: stiffness tensor,
+    :arg r_rhs: right hand side function
+    :arg grid_spec: grid specification as a namedtuple
+    :arg rtol: relative tolerance on normalised stress divergence to check convergence
+    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg depth: depth of Anderson acceleration
+    :arg maxiter: maximal number of iterations
+    :arg dtype: data type
+    """
+    assert stiffness_tensor.dtype == dtype
+    assert f_rhs.dtype == dtype
+
+    return _lippmann_schwinger_adjoint_jax(
+        {"stiffness_tensor": stiffness_tensor},
+        f_rhs,
+        grid_spec,
+        False,
+        rtol,
+        atol,
         maxiter,
         dtype,
     )
