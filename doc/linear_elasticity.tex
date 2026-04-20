@@ -256,12 +256,12 @@ We can write $\tau_{ij} = C_{ijk\ell}  \varepsilon_{k\ell}$ explicitly as
 \tau_{12} &= 2\mu\varepsilon_{12}.
 \end{aligned}\label{eqn:tau_computation}
 \end{equation}
-This leads to the Lippmann Schwinger iteration shown in \cref{alg:lippmann_schwinger}. Alternatively the method can be written in residual form as in \cref{alg:lippmann_schwinger_residual}.
+This leads to the Lippmann Schwinger iteration shown in \cref{alg:lippmann_schwinger}. Alternatively the method can be written in incremental form as in \cref{alg:lippmann_schwinger_incremental}; this uses the fact that $\Gamma^0*C^0 \varepsilon=\varepsilon$.
 \begin{algorithm}
     \caption{Lippmann Schwinger iteration: simplest formulation}
     \label{alg:lippmann_schwinger}
 \begin{algorithmic}[1]
-    \State{Set $\varepsilon=E$}
+    \State{Set $\varepsilon=\overline{\varepsilon}$}
     \For{$n=0,1,\dots$}
     \State{Compute stress $\sigma_{ij}=C_{ijk\ell}\varepsilon_{k\ell}$ according to \eqref{eqn:tau_computation}}
     \State{Check convergence based on $D^-_j \sigma_{ij}$}
@@ -274,10 +274,10 @@ This leads to the Lippmann Schwinger iteration shown in \cref{alg:lippmann_schwi
 \end{algorithmic}
 \end{algorithm}
 \begin{algorithm}
-    \caption{Lippmann Schwinger iteration: residual formulation}
-    \label{alg:lippmann_schwinger_residual}
+    \caption{Lippmann Schwinger iteration: incremental formulation}
+    \label{alg:lippmann_schwinger_incremental}
 \begin{algorithmic}[1]
-    \State{Set $\varepsilon=E$}
+    \State{Set $\varepsilon=\overline{\varepsilon}$}
     \For{$n=0,1,\dots$}
     \State{Compute stress $\sigma_{ij}=C_{ijk\ell}\varepsilon_{k\ell}$ according to \eqref{eqn:tau_computation}}
     \State{Check convergence based on $D^-_j \sigma_{ij}$}    
@@ -462,8 +462,41 @@ Note that the derivatives in \eqref{eqn:J_derivatives} are \textit{partial} deri
 \end{equation}
 Hence, the adjoint equation is
 \begin{equation}
-    \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right) = \mathcal{E}\qquad\text{with $\mathcal{E}(x):= -\left(E(x)+ C(x)S(x)\right)$}
+    \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right) = \mathcal{E}\qquad\text{with $\mathcal{E}(x):= -\left(E(x)+ C(x)S(x)\right)$}\label{eqn:adjoint_equation}
 \end{equation}
+The Lippmann-Schwinger iteration for solving the adjoint equation in \eqref{eqn:adjoint_equation} is shown in \cref{alg:lippmann_schwinger_adjoint}. Alternatively one can use the fact that $C^0\Gamma^0*\Lambda=\Lambda$ to write the method in the incremental form shown in \cref{alg:lippmann_schwinger_adjoint_incremental}.
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (simplest form)}
+    \label{alg:lippmann_schwinger_adjoint}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=0$}
+    \For{$n=0,1,\dots$}
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Update $\Lambda_{ij}=\mathcal{E}_{ij}+(C-C^0)_{ijk\ell}\Theta_{k\ell}$}
+    \State{Check convergence}
+    \EndFor
+\State{\Return $\varepsilon$}
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (incremental form)}
+    \label{alg:lippmann_schwinger_adjoint_incremental}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=0$}
+    \For{$n=0,1,\dots$}
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Compute $\Delta_{ij}=C_{ijk\ell}\Theta_{k\ell}$}
+    \State{Update $\Lambda_{ij}\mapsto\Lambda_{ij}+\mathcal{E}_{ij}+\Delta_{ij}$}
+    \State{Check convergence}
+    \EndFor
+\State{\Return $\varepsilon$}
+\end{algorithmic}
+\end{algorithm}
+Comparing \cref{alg:lippmann_schwinger_incremental} \cref{alg:lippmann_schwinger_adjoint_incremental}, we see that the primal- and adjoint Lippmann Schwinger iteration only differ in the order in which $\Gamma^0$ and $C$ are applied and in the update step. Also, the algorithm is readily applied to both the isotropic and anisotropic case by use the appropriate way of computing $\Delta = C\Theta$.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Derivatives with respect to $C(x)$ and $\overline{\varepsilon}$}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -501,8 +534,8 @@ In the isotropic case where $C_{ijk\ell} = \lambda \delta_{ij}\delta_{k\ell} + \
 and therefore
 \begin{equation}
 \begin{aligned}
-\frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S+\Gamma^0*\lambda \right)\operatorname{tr}(\varepsilon),\\
-\frac{\delta \mathcal{L}}{\delta \mu} &= \left(S+\Gamma^0*\lambda \right):\varepsilon.\\
+\frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S+\Gamma^0*\Lambda \right)\operatorname{tr}(\varepsilon),\\
+\frac{\delta \mathcal{L}}{\delta \mu} &= \left(S+\Gamma^0*\Lambda \right):\varepsilon.\\
 \end{aligned}
 \end{equation}
 \bibliographystyle{unsrt}
