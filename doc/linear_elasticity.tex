@@ -415,17 +415,17 @@ Define the \textit{partial} functional derivatives of $J$ with respect to strain
 where $a:b=\sum_{ij}a_{ij}b_{ij}$.
 Given $E(x)$, $S(x)$ we want to compute
 \begin{equation}
-\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta C(x)}
+\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta C(x)}\label{eqn:func_deriv_anisotropic}
 \end{equation}
 in the general, anisotropic case and 
 \begin{equation}
-\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta \mu(x)},\qquad\frac{\delta J}{\delta \lambda(x)}
+\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta \mu(x)},\qquad\frac{\delta J}{\delta \lambda(x)} \label{eqn:func_deriv_isotropic}
 \end{equation}
 in the isotropic case.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Adjoint equation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-To relate these derivatives back to the given $E(x)$, $S(x)$ with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation
+To express the derivatives in \eqref{eqn:func_deriv_anisotropic}, \eqref{eqn:func_deriv_isotropic} in terms of the given $E(x)$, $S(x)$ with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation
 \begin{equation}
 \varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) : \tau(y)\;dy
 \end{equation}
@@ -446,7 +446,7 @@ To compute the derivative of the integral on the right hand side of \eqref{eqn:l
     \begin{aligned}
         \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right):\varepsilon(y)\;dy\;dz\right)\\
 &=\Lambda(x) + \int_\Omega \Lambda(z):\Gamma^0(z-x)\left(C(x)-C^0\right)\;dz \\
-&=\Lambda(x) +  \int_\Omega \left(C(x)-C^0\right) \Gamma^0(x-z) : \Lambda(z)\;dz
+&=\Lambda(x) +  \left(C(x)-C^0\right)\int_\Omega  \Gamma^0(x-z) : \Lambda(z)\;dz
     \end{aligned}
 \end{equation}
 where the last identity follow from $\Gamma^0(-x) = \Gamma(-x)$ and $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$. This leads to
