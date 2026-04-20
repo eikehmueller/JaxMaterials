@@ -110,52 +110,48 @@ print(
 )
 print()
 
-if False:
-    with measure_time(
-        "evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True
-    ) as run:
 
-        def body():
-            epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
-                mu,
-                lmbda,
-                E_mean,
-                grid_spec,
-                maxiter=32,
-                rtol=rtol,
-                atol=atol,
-                verbose=0,
-            )
-            return epsilon_isotropic, iter
+with measure_time("evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True) as run:
 
-        epsilon_isotropic, iter = run(body)
-    print(f"  number of iterations = {iter}")
-    print()
+    def body():
+        epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
+            mu,
+            lmbda,
+            E_mean,
+            grid_spec,
+            maxiter=32,
+            rtol=rtol,
+            atol=atol,
+            verbose=0,
+        )
+        return epsilon_isotropic, iter
 
-    with measure_time(
-        "evaluation  (anisotropic, CUDA)", repeat=repeat, warmup=True
-    ) as run:
+    epsilon_isotropic, iter = run(body)
+print(f"  number of iterations = {iter}")
+print()
 
-        def body():
-            epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
-                stiffness_tensor,
-                E_mean,
-                grid_spec,
-                maxiter=32,
-                rtol=rtol,
-                atol=atol,
-                verbose=0,
-            )
-            return epsilon_anisotropic, iter
+with measure_time("evaluation  (anisotropic, CUDA)", repeat=repeat, warmup=True) as run:
 
-        epsilon_anisotropic, iter = run(body)
-    print(f"  number of iterations = {iter}")
-    print(
-        "difference = ",
-        jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
-        / jnp.linalg.norm(epsilon_isotropic),
-    )
-    print()
+    def body():
+        epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
+            stiffness_tensor,
+            E_mean,
+            grid_spec,
+            maxiter=32,
+            rtol=rtol,
+            atol=atol,
+            verbose=0,
+        )
+        return epsilon_anisotropic, iter
+
+    epsilon_anisotropic, iter = run(body)
+print(f"  number of iterations = {iter}")
+print(
+    "difference = ",
+    jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
+    / jnp.linalg.norm(epsilon_isotropic),
+)
+print()
 
 with measure_time("gradient (isotropic)", repeat=repeat, warmup=True) as run:
 
