@@ -376,7 +376,7 @@ In this case, we have that
 \sigma_{ij} = C_{ijk\ell}\varepsilon_{k\ell}\label{eqn:stress_strain_anisotropic}
 \end{equation}
 where due to the symmetries of $C$ only $21$ components of the $3\times 3\times 3 \times 3$ tensor $C$ are independent. Using Voigt-notation these can be taken to be the $21$ independent entries $C_{i}$ of a symmetric $6\times 6$ matrix $C$ defined by
-\input{anisotropic_elasticity.tex}
+\input{generated/anisotropic_elasticity.tex}
 Observe that in the isotropic case the only non-zero entries $C_j$ are
 \begin{equation}
 \begin{aligned}
@@ -386,16 +386,16 @@ C_6 = C_7 = C_8 &= \lambda.
 \end{aligned}
 \end{equation}
 In Voigt-notation \eqref{eqn:stress_strain_anisotropic} becomes:
-\input{anisotropic_stress_strain.tex}
+\input{generated/anisotropic_stress_strain.tex}
 The tensor $\widehat{\Gamma}^{0}_{k\ell ij}$ also needs to be computed slightly differently. Let the elasticity tensor of the reference material be $C^0$; again this has $21$ independent components.
 For each Fourier mode compute the symmetric $3\times 3$ matrix $K^{0}$ with
-\input{anisotropic_acoustic_matrix.tex}
+\input{generated/anisotropic_acoustic_matrix.tex}
 As a sanity check, we can compute $K^0$ for the isotropic case, i.e. $C^0_0=C^0_1=C^0_2=2\mu^0+\lambda^0$, $C^0_3=C^0_4=C^5_0=\mu^0$, $C^0_6=C^0_7=C^0_8=\lambda^0$. In this case we find
-\input{isotropic_acoustic_matrix.tex}
+\input{generated/isotropic_acoustic_matrix.tex}
 which is equivalent to $K^0_{ij} = (\lambda^0+\mu^0)\mathring{\widetilde{\xi}}_i\mathring{\widetilde{\xi}}_j + \mu^0 |\mathring{\widetilde{\vec{\xi}}}|^2 \delta_{ij}$.
 
 The inverse of $K^0$ is the $3\times 3$ matrix $N^{0}$. This requires storage of additional 6 numbers for each Fourier mode. From this, build the symmetric $6\times 6$ matrix which is defined by
-\input{anisotropic_fourier_matrix.tex}
+\input{generated/anisotropic_fourier_matrix.tex}
 Finally, compute
 \begin{equation}
 \widehat{\sigma}_i = -\widehat{\Gamma}^{0}_{ij} \widehat{\tau}_j.
