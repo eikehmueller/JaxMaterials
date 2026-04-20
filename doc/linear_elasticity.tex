@@ -135,7 +135,7 @@ C^0_{ijk\ell} = \lambda^0 \delta_{ij}\delta_{k\ell} + \mu^0 \left(\delta_{ik}\de
 we have
 \begin{equation}
     \begin{aligned}
-\widehat{\varepsilon}^*_{k\ell ij} &= -\Gamma^0_{k\ell ij} \widehat{\tau}_{ij}\\
+\widehat{\varepsilon}^*_{k\ell ij} &= -\widehat{\Gamma}^0_{k\ell ij} \widehat{\tau}_{ij}\\
 K^0_{ij} &= (\lambda^0+\mu^0)\widetilde{\xi}_i\widetilde{\xi}_j + \mu^0 |\widetilde{\vec{\xi}}|^2 \delta_{ij}\\
 N^0_{ij} =\left((K^0)^{-1}\right)_{ij} &= \frac{1}{\mu^0 |\widetilde{\vec{\xi}}|^2}\left(\delta_{ij}-\frac{\widetilde{\xi}_i\widetilde{\xi}_j}{|\widetilde{\vec{\xi}}|^2}\frac{\lambda^0+\mu^0}{\lambda^0+2\mu^0}\right)\\
 \widehat{\Gamma}^0_{k\ell ij} &= \frac{1}{4}\left(N^0_{\ell i}\widetilde{\xi}_j\widetilde{\xi}_k+N^0_{k i}\widetilde{\xi}_j\widetilde{\xi}_\ell + N^0_{\ell j}\widetilde{\xi}_i\widetilde{\xi}_k+N^0_{kj}\widetilde{\xi}_i\widetilde{\xi}_\ell\right)\\
@@ -401,51 +401,110 @@ Finally, compute
 \widehat{\sigma}_i = -\widehat{\Gamma}^{0}_{ij} \widehat{\tau}_j.
 \end{equation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Sensitivity with the adjoint method}
+\section{Reverse mode differentiation with the adjoint method}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-We would like to compute the sensitivities
-\begin{xalignat}{3}
-    \varepsilon^{(\overline{\varepsilon}_{rs})}_{k\ell}(x) &:= \frac{\delta \varepsilon_{k\ell}(x)}{\delta \overline{\varepsilon}_{rs}}, &
-    \varepsilon^{(\lambda)}_{k\ell}(x,x') &:= \frac{\delta \varepsilon_{k\ell}(x)}{\delta \lambda(x')}, &
-    \varepsilon^{(\mu)}_{k\ell}(x,x') &:= \frac{\delta \varepsilon_{k\ell}(x)}{\delta \mu(x')}.
+Assume that we have an objective function
+\begin{equation}
+    J = J(\varepsilon(\cdot),\sigma(\cdot)).
+\end{equation}
+Define the \textit{partial} functional derivatives of $J$ with respect to strain $\varepsilon(x)$ and stress $\sigma(x) = C(x):\varepsilon(x)$ as
+\begin{xalignat}{2}
+    E(x) &:= \frac{\delta J}{\delta \varepsilon(x)}, &
+    S(x) &:= \frac{\delta J}{\delta \sigma(x)},\label{eqn:J_derivatives}
 \end{xalignat}
-where $\varepsilon_{k\ell}$ solves the (discretised) equations in \eqref{eqn:continuum_equations} for given inputs $(\overline{\varepsilon}_{k\ell},\lambda,\mu)$.
-
-First note that this means that
+where $a:b=\sum_{ij}a_{ij}b_{ij}$.
+Given $E(x)$, $S(x)$ we want to compute
 \begin{equation}
-0 = \Phi_i\left[\varepsilon|\overline{\varepsilon},\lambda,\mu\right] = D_i^- \left(\lambda \sum_{k} (\varepsilon^*_{kk}+\overline{\varepsilon}_{kk})\right) + D_j^- (\mu\left(\varepsilon^*_{ij}+\varepsilon^*_{ji}+\overline{\varepsilon}_{ij}+\overline{\varepsilon}_{ji})\right)
+\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta C(x)}
+\end{equation}
+in the general, anisotropic case and 
+\begin{equation}
+\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta \mu(x)},\qquad\frac{\delta J}{\delta \lambda(x)}
+\end{equation}
+in the isotropic case.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Adjoint equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To relate these derivatives back to the given $E(x)$, $S(x)$ with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation
+\begin{equation}
+\varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) : \tau(y)\;dy
+\end{equation}
+with $\tau(x) = \left(C(x)-C^0(x)\right):\varepsilon(x)$. This can be written in condensed form as $\varepsilon = \overline{\varepsilon}-\Gamma^0 * \left((C-C^0):\varepsilon\right)$ Define the residual operator
+\begin{equation}
+    \mathcal{A}(\varepsilon;C,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left((C-C^0) : \varepsilon\right) - \overline{\varepsilon}
+\end{equation}
+and introduce the Lagrangian
+\begin{equation}
+\mathcal{L}(\varepsilon,\Lambda;C,\overline{\varepsilon}) = \mathcal{J}(\varepsilon) + \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz\qquad\text{with $\mathcal{J}(\varepsilon) = J(\varepsilon,\sigma(\varepsilon))$}\label{eqn:lagrangian}
+\end{equation}
+The Lagrange multiplier $\Lambda(x)$ has been introduced to make $\mathcal{L}$ independent of $\varepsilon(x)$, i.e. we require that the total derivative with respect to $\varepsilon(x)$ vanishes:
+\begin{equation}
+\frac{\delta\mathcal{L}}{\delta\varepsilon(x)} = 0.
+\end{equation}
+To compute the derivative of the integral on the right hand side of \eqref{eqn:lagrangian}, observe that
+\begin{equation}
+    \begin{aligned}
+        \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right):\varepsilon(y)\;dy\;dz\right)\\
+&=\Lambda(x) + \int_\Omega \Lambda(z):\Gamma^0(z-x)\left(C(x)-C^0\right)\;dz \\
+&=\Lambda(x) +  \int_\Omega \left(C(x)-C^0\right) \Gamma^0(x-z) : \Lambda(z)\;dz
+    \end{aligned}
+\end{equation}
+where the last identity follow from $\Gamma^0(-x) = \Gamma(-x)$ and $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$. This leads to
+\begin{equation}
+0 = \frac{\delta\mathcal{L}}{\delta\varepsilon} = \frac{\delta \mathcal{J}}{\delta \varepsilon} + \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right)
+\end{equation}
+Note that the derivatives in \eqref{eqn:J_derivatives} are \textit{partial} derivatives. Using the definition of the strain $\sigma(x) = C(x):\varepsilon(x)$, the \textit{total} derivative which appears on the right hand side of the adjoint equation is 
+\begin{equation}
+    \begin{aligned}
+\frac{\delta \mathcal{J}}{\delta \varepsilon(x)} &= \frac{\delta J}{\delta \varepsilon(x)}+ C(x): \frac{\delta J}{\delta \sigma(x)}\\
+&=E(x)+ C(x): S(x).
+    \end{aligned}
+\end{equation}
+Hence, the adjoint equation is
+\begin{equation}
+    \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right) = \mathcal{E}\qquad\text{with $\mathcal{E}(x):= -\left(E(x)+ C(x): S(x)\right)$}
 \end{equation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Sensitivity with respect to $\overline{\varepsilon}_{rs}$}
+\subsection{Derivatives with respect to $C(x)$ and $\overline{\varepsilon}$}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-We have that for all points $x$
+The derivative with respect to $C$ is made up of two contributions. First, the direct contribution is
 \begin{equation}
-0 = \frac{d\Phi_i(x)}{d\overline{\varepsilon}_{rs}} = \frac{\delta \Phi_i(x)}{\delta \overline{\varepsilon}_{rs}} + \sum_{x''}\sum_{k\ell} \frac{\delta \Phi_i(x)}{\delta \varepsilon_{k\ell}(x'')} \varepsilon^{*(\overline{\varepsilon}_{rs})}_{k\ell}(x'')\qquad\text{with $\varepsilon^{*(\overline{\varepsilon}_{rs})}_{k\ell}(x) := \frac{\delta \varepsilon^*_{k\ell}}{\delta \overline{\varepsilon}_{rs}}(x)$}
+\frac{\delta \mathcal{J}}{\delta C_{ijk\ell}(x)} = S_{ij}(x)\varepsilon_{k\ell}(x).
 \end{equation}
-Observe that
+Second, the adjoint contribution is obtained by observing that
 \begin{equation}
-\sum_{x''}\sum_{k\ell}\frac{\delta \Phi_i(x)}{\delta \varepsilon_{k\ell}(x'')} \varepsilon^{*(\overline{\varepsilon}_{rs})}_{k\ell}(x'') = \Phi_i \left[\varepsilon^{*(\overline{\varepsilon}_{rs})}|0,\lambda,\mu\right](x)
+    \begin{aligned}
+    \frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &=\frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega\int_\Omega \Lambda_{ab}(z)\Gamma^0_{abcd}(z-y)\left(C(y)-C^0\right)_{cdrs}\varepsilon_{rs}(y)\;dy\;dz\\
+    &= \int_\Omega \Lambda_{ab}(z)\Gamma^0_{abij}(z-x)\varepsilon_{k\ell}(x)\;dz\\
+    &= \left(\Gamma^0_{ijab}(x-z)\Lambda_{ab}(z)\;dx\right)\varepsilon_{k\ell}(x)\\
+    &= \left(\Gamma^0*\Lambda\right)_{ij}(x)\varepsilon_{k\ell}(x)
+    \end{aligned}
 \end{equation}
-and
+Hence, putting everything together, we get
 \begin{equation}
-\frac{\delta \Phi_i(x)}{\delta \overline{\varepsilon}_{rs}} = D_j^-\left(\lambda(x)\delta_{ij}\delta_{rs} + \mu(x) (\delta_{ir}\delta_{js}+\delta_{is}\delta_{jr})\right) =: -D_j \rho_{ij}^{(\overline{\varepsilon}_{rs})}(x)
+\frac{\delta \mathcal{L}}{\delta C_{ijk\ell}} = \left(S+\Gamma^0*\Lambda \right)_{ij}\varepsilon_{k\ell}
 \end{equation}
-Hence, to compute $\varepsilon^{*(\overline{\varepsilon}_{rs})}_{k\ell}$ we need to solve
+The derivative with respect to $\overline{\varepsilon}$ only has an adjoint contribution:
 \begin{equation}
-    \Phi_i \left[\varepsilon^{*(\overline{\varepsilon}_{rs})}|0,\lambda,\mu\right] = D_j\rho_{ij}^{(\overline{\varepsilon}_{rs})}
-\end{equation}
-which is nothing but the original equation but with $\overline{\varepsilon}=0$ and a non-zero right hand side. Since $\varepsilon=\varepsilon^*+\overline{\varepsilon}$, we immediately get that
-\begin{equation}
-\varepsilon^{(\overline{\varepsilon}_{rs})}_{k\ell}(x) = \varepsilon^{(\overline{\varepsilon}_{rs})}_{k\ell} = \delta_{rk}\delta_{s\ell} + \varepsilon^{*(\overline{\varepsilon}_{rs})}_{k\ell}(x).
+    \begin{aligned}
+    \frac{\delta}{\delta \overline{\varepsilon}} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &= -\int_\Omega \Lambda(z) \;dz
+    \end{aligned}
 \end{equation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Sensitivity with respect to $\lambda$}
+\subsubsection{Isotropic case: derivatives with respect to $\lambda(x)$ and $\mu(x)$}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The idea is the same here:
+In the isotropic case where $C_{ijk\ell} = \lambda \delta_{ij}\delta_{k\ell} + \mu (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$ we get with the chain rule
+\begin{xalignat}{2}
+\frac{\delta \mathcal{L}}{\delta \lambda} &= \frac{\delta \mathcal{L}}{\delta C_{ijkl}}\frac{\delta C_{ijkl}}{\delta \lambda} = \frac{\delta \mathcal{L}}{\delta C_{ijkl}} \delta_{ij}\delta_{k\ell},&
+\frac{\delta \mathcal{L}}{\delta \mu} &= \frac{\delta \mathcal{L}}{\delta C_{ijkl}}\frac{\delta C_{ijkl}}{\delta \mu} = \frac{\delta \mathcal{L}}{\delta C_{ijkl}} (\delta_{ik}\delta_{j\ell}+\delta_{i\ell}\delta_{jk})
+\end{xalignat}
+and therefore
 \begin{equation}
-0 = \frac{d\Phi_i(x)}{d\lambda(x')} = \frac{\delta \Phi_i(x)}{\delta \lambda(x')} + \sum_{x''}\sum_{k\ell} \frac{\delta \Phi_i(x)}{\delta \varepsilon_{k\ell}(x'')} \varepsilon^{(\lambda)}_{k\ell}(x'',x')\qquad\text{with $\varepsilon^{(\lambda)}_{k\ell}(x,x') := \frac{\delta \varepsilon_{k\ell}(x)}{\delta \lambda(x')}$}
+\begin{aligned}
+\frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S+\Gamma^0*\lambda \right)\operatorname{tr}(\varepsilon),\\
+\frac{\delta \mathcal{L}}{\delta \mu} &= \left(S+\Gamma^0*\lambda \right):\varepsilon.\\
+\end{aligned}
 \end{equation}
-
 \bibliographystyle{unsrt}
 \bibliography{linear_elasticity}
 \end{document}
