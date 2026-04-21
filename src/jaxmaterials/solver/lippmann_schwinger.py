@@ -220,6 +220,7 @@ def lippmann_schwinger_isotropic_cuda(
     :arg atol: absolute tolerance on normalised stress divergence to check convergence
     :arg maxiter: maximal number of iterations
     :arg verbose: verbosity level
+    :arg
     """
     # Check data types
     assert mu.dtype == np.float32

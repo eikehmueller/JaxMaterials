@@ -12,6 +12,7 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_anisotropic_cuda,
 )
 
+from jaxmaterials.solver.backend import solve_isotropic, _solve_isotropic
 
 jax.config.update("jax_enable_x64", True)
 
@@ -46,11 +47,11 @@ Lx = 1.2
 Ly = 0.8
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 100
-ny = 100
-nz = 100
+nx = 16
+ny = 16
+nz = 16
 
-dtype = jnp.float32
+dtype = jnp.float64
 rtol = 1e-20
 atol = 1e-4
 depth = 0
@@ -64,7 +65,6 @@ stiffness_tensor = jnp.stack(
 )
 # E_mean = jnp.array([1.0, 2.0, 0.0, 0.0, 0.0, 0.0])
 E_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-
 with measure_time("evaluation   (isotropic, Jax)", warmup=True, repeat=repeat) as run:
 
     def body():
@@ -77,6 +77,7 @@ with measure_time("evaluation   (isotropic, Jax)", warmup=True, repeat=repeat) a
             depth=depth,
             rtol=rtol,
             atol=atol,
+            dtype=dtype,
         )
         epsilon_isotropic.block_until_ready()
         return epsilon_isotropic, iter
@@ -97,6 +98,7 @@ with measure_time("evaluation (anisotropic, Jax)", repeat=repeat, warmup=True) a
             depth=depth,
             rtol=rtol,
             atol=atol,
+            dtype=dtype,
         )
         epsilon_anisotropic.block_until_ready()
         return epsilon_anisotropic, iter
@@ -111,47 +113,69 @@ print(
 print()
 
 
-with measure_time("evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True) as run:
+gpu_available = False
+if gpu_available:
+    with measure_time(
+        "evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True
+    ) as run:
 
-    def body():
-        epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
-            mu,
-            lmbda,
-            E_mean,
-            grid_spec,
-            maxiter=32,
-            rtol=rtol,
-            atol=atol,
-            verbose=0,
-        )
-        return epsilon_isotropic, iter
+        def body():
+            epsilon_isotropic, sigma, iter = lippmann_schwinger_isotropic_cuda(
+                mu,
+                lmbda,
+                E_mean,
+                grid_spec,
+                maxiter=32,
+                rtol=rtol,
+                atol=atol,
+                verbose=0,
+            )
+            return epsilon_isotropic, iter
 
-    epsilon_isotropic, iter = run(body)
-print(f"  number of iterations = {iter}")
-print()
+        epsilon_isotropic, iter = run(body)
+    print(f"  number of iterations = {iter}")
+    print()
 
-with measure_time("evaluation  (anisotropic, CUDA)", repeat=repeat, warmup=True) as run:
+    with measure_time(
+        "evaluation  (anisotropic, CUDA)", repeat=repeat, warmup=True
+    ) as run:
 
-    def body():
-        epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
-            stiffness_tensor,
-            E_mean,
-            grid_spec,
-            maxiter=32,
-            rtol=rtol,
-            atol=atol,
-            verbose=0,
-        )
-        return epsilon_anisotropic, iter
+        def body():
+            epsilon_anisotropic, sigma, iter = lippmann_schwinger_anisotropic_cuda(
+                stiffness_tensor,
+                E_mean,
+                grid_spec,
+                maxiter=32,
+                rtol=rtol,
+                atol=atol,
+                verbose=0,
+            )
+            return epsilon_anisotropic, iter
 
-    epsilon_anisotropic, iter = run(body)
-print(f"  number of iterations = {iter}")
-print(
-    "difference = ",
-    jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
-    / jnp.linalg.norm(epsilon_isotropic),
-)
-print()
+        epsilon_anisotropic, iter = run(body)
+    print(f"  number of iterations = {iter}")
+    print(
+        "difference = ",
+        jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
+        / jnp.linalg.norm(epsilon_isotropic),
+    )
+    print()
+
+
+def loss_fn(mu, lmbda, E_mean, grid_spec):
+    epsilon, sigma = _solve_isotropic(mu, lmbda, E_mean, grid_spec)
+    return jnp.sum(sigma)
+
+
+grad_f = jax.grad(loss_fn, argnums=(0, 1, 2))
+dmu, dlmbda, dmean = grad_f(mu, lmbda, E_mean, grid_spec)
+
+print(dmu.shape, dlmbda.shape, dmean.shape)
+print(dlmbda[:3, :3, :3])
+
+import sys
+
+sys.exit(0)
 
 with measure_time("gradient (isotropic)", repeat=repeat, warmup=True) as run:
 

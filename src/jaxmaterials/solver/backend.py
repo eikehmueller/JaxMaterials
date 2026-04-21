@@ -17,6 +17,7 @@ __all__ = [
     "relative_divergence_fourier",
     "_lippmann_schwinger_jax",
     "_lippmann_schwinger_adjoint_jax",
+    "solve_isotropic",
 ]
 
 
@@ -213,7 +214,7 @@ def _lippmann_schwinger_jax(
     return epsilon[0, ...], sigma, iter
 
 
-@jax.jit(static_argnames=["grid_spec", "isotropic", "dtype"])
+@jax.jit(static_argnames=["grid_spec", "isotropic", "dtype", "maxiter"])
 def _lippmann_schwinger_adjoint_jax(
     material_properties,
     f_rhs,
@@ -278,8 +279,7 @@ def _lippmann_schwinger_adjoint_jax(
         :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, iter, rel_error)
         """
         Lambda, increment_nrm, iter = state
-        dLambda = Lambda
-        Lambda_hat = jnp.fft.fftn(dLambda, axes=(-3, -2, -1))
+        Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
         if isotropic:
             Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
         else:
@@ -304,3 +304,77 @@ def _lippmann_schwinger_adjoint_jax(
     )
 
     return Lambda, iter
+
+
+def solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec):
+    epsilon, sigma, _ = _lippmann_schwinger_jax(
+        {"mu": mu, "lambda": lmbda},
+        epsilon_bar,
+        grid_spec,
+        True,
+        rtol=1.0e-20,
+        atol=1.0e-12,
+        depth=0,
+        maxiter=32,
+        dtype=mu.dtype,
+    )
+    return epsilon, sigma
+
+
+def _solve_isotropic(mu, lmbda, epsilon_bar, grid_spec):
+    return solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec)
+
+
+solve_isotropic = jax.custom_vjp(_solve_isotropic, nondiff_argnames=("grid_spec",))
+
+
+def solve_isotropic_fwd(mu, lmbda, epsilon_bar, grid_spec):
+    """Forward solve"""
+    out = solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec)
+    epsilon, sigma = out
+    return out, (mu, lmbda, epsilon, sigma)
+
+
+def solve_isotropic_bwd(grid_spec, res, gradients):
+    """Backward solve"""
+    mu, lmbda, epsilon, _ = res
+    mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
+    lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
+    # Incoming gradients are dual vectors with respect to *Euclidean*
+    # inner product, need be converted to dual vectors with respect to
+    # weighted dot-product is Voigt notation:
+    #
+    #   <a,b>_V = a_0*b_0 + a_1*b_1 + a_2*b_2
+    #           + 2 * ( a_3*b_3 + a_4*b_4 + a_5*b_5 )
+    g_epsilon_euclidean, g_sigma_euclidean = gradients
+    voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=mu.dtype)
+    voigt_weights_bcast = voigt_weights[:, None, None, None]
+    g_epsilon = g_epsilon_euclidean / voigt_weights_bcast
+    g_sigma = g_sigma_euclidean / voigt_weights_bcast
+    # solve adjoint equation
+    f_rhs = -(g_epsilon + compute_sigma_isotropic(lmbda, mu, g_sigma))
+    Lambda, _ = _lippmann_schwinger_adjoint_jax(
+        {"mu": mu, "lambda": lmbda},
+        f_rhs,
+        grid_spec,
+        isotropic=True,
+        rtol=1.0e-12,
+        atol=1.0e-20,
+        maxiter=64,
+        dtype=mu.dtype,
+    )
+    xizero = get_xizero(grid_spec, dtype=mu.dtype)
+    Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
+    Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
+    A = g_sigma - jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
+    tr_A = jnp.sum(A[:3], axis=0)
+    tr_epsilon = jnp.sum(epsilon[:3], axis=0)
+    g_lambda = tr_A * tr_epsilon
+    g_mu = 2 * jnp.sum(A * epsilon * voigt_weights_bcast, axis=0)
+    # Convert back to dual vector with respect to Euclidean inner
+    # product.
+    g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
+    return g_mu, g_lambda, g_epsilon_bar
+
+
+solve_isotropic.defvjp(solve_isotropic_fwd, solve_isotropic_bwd)

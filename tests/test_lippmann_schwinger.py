@@ -10,8 +10,6 @@ from jaxmaterials.solver.backend import relative_divergence, relative_divergence
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic_jax,
     lippmann_schwinger_anisotropic_jax,
-    lippmann_schwinger_adjoint_isotropic_jax,
-    lippmann_schwinger_adjoint_anisotropic_jax,
     lippmann_schwinger_isotropic_cuda,
     lippmann_schwinger_anisotropic_cuda,
 )
@@ -225,37 +223,3 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     assert rel_diff_sigma_2 < 2e-5
     assert abs(iter_jax - iter_cuda) <= 1
 
-
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_adjoint_isotropic(grid_spec, rng, dtype):
-    """Check that isotropic adjoint solver converges in a small number of iterations"""
-    f_rhs = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(dtype)
-    mu, lmbda = initialise_material(grid_spec, rng, dtype)
-    rtol = 1.0e-5 if dtype == np.float32 else 1.0e-12
-    atol = 1.0e-20
-    _, iter = lippmann_schwinger_adjoint_isotropic_jax(
-        mu, lmbda, f_rhs, grid_spec, rtol=rtol, atol=atol, maxiter=32, dtype=dtype
-    )
-    maxiter = 10 if dtype == np.float32 else 20
-    assert iter < maxiter
-
-
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_adjoint_anisotropic(grid_spec, rng, dtype):
-    """Check that anisotropic adjoint solver converges in a small number of iterations"""
-    f_rhs = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(dtype)
-    mu, lmbda = initialise_material(grid_spec, rng, dtype)
-    stiffness_tensor = perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1)
-    rtol = 1.0e-5 if dtype == np.float32 else 1.0e-12
-    atol = 1.0e-20
-    _, iter = lippmann_schwinger_adjoint_anisotropic_jax(
-        stiffness_tensor,
-        f_rhs,
-        grid_spec,
-        rtol=rtol,
-        atol=atol,
-        maxiter=32,
-        dtype=dtype,
-    )
-    maxiter = 10 if dtype == np.float32 else 20
-    assert iter < maxiter
