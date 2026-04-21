@@ -63,7 +63,7 @@ def relative_divergence_fourier(sigma_hat, xi):
     return dsigma_nrm / sigma_hat_zero_nrm
 
 
-@jax.jit(static_argnames=["grid_spec", "isotropic", "depth", "dtype"])
+@jax.jit(static_argnames=["grid_spec", "isotropic", "depth", "dtype", "maxiter"])
 def _lippmann_schwinger_jax(
     material_properties,
     epsilon_bar,
@@ -313,7 +313,7 @@ def solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec):
         grid_spec,
         True,
         rtol=1.0e-20,
-        atol=1.0e-12,
+        atol=1.0e-6 if mu.dtype == jnp.float32 else 1.0e-12,
         depth=0,
         maxiter=32,
         dtype=mu.dtype,
@@ -358,9 +358,9 @@ def solve_isotropic_bwd(grid_spec, res, gradients):
         f_rhs,
         grid_spec,
         isotropic=True,
-        rtol=1.0e-12,
+        rtol=1.0e-5 if mu.dtype == jnp.float32 else 1.0e-12,
         atol=1.0e-20,
-        maxiter=64,
+        maxiter=32,
         dtype=mu.dtype,
     )
     xizero = get_xizero(grid_spec, dtype=mu.dtype)
