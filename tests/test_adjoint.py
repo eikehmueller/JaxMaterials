@@ -3,6 +3,9 @@ import numpy as np
 import pytest
 import jax
 from jax import numpy as jnp
+from jax.test_util import check_vjp
+import functools
+
 
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_adjoint_isotropic_jax,
@@ -57,9 +60,6 @@ def test_vjp_isotropic(grid_spec, rng, dtype):
     def loss_fn(mu, lmbda, epsilon_mean):
         epsilon, sigma = solve_isotropic(mu, lmbda, epsilon_mean, grid_spec)
         return jnp.sum(sigma**2)
-
-    from jax.test_util import check_vjp
-    import functools
 
     rtol = 0.001 if dtype == jnp.float64 else 0.02
     check_vjp(

@@ -47,11 +47,11 @@ Lx = 1.2
 Ly = 0.8
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 16
-ny = 16
-nz = 16
+nx = 32
+ny = 32
+nz = 32
 
-dtype = jnp.float64
+dtype = jnp.float32
 rtol = 1e-20
 atol = 1e-4
 depth = 0
@@ -63,7 +63,6 @@ zeros = jnp.zeros(mu.shape, dtype=dtype)
 stiffness_tensor = jnp.stack(
     3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
 )
-# E_mean = jnp.array([1.0, 2.0, 0.0, 0.0, 0.0, 0.0])
 E_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 with measure_time("evaluation   (isotropic, Jax)", warmup=True, repeat=repeat) as run:
 
@@ -161,28 +160,12 @@ if gpu_available:
     )
     print()
 
-
-def loss_fn(mu, lmbda, E_mean, grid_spec):
-    epsilon, sigma = _solve_isotropic(mu, lmbda, E_mean, grid_spec)
-    return jnp.sum(sigma)
-
-
-grad_f = jax.grad(loss_fn, argnums=(0, 1, 2))
-dmu, dlmbda, dmean = grad_f(mu, lmbda, E_mean, grid_spec)
-
-print(dmu.shape, dlmbda.shape, dmean.shape)
-print(dlmbda[:3, :3, :3])
-
-import sys
-
-sys.exit(0)
-
 with measure_time("gradient (isotropic)", repeat=repeat, warmup=True) as run:
 
     def body():
         grad_epsilon = jax.jacfwd(lippmann_schwinger_isotropic_jax, argnums=[2])
         dg = grad_epsilon(
-            mu, lmbda, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol
+            mu, lmbda, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol, dtype=dtype
         )
         dg[0][0].block_until_ready()
 
@@ -192,7 +175,13 @@ with measure_time("gradient (anisotropic)", repeat=repeat, warmup=True) as run:
     def body():
         grad_epsilon = jax.jacfwd(lippmann_schwinger_anisotropic_jax, argnums=[1])
         dg = grad_epsilon(
-            stiffness_tensor, E_mean, grid_spec, depth=depth, rtol=rtol, atol=atol
+            stiffness_tensor,
+            E_mean,
+            grid_spec,
+            depth=depth,
+            rtol=rtol,
+            atol=atol,
+            dtype=dtype,
         )
         dg[0][0].block_until_ready()
 
