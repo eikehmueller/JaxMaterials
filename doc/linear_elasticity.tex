@@ -415,7 +415,7 @@ Define the \textit{partial} functional derivatives of $J$ with respect to strain
 where $a:b=\sum_{ij}a_{ij}b_{ij}$.
 Given $E(x)$, $S(x)$ we want to compute
 \begin{equation}
-\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta C(x)}\label{eqn:func_deriv_anisotropic}
+\frac{\delta J}{\delta \overline{\varepsilon}},\qquad\frac{\delta J}{\delta C(x)}\label{eqn:func_deriv_anisotropic}
 \end{equation}
 in the general, anisotropic case and 
 \begin{equation}
@@ -446,12 +446,12 @@ To compute the derivative of the integral on the right hand side of \eqref{eqn:l
     \begin{aligned}
         \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right)\varepsilon(y)\;dy\;dz\right)\\
 &=\Lambda(x) + \int_\Omega \Lambda(z):\Gamma^0(z-x)\left(C(x)-C^0\right)\;dz \\
-&=\Lambda(x) +  \left(C(x)-C^0\right):\int_\Omega  \Gamma^0(x-z) \Lambda(z)\;dz
+&=\Lambda(x) +  \left(C(x)-C^0\right) \int_\Omega  \Gamma^0(x-z) \Lambda(z)\;dz
     \end{aligned}
 \end{equation}
-where the last identity follows from $\Gamma^0(-x) = \Gamma^0(-x)$, $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$ and $C_{ijk\ell}=C_{k\ell ij}$. This leads to
+where the last identity follows from $\Gamma^0(-x) = \Gamma^0(x)$, $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$ and $C_{ijk\ell}=C_{k\ell ij}$. This leads to
 \begin{equation}
-0 = \frac{\delta\mathcal{L}}{\delta\varepsilon} = \frac{\delta \mathcal{J}}{\delta \varepsilon} + \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right)
+0 = \frac{\delta\mathcal{L}}{\delta\varepsilon} = \frac{\delta \mathcal{J}}{\delta \varepsilon} + \Lambda + \left(C-C^0\right) \left(\Gamma^0 * \Lambda\right)
 \end{equation}
 Note that the derivatives in \eqref{eqn:J_derivatives} are \textit{partial} derivatives. Using the definition of the stress $\sigma(x) = C(x)\varepsilon(x)$, the \textit{total} derivative which appears on the right hand side of the adjoint equation is 
 \begin{equation}
@@ -477,7 +477,7 @@ The Lippmann-Schwinger iteration for solving the adjoint equation in \eqref{eqn:
     \State{Update $\Lambda_{ij}=\mathcal{E}_{ij}+(C-C^0)_{ijk\ell}\Theta_{k\ell}$}
     \State{Check convergence}
     \EndFor
-\State{\Return $\varepsilon$}
+\State{\Return $\Lambda$}
 \end{algorithmic}
 \end{algorithm}
 Comparing \cref{alg:lippmann_schwinger} and \cref{alg:lippmann_schwinger_adjoint}, we see that the primal- and adjoint Lippmann Schwinger iteration only differ in the order in which $\Gamma^0$ and $C$ are applied and in the update step. Also, the algorithm is readily applied to both the isotropic and anisotropic case by use the appropriate way of computing $\Delta = C\Theta$.
@@ -493,7 +493,7 @@ Second, the adjoint contribution is obtained by observing that
     \begin{aligned}
     \frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &=\frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega\int_\Omega \Lambda_{ab}(z)\Gamma^0_{abcd}(z-y)\left(C(y)-C^0\right)_{cdrs}\varepsilon_{rs}(y)\;dy\;dz\\
     &= \int_\Omega \Lambda_{ab}(z)\Gamma^0_{abij}(z-x)\varepsilon_{k\ell}(x)\;dz\\
-    &= \left(\Gamma^0_{ijab}(x-z)\Lambda_{ab}(z)\;dx\right)\varepsilon_{k\ell}(x)\\
+    &= \left(\int_\Omega\Gamma^0_{ijab}(x-z)\Lambda_{ab}(z)\;dx\right)\varepsilon_{k\ell}(x)\\
     &= \left(\Gamma^0*\Lambda\right)_{ij}(x)\varepsilon_{k\ell}(x)
     \end{aligned}
 \end{equation}
@@ -519,7 +519,7 @@ and therefore
 \begin{equation}
 \begin{aligned}
 \frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S+\Gamma^0*\Lambda \right)\operatorname{tr}(\varepsilon),\\
-\frac{\delta \mathcal{L}}{\delta \mu} &= \left(S+\Gamma^0*\Lambda \right):\varepsilon.\\
+\frac{\delta \mathcal{L}}{\delta \mu} &= 2\left(S+\Gamma^0*\Lambda \right):\varepsilon.\\
 \end{aligned}
 \end{equation}
 \bibliographystyle{unsrt}
