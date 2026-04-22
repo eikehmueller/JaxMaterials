@@ -12,7 +12,7 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_anisotropic_cuda,
 )
 
-from jaxmaterials.solver.backend import solve_isotropic, _solve_isotropic
+from jaxmaterials.solver.backend import solve, _solve
 
 jax.config.update("jax_enable_x64", True)
 
@@ -164,7 +164,7 @@ with measure_time("backpropagation (isotropic)", repeat=repeat, warmup=True) as 
 
     def body():
         def loss_fn(mu, lmbda, epsilon_mean):
-            _, sigma = solve_isotropic(mu, lmbda, epsilon_mean, grid_spec)
+            _, sigma = solve(mu, lmbda, epsilon_mean, grid_spec)
             return jnp.sum(sigma**2)
 
         grad_loss = jax.grad(loss_fn, argnums=(0, 1, 2))

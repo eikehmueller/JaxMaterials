@@ -20,6 +20,19 @@ def grid_spec(request):
     return GridSpec(nx, ny, nz, Lx, Ly, Lz)
 
 
+@pytest.fixture(params=[[8, 6, 4], [7, 5, 3]], ids=["even", "odd"])
+def grid_spec_small(request):
+    """Return grid specification"""
+    # Domain size in all three spatial direction
+    Lx = 1.2
+    Ly = 0.8
+    Lz = 0.9
+    # Number of grid cells in all three spatial directions
+    nx, ny, nz = request.param
+
+    return GridSpec(nx, ny, nz, Lx, Ly, Lz)
+
+
 @pytest.fixture(params=[[512, 384, 256], [453, 347, 297]], ids=["even", "odd"])
 def grid_spec_highres(request):
     """Return grid specification"""
@@ -50,6 +63,7 @@ def initialise_material(grid_spec, rng, dtype):
     mu = np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
     lmbda = np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
     return np.array(mu, dtype=dtype), np.array(lmbda, dtype=dtype)
+
 
 def perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1):
     """Build mildly anisotropic stiffness tensor around isotropic baseline

@@ -11,8 +11,14 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_adjoint_isotropic_jax,
     lippmann_schwinger_adjoint_anisotropic_jax,
 )
-from jaxmaterials.solver.backend import solve_isotropic
-from fixtures import initialise_material, perturbed_stiffness_tensor, grid_spec, rng
+from jaxmaterials.solver.backend import solve_isotropic, solve_anisotropic
+from fixtures import (
+    initialise_material,
+    perturbed_stiffness_tensor,
+    grid_spec,
+    grid_spec_small,
+    rng,
+)
 
 jax.config.update("jax_enable_x64", True)
 
@@ -53,18 +59,42 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_vjp_isotropic(grid_spec, rng, dtype):
-    mu, lmbda = initialise_material(grid_spec, rng, dtype)
+def test_vjp_isotropic(grid_spec_small, rng, dtype):
+    mu, lmbda = initialise_material(grid_spec_small, rng, dtype)
     epsilon_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
     def loss_fn(mu, lmbda, epsilon_mean):
-        epsilon, sigma = solve_isotropic(mu, lmbda, epsilon_mean, grid_spec)
+        epsilon, sigma = solve_isotropic(mu, lmbda, epsilon_mean, grid_spec_small)
         return jnp.sum(sigma**2)
 
-    rtol = 0.001 if dtype == jnp.float64 else 0.02
+    rtol = 1.0e-5 if dtype == jnp.float64 else 2.0e-3
     check_vjp(
         loss_fn,
         functools.partial(jax.vjp, loss_fn),
         args=(mu, lmbda, epsilon_mean),
+        rtol=rtol,
+    )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_vjp_anisotropic(grid_spec_small, rng, dtype):
+    mu, lmbda = initialise_material(grid_spec_small, rng, dtype)
+    epsilon_mean = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+    stiffness_tensor = perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1)
+
+    def loss_fn(stiffness_tensor, epsilon_mean):
+        epsilon, sigma = solve_anisotropic(
+            stiffness_tensor, epsilon_mean, grid_spec_small
+        )
+        return jnp.sum(sigma**2)
+
+    # dloss = jax.grad(loss_fn)
+    # g = dloss(stiffness_tensor, epsilon_mean)
+    # print(jnp.linalg.norm(g[0]), jnp.linalg.norm(g[1]))
+    rtol = 1.0e-5 if dtype == jnp.float64 else 2.0e-3
+    check_vjp(
+        loss_fn,
+        functools.partial(jax.vjp, loss_fn),
+        args=(stiffness_tensor, epsilon_mean),
         rtol=rtol,
     )

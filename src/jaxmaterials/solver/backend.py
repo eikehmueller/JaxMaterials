@@ -17,7 +17,7 @@ __all__ = [
     "relative_divergence_fourier",
     "_lippmann_schwinger_jax",
     "_lippmann_schwinger_adjoint_jax",
-    "solve_isotropic",
+    "solve",
 ]
 
 
@@ -306,40 +306,58 @@ def _lippmann_schwinger_adjoint_jax(
     return Lambda, iter
 
 
-def solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec):
+def solve_impl(material_properties, epsilon_bar, grid_spec):
+    dtype = epsilon_bar.dtype
     epsilon, sigma, _ = _lippmann_schwinger_jax(
-        {"mu": mu, "lambda": lmbda},
+        material_properties,
         epsilon_bar,
         grid_spec,
-        True,
+        isotropic={"mu", "lambda"} == set(material_properties.keys()),
         rtol=1.0e-20,
-        atol=1.0e-6 if mu.dtype == jnp.float32 else 1.0e-12,
+        atol=1.0e-6 if dtype == jnp.float32 else 1.0e-12,
         depth=0,
         maxiter=32,
-        dtype=mu.dtype,
+        dtype=dtype,
     )
     return epsilon, sigma
 
 
-def _solve_isotropic(mu, lmbda, epsilon_bar, grid_spec):
-    return solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec)
+def _solve(material_properties, epsilon_bar, grid_spec):
+    return solve_impl(material_properties, epsilon_bar, grid_spec)
 
 
-solve_isotropic = jax.custom_vjp(_solve_isotropic, nondiff_argnames=("grid_spec",))
+solve = jax.custom_vjp(_solve, nondiff_argnames=("grid_spec",))
 
 
-def solve_isotropic_fwd(mu, lmbda, epsilon_bar, grid_spec):
+def solve_fwd(material_properties, epsilon_bar, grid_spec):
     """Forward solve"""
-    out = solve_isotropic_impl(mu, lmbda, epsilon_bar, grid_spec)
+    out = solve_impl(material_properties, epsilon_bar, grid_spec)
     epsilon, sigma = out
-    return out, (mu, lmbda, epsilon, sigma)
+    return out, (material_properties, epsilon, sigma)
 
 
-def solve_isotropic_bwd(grid_spec, res, gradients):
+def solve_bwd(grid_spec, res, gradients):
     """Backward solve"""
-    mu, lmbda, epsilon, _ = res
-    mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
-    lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
+    material_properties, epsilon, _ = res
+    dtype = epsilon.dtype
+    xizero = get_xizero(grid_spec, dtype=dtype)
+    isotropic = {"mu", "lambda"} == set(material_properties.keys())
+    if isotropic:
+        mu = material_properties["mu"]
+        lmbda = material_properties["lambda"]
+        mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
+        lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
+    else:
+        stiffness_tensor = material_properties["stiffness_tensor"]
+        stiffness_tensor0 = (
+            1
+            / 2
+            * (
+                jnp.min(stiffness_tensor, axis=(1, 2, 3))
+                + jnp.max(stiffness_tensor, axis=(1, 2, 3))
+            )
+        )
+        N_ref = get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
     # Incoming gradients are dual vectors with respect to *Euclidean*
     # inner product, need be converted to dual vectors with respect to
     # weighted dot-product is Voigt notation:
@@ -347,34 +365,82 @@ def solve_isotropic_bwd(grid_spec, res, gradients):
     #   <a,b>_V = a_0*b_0 + a_1*b_1 + a_2*b_2
     #           + 2 * ( a_3*b_3 + a_4*b_4 + a_5*b_5 )
     g_epsilon_euclidean, g_sigma_euclidean = gradients
-    voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=mu.dtype)
+    voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
     voigt_weights_bcast = voigt_weights[:, None, None, None]
     g_epsilon = g_epsilon_euclidean / voigt_weights_bcast
     g_sigma = g_sigma_euclidean / voigt_weights_bcast
     # solve adjoint equation
-    f_rhs = -(g_epsilon + compute_sigma_isotropic(lmbda, mu, g_sigma))
+    if isotropic:
+        Cg_sigma = compute_sigma_isotropic(lmbda, mu, g_sigma)
+    else:
+        Cg_sigma = compute_sigma_anisotropic(stiffness_tensor, g_sigma)
+    f_rhs = -(g_epsilon + Cg_sigma)
     Lambda, _ = _lippmann_schwinger_adjoint_jax(
-        {"mu": mu, "lambda": lmbda},
+        material_properties,
         f_rhs,
         grid_spec,
-        isotropic=True,
-        rtol=1.0e-5 if mu.dtype == jnp.float32 else 1.0e-12,
+        isotropic=isotropic,
+        rtol=1.0e-5 if dtype == jnp.float32 else 1.0e-12,
         atol=1.0e-20,
         maxiter=32,
-        dtype=mu.dtype,
+        dtype=dtype,
     )
-    xizero = get_xizero(grid_spec, dtype=mu.dtype)
     Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
-    Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
+    if isotropic:
+        Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
+    else:
+        Theta_hat = fourier_solve_anisotropic(Lambda_hat, N_ref, xizero)
     A = g_sigma - jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
-    tr_A = jnp.sum(A[:3], axis=0)
-    tr_epsilon = jnp.sum(epsilon[:3], axis=0)
-    g_lambda = tr_A * tr_epsilon
-    g_mu = 2 * jnp.sum(A * epsilon * voigt_weights_bcast, axis=0)
     # Convert back to dual vector with respect to Euclidean inner
     # product.
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
-    return g_mu, g_lambda, g_epsilon_bar
+    if isotropic:
+        tr_A = jnp.sum(A[:3], axis=0)
+        tr_epsilon = jnp.sum(epsilon[:3], axis=0)
+        g_lambda = tr_A * tr_epsilon
+        g_mu = 2 * jnp.einsum("aijk,aijk,a->ijk", A, epsilon, voigt_weights)
+        return {"mu": g_mu, "lambda": g_lambda}, g_epsilon_bar
+    else:
+        product_indices = (
+            (0, 0),  # (00,00)
+            (1, 1),  # (11,11)
+            (2, 2),  # (22,22)
+            (3, 3),  # (01,01)
+            (4, 4),  # (02,02)
+            (5, 5),  # (12,12)
+            (0, 1),  # (00,11)
+            (0, 2),  # (00,22)
+            (1, 2),  # (11,22)
+            (0, 3),  # (00,01)
+            (0, 4),  # (00,02)
+            (0, 5),  # (00,12)
+            (1, 3),  # (11,01)
+            (1, 4),  # (11,02)
+            (1, 5),  # (11,12)
+            (2, 3),  # (22,01)
+            (2, 4),  # (22,02)
+            (2, 5),  # (22,12)
+            (3, 4),  # (01,02)
+            (3, 5),  # (01,12)
+            (4, 5),  # (02,12)
+        )
+        g_stiffness_tensor = jnp.stack(
+            [
+                A[a, ...] * epsilon[b, ...] * voigt_weights[a] * voigt_weights[b]
+                for (a, b) in product_indices
+            ]
+        )
+        return {"stiffness_tensor": g_stiffness_tensor}, g_epsilon_bar
 
 
-solve_isotropic.defvjp(solve_isotropic_fwd, solve_isotropic_bwd)
+solve.defvjp(solve_fwd, solve_bwd)
+
+
+def solve_isotropic(mu, lmbda, epsilon_bar, grid_spec):
+    material_properties = {"mu": mu, "lambda": lmbda}
+    return solve(material_properties, epsilon_bar, grid_spec)
+
+
+def solve_anisotropic(stiffness_tensor, epsilon_bar, grid_spec):
+    material_properties = {"stiffness_tensor": stiffness_tensor}
+    return solve(material_properties, epsilon_bar, grid_spec)
