@@ -307,6 +307,16 @@ def _lippmann_schwinger_adjoint_jax(
 
 
 def solve_impl(material_properties, epsilon_bar, grid_spec):
+    """backend implementation of the forward solve
+
+    Having a single subroutine avoid duplicating the code in _solve() and the
+    forward solve solve_fwd()
+
+    :arg material_properties: dictionary with Lame coefficients or
+        symmetric stiffness tensor
+    :arg epsilon_bar: average strain
+    :arg grid_spec: specifications of computational grid
+    """
     dtype = epsilon_bar.dtype
     epsilon, sigma, _ = _lippmann_schwinger_jax(
         material_properties,
@@ -401,6 +411,8 @@ def solve_bwd(grid_spec, res, gradients):
         g_mu = 2 * jnp.einsum("aijk,aijk,a->ijk", A, epsilon, voigt_weights)
         return {"mu": g_mu, "lambda": g_lambda}, g_epsilon_bar
     else:
+        # indices that are used to construct the 21 components of the symmetric tensor
+        # from A and epsilon
         product_indices = (
             (0, 0),  # (00,00)
             (1, 1),  # (11,11)
@@ -426,7 +438,15 @@ def solve_bwd(grid_spec, res, gradients):
         )
 
         def symmetrized_product(S, T, a, b):
-            return S[a] * S[b] if a == b else ((S[a] * T[b]) + (S[b] * T[a]))
+            """Symmetrized product of two tensor components
+
+            Returns S_a * S_b is a==b and S_a * S_b + S_b * S_a otherwise
+
+            :arg S: first tensor
+            :arg T: second tensor
+            :arg a: first index
+            :arg b: second index
+            """
             return S[a] * T[b] if a == b else (S[a] * T[b] + S[b] * T[a])
 
         g_stiffness_tensor = jnp.stack(
