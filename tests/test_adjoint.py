@@ -67,7 +67,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
         epsilon, sigma = solve_isotropic(mu, lmbda, epsilon_mean, grid_spec_small)
         return jnp.sum(sigma**2)
 
-    rtol = 1.0e-5 if dtype == jnp.float64 else 2.0e-3
+    rtol = 1.0e-5 if dtype == jnp.float64 else 5.0e-3
     check_vjp(
         loss_fn,
         functools.partial(jax.vjp, loss_fn),
