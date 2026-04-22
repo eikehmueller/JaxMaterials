@@ -427,6 +427,7 @@ def solve_bwd(grid_spec, res, gradients):
 
         def symmetrized_product(S, T, a, b):
             return S[a] * S[b] if a == b else ((S[a] * T[b]) + (S[b] * T[a]))
+            return S[a] * T[b] if a == b else (S[a] * T[b] + S[b] * T[a])
 
         g_stiffness_tensor = jnp.stack(
             [
