@@ -412,8 +412,16 @@ Define the \textit{partial} functional derivatives of $J$ with respect to strain
     E(x) &:= \frac{\delta J}{\delta \varepsilon(x)}, &
     S(x) &:= \frac{\delta J}{\delta \sigma(x)},\label{eqn:J_derivatives}
 \end{xalignat}
-where $a:b=\sum_{ij}a_{ij}b_{ij}$.
-Given $E(x)$, $S(x)$ we want to compute
+where
+\begin{equation}
+A:B=\sum_{ij}A_{ij}B_{ij}.\label{eqn:scalar_product}
+\end{equation}
+In a slight abuse of notation, here (and in the following) we implicitly assume that the quantities defined this way are in fact the Riesz-representers with respect to the scalar product in \eqref{eqn:scalar_product}:
+\begin{equation}
+\frac{\delta J}{\delta \varepsilon(x)}(H) = E(x):H(x) \qquad\text{for all $H(x)$}.
+\label{eqn:riesz_representer}
+\end{equation}
+This has implications for the implementation which are discussed in \cref{sec:voigt_scalar_product}. Given $E(x)$, $S(x)$ we want to compute
 \begin{equation}
 \frac{\delta J}{\delta \overline{\varepsilon}},\qquad\frac{\delta J}{\delta C(x)}\label{eqn:func_deriv_anisotropic}
 \end{equation}
@@ -497,16 +505,29 @@ Second, the adjoint contribution is obtained by observing that
     &= \left(\Gamma^0*\Lambda\right)_{ij}(x)\varepsilon_{k\ell}(x)
     \end{aligned}
 \end{equation}
-Hence, putting everything together, we get
+Putting everything together, we get
 \begin{equation}
-\frac{\delta \mathcal{L}}{\delta C_{ijk\ell}} = \left(S+\Gamma^0*\Lambda \right)_{ij}\varepsilon_{k\ell}
+\frac{\delta \mathcal{L}}{\delta C_{ijk\ell}} = S^*_{ij}\varepsilon_{k\ell}
+\qquad\text{where $S^* = S+\Gamma^0*\Lambda$.}
+\label{eqn:gradC}
 \end{equation}
+
 The derivative with respect to $\overline{\varepsilon}$ only has an adjoint contribution:
 \begin{equation}
     \begin{aligned}
     \frac{\delta}{\delta \overline{\varepsilon}} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &= -\int_\Omega \Lambda(z) \;dz
     \end{aligned}
 \end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Anisotropic case: derivatives with respect to $C(x)$}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The tensor $C$ is symmetric, i.e. $C_{ijk\ell} = C_{k\ell ij}$. This can be taken into account by setting
+\begin{equation}
+\frac{\delta \mathcal{L}}{\delta C_{ijk\ell}} =\begin{cases} S^*_{ij}\varepsilon_{ij} & \text{if $i=j$ and $k=\ell$}, \\
+    S^*_{ij}\varepsilon_{k\ell} + \varepsilon_{ij}S^*_{k\ell}& \text{otherwise},
+\end{cases}
+\end{equation}
+where $S^*$ is defined in \eqref{eqn:gradC}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsubsection{Isotropic case: derivatives with respect to $\lambda(x)$ and $\mu(x)$}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -518,10 +539,48 @@ In the isotropic case where $C_{ijk\ell} = \lambda \delta_{ij}\delta_{k\ell} + \
 and therefore
 \begin{equation}
 \begin{aligned}
-\frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S+\Gamma^0*\Lambda \right)\operatorname{tr}(\varepsilon),\\
-\frac{\delta \mathcal{L}}{\delta \mu} &= 2\left(S+\Gamma^0*\Lambda \right):\varepsilon.\\
+\frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S^*\right)\operatorname{tr}(\varepsilon),\\
+\frac{\delta \mathcal{L}}{\delta \mu} &= 2\; S^*:\varepsilon.\\
 \end{aligned}
 \end{equation}
+with $S^*$  given in \eqref{eqn:gradC}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Scalar product in Voigt notation}\label{sec:voigt_scalar_product}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Care has to be taken when using Voigt notation. Representing a symmetric $3\times 3$ matrix $A$ by the six numbers
+\begin{xalignat}{6}
+    a_0 & = A_{00},&
+    a_1 & = A_{11},&
+    a_2 & = A_{22},&
+    a_3 & = A_{01},&
+    a_4 & = A_{02},&
+    a_5 & = A_{12}
+\end{xalignat}
+we have for the dot-product of two matrices $A$ and $B$
+\begin{equation}
+A:B = a_0 b_0 + a_1 b_1 + a_2 b_2 + 2 (a_3 b_3 + a_4 b_4 + a_5 b_5) = \sum_{j=0}^{5} w_j a_j b_j =: \langle a,b\rangle_{V}.
+\end{equation}
+with
+\begin{equation}
+w^{\text{(Voigt)}} = \begin{pmatrix}1 & 1 & 1 & 2 & 2 &2\end{pmatrix}.\label{eqn:voigt_weight}
+\end{equation}
+This differs from the normal, Euclidean dot-product
+\begin{equation}
+a\cdot b = \langle a,b\rangle = \sum_{j=0}^{5} a_j b_j.
+\end{equation}
+In JAX the numerical values of tensors that represent derivatives (which mathematically are dual vectors) are the Riesz-representers with respect to the $\langle \cdot,\cdot \rangle$. For example, the derivative with respect to $A$ would be defined by
+\begin{equation}
+\frac{\delta J}{\delta A}(H) = \langle g^E, h \rangle \qquad\text{for all $h$}
+\end{equation}
+This differs from \eqref{eqn:riesz_representer}, where
+\begin{equation}
+\frac{\delta J}{\delta A}(H) = G : H = \langle g , h\rangle_V \qquad\text{for all $h$}.
+\end{equation}
+This implies that $g_j = g^E_j / w^{\text{(Voigt)}}_j$ with the weights $w^{\text{(Voigt)}}$ given in \eqref{eqn:voigt_weight}. To take care of this in the code we need to:
+\begin{itemize}
+\item Divide all incoming tensor-valued gradients elementwise by $w^{\text{(Voigt)}}$
+\item Multiply all outgoing tensor-valued gradients elementwise with $w^{\text{(Voigt)}}$.
+\end{itemize}
 \bibliographystyle{unsrt}
 \bibliography{linear_elasticity}
 \end{document}
