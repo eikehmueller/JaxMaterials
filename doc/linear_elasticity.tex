@@ -452,7 +452,7 @@ The Lagrange multiplier $\Lambda(x)$ has been introduced to make $\mathcal{L}$ i
 To compute the derivative of the integral on the right hand side of \eqref{eqn:lagrangian}, observe that
 \begin{equation}
     \begin{aligned}
-        \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right)\varepsilon(y)\;dy\;dz\right)\\
+        \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right)\varepsilon(y)\;dy\;dz\right)\\
 &=\Lambda(x) + \int_\Omega \Lambda(z):\Gamma^0(z-x)\left(C(x)-C^0\right)\;dz \\
 &=\Lambda(x) +  \left(C(x)-C^0\right) \int_\Omega  \Gamma^0(x-z) \Lambda(z)\;dz
     \end{aligned}
@@ -501,7 +501,7 @@ Second, the adjoint contribution is obtained by observing that
     \begin{aligned}
     \frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &=\frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega\int_\Omega \Lambda_{ab}(z)\Gamma^0_{abcd}(z-y)\left(C(y)-C^0\right)_{cdrs}\varepsilon_{rs}(y)\;dy\;dz\\
     &= \int_\Omega \Lambda_{ab}(z)\Gamma^0_{abij}(z-x)\varepsilon_{k\ell}(x)\;dz\\
-    &= \left(\int_\Omega\Gamma^0_{ijab}(x-z)\Lambda_{ab}(z)\;dx\right)\varepsilon_{k\ell}(x)\\
+    &= \left(\int_\Omega\Gamma^0_{ijab}(x-z)\Lambda_{ab}(z)\;dz\right)\varepsilon_{k\ell}(x)\\
     &= \left(\Gamma^0*\Lambda\right)_{ij}(x)\varepsilon_{k\ell}(x)
     \end{aligned}
 \end{equation}
