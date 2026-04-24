@@ -133,8 +133,8 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
         )
         return jnp.sum(sigma**2)
 
-    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(mu, lmbda, epsilon_bar)
-    g = jax.grad(loss_fn, argnums=(0, 1))(mu, lmbda, epsilon_bar)
+    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
+    g = jax.grad(loss_fn, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
     rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-3
     assert all(np.allclose(x, y, rtol=rtol) for x, y in zip(g, g_adjoint))
 
