@@ -71,6 +71,8 @@ nz = 16
 grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
 ```
 
+### Forward solve
+
 The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean strain $\overline{\varepsilon}$ requires a call to `lippmann_schwinger_isotropic()` which can optionally use the CUDA backend. It returns the strain $\varepsilon$ and stress $\sigma$:
 
 ```Python
@@ -84,6 +86,8 @@ epsilon, sigma = lippmann_schwinger_isotropic(
     mu, lmbda, epsilon_bar, grid_spec=grid_spec, use_cuda=True
 )
 ```
+
+### Gradient computation
 
 Since the JAX implementation of `lippmann_schwinger_isotropic()` is fully reverse-mode differentiable, [jax.grad()](https://docs.jax.dev/en/latest/_autosummary/jax.grad.html) can be used to compute the gradient of a loss function $L=L(\varepsilon,\sigma)$ with respect to the inputs $\mu$, $\lambda$ and $\overline{\varepsilon}$. This is demonstrated in the following code snippet:
 
