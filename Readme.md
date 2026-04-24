@@ -96,7 +96,7 @@ def loss_fn(mu, lmbda, epsilon_bar):
     epsilon, sigma = lippmann_schwinger_isotropic(
         mu, lmbda, epsilon_bar, grid_spec=grid_spec
     )
-    return jnp.sum(epsilon **2 +sigma**2)
+    return jnp.sum(epsilon**2 + sigma**2)
 
 grad_fn = jax.grad(loss_fn, argnums=(0, 1, 2))
 
