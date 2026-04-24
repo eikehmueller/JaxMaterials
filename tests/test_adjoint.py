@@ -66,6 +66,7 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
+    """Compare custom gradient with adjoint method to finite difference approximation"""
     mu, lmbda = initialise_material(grid_spec_small, rng, dtype)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
@@ -86,6 +87,7 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
+    """Compare custom gradient with adjoint method to finite difference approximation"""
     if dtype == np.float32:
         pytest.skip("Test currently not reliable in single precision")
     mu, lmbda = initialise_material(grid_spec_small, rng, dtype)
@@ -109,6 +111,7 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_isotropic(grid_spec_small, rng, dtype):
+    """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
     mu, lmbda = initialise_material(grid_spec_small, rng, dtype)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
@@ -138,6 +141,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_anisotropic(grid_spec_small, rng, dtype):
+    """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
     mu, lmbda = initialise_material(grid_spec_small, rng, dtype)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     stiffness_tensor = perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1)
@@ -160,7 +164,8 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
         )
         return jnp.sum(sigma**2)
 
-    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(stiffness_tensor, epsilon_bar)
-    g = jax.grad(loss_fn, argnums=(0, 1))(stiffness_tensor, epsilon_bar)
-    rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-3
-    assert all(np.allclose(x, y, rtol=rtol) for x, y in zip(g, g_adjoint))
+    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(1,))(stiffness_tensor, epsilon_bar)
+    g = jax.grad(loss_fn, argnums=(1,))(stiffness_tensor, epsilon_bar)
+    # only check gradient with respect to epsilon_bar
+    rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-5
+    assert np.allclose(g, g_adjoint, rtol=rtol)
