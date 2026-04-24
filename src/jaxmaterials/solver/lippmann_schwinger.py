@@ -2,11 +2,7 @@
 
 import ctypes
 import numpy as np
-from jax import numpy as jnp
-from jaxmaterials.solver.backend import (
-    _lippmann_schwinger_jax,
-    _lippmann_schwinger_adjoint_jax,
-)
+from jaxmaterials.solver.backend import solve, number_of_iterations
 
 __all__ = [
     "lippmann_schwinger_isotropic_jax",
@@ -14,6 +10,35 @@ __all__ = [
     "lippmann_schwinger_isotropic_cuda",
     "lippmann_schwinger_anisotropic_cuda",
 ]
+
+
+def lippmann_schwinger_isotropic_jax(mu, lmbda, epsilon_bar, grid_spec):
+    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in isotropic material
+
+    :arg mu: Lame parameter mu
+    :arg lmbda: Lame parameter lambda
+    :arg epsilon_bar: mean value of epsilon
+    :arg grid_spec: specification of computational grid
+    """
+    # Check data types
+    dtype = epsilon_bar.dtype
+    assert mu.dtype == dtype
+    assert lmbda.dtype == dtype
+    material_properties = {"mu": mu, "lambda": lmbda}
+    return solve(material_properties, epsilon_bar, grid_spec, dynamic_stopping=True)
+
+
+def lippmann_schwinger_anisotropic_jax(stiffness_tensor, epsilon_bar, grid_spec):
+    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in anisotropic material
+
+    :arg stiffness_tensor: stiffness tensor,
+    :arg epsilon_bar: mean value of epsilon
+    :arg grid_spec: specification of computational grid
+    """
+    dtype = epsilon_bar.dtype
+    assert stiffness_tensor.dtype == dtype
+    material_properties = {"stiffness_tensor": stiffness_tensor}
+    return solve(material_properties, epsilon_bar, grid_spec, dynamic_stopping=True)
 
 
 def _load_cuda_library():
@@ -46,165 +71,7 @@ def _resolve_cuda_symbol(lib, names):
     )
 
 
-def lippmann_schwinger_isotropic_jax(
-    mu,
-    lmbda,
-    epsilon_bar,
-    grid_spec,
-    rtol=1e-6,
-    atol=1e-20,
-    depth=0,
-    maxiter=32,
-    dtype=jnp.float32,
-):
-    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in isotropic material
-
-    :arg mu: Lame parameter mu
-    :arg lmbda: Lame parameter lambda
-    :arg epsilon_bar: mean value of epsilon
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg depth: depth of Anderson acceleration
-    :arg maxiter: maximal number of iterations
-    :arg dtype: data type
-    """
-    # Check data types
-    assert mu.dtype == dtype
-    assert lmbda.dtype == dtype
-    assert epsilon_bar.dtype == dtype
-    return _lippmann_schwinger_jax(
-        {"mu": mu, "lambda": lmbda},
-        epsilon_bar,
-        grid_spec,
-        True,
-        rtol,
-        atol,
-        depth,
-        maxiter,
-        dtype,
-    )
-
-
-def lippmann_schwinger_anisotropic_jax(
-    stiffness_tensor,
-    epsilon_bar,
-    grid_spec,
-    rtol=1e-6,
-    atol=1e-20,
-    depth=0,
-    maxiter=32,
-    dtype=jnp.float32,
-):
-    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in anisotropic material
-
-    :arg stiffness_tensor: stiffness tensor,
-    :arg epsilon_bar: mean value of epsilon
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg depth: depth of Anderson acceleration
-    :arg maxiter: maximal number of iterations
-    :arg dtype: data type
-    """
-    assert stiffness_tensor.dtype == dtype
-    assert epsilon_bar.dtype == dtype
-
-    return _lippmann_schwinger_jax(
-        {"stiffness_tensor": stiffness_tensor},
-        epsilon_bar,
-        grid_spec,
-        False,
-        rtol,
-        atol,
-        depth,
-        maxiter,
-        dtype,
-    )
-
-
-def lippmann_schwinger_adjoint_isotropic_jax(
-    mu,
-    lmbda,
-    f_rhs,
-    grid_spec,
-    rtol=1e-6,
-    atol=1e-20,
-    maxiter=32,
-    dtype=jnp.float32,
-):
-    """Wrapper for adjoint Lippmann Schwinger in isotropic material
-
-    :arg mu: Lame parameter mu
-    :arg lmbda: Lame parameter lambda
-    :arg f_rhs: right hand side field
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg maxiter: maximal number of iterations
-    :arg dtype: data type
-    """
-    # Check data types
-    assert mu.dtype == dtype
-    assert lmbda.dtype == dtype
-    assert f_rhs.dtype == dtype
-    return _lippmann_schwinger_adjoint_jax(
-        {"mu": mu, "lambda": lmbda},
-        f_rhs,
-        grid_spec,
-        True,
-        rtol,
-        atol,
-        maxiter,
-        dtype,
-    )
-
-
-def lippmann_schwinger_adjoint_anisotropic_jax(
-    stiffness_tensor,
-    f_rhs,
-    grid_spec,
-    rtol=1e-6,
-    atol=1e-20,
-    maxiter=32,
-    dtype=jnp.float32,
-):
-    """Wrapper for adjoint Lippmann Schwinger in anisotropic material
-
-    :arg stiffness_tensor: stiffness tensor,
-    :arg r_rhs: right hand side function
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg depth: depth of Anderson acceleration
-    :arg maxiter: maximal number of iterations
-    :arg dtype: data type
-    """
-    assert stiffness_tensor.dtype == dtype
-    assert f_rhs.dtype == dtype
-
-    return _lippmann_schwinger_adjoint_jax(
-        {"stiffness_tensor": stiffness_tensor},
-        f_rhs,
-        grid_spec,
-        False,
-        rtol,
-        atol,
-        maxiter,
-        dtype,
-    )
-
-
-def lippmann_schwinger_isotropic_cuda(
-    mu,
-    lmbda,
-    epsilon_bar,
-    grid_spec,
-    rtol=1e-6,
-    atol=1.0e-20,
-    maxiter=32,
-    verbose=0,
-):
+def lippmann_schwinger_isotropic_cuda(mu, lmbda, epsilon_bar, grid_spec, verbose=0):
     """Wrapper for CUDA Lippmann Schwinger solver
 
     Required access to compiled library liblippmannschwinger.so
@@ -215,18 +82,14 @@ def lippmann_schwinger_isotropic_cuda(
     :arg mu: Lame parameter mu
     :arg lmbda: Lame parameter lambda
     :arg epsilon_bar: mean value of epsilon
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg maxiter: maximal number of iterations
+    :arg grid_spec: specification of computational grid
     :arg verbose: verbosity level
-    :arg
     """
     # Check data types
     assert mu.dtype == np.float32
     assert lmbda.dtype == np.float32
     assert epsilon_bar.dtype == np.float32
-
+    maxiter = 32
     lib = _load_cuda_library()
     # Prefer new name, fall back to legacy symbol for backward compatibility.
     cuda_code = _resolve_cuda_symbol(
@@ -259,37 +122,32 @@ def lippmann_schwinger_isotropic_cuda(
         sigma,
         cells,
         extents,
-        rtol,
-        atol,
-        maxiter,
-        verbose,
+        rtol=1e-5,
+        atol=1.0e-20,
+        maxiter=maxiter,
+        verbose=verbose,
     )
-    if iter == maxiter:
+    if iter >= maxiter:
         raise RuntimeError(f"Solver failed to converge after {maxiter} iterations")
-    return (
-        epsilon,
-        sigma,
-        iter,
-    )
+    return epsilon, sigma
 
 
 def lippmann_schwinger_anisotropic_cuda(
-    stiffness_tensor,
-    epsilon_bar,
-    grid_spec,
-    rtol=1e-6,
-    atol=1.0e-20,
-    maxiter=32,
-    verbose=0,
+    stiffness_tensor, epsilon_bar, grid_spec, verbose=0
 ):
     """Wrapper for CUDA Lippmann-Schwinger solver in anisotropic material.
 
-    Required access to compiled library liblippmannschwinger.so.
+    Requires access to compiled library liblippmannschwinger.so.
 
-    stiffness_tensor is assumed to have shape (21,nx,ny,nz).
+    :arg stiffness_tensor: independent components of stiffness_tensor, which is assumed to
+        have shape (21,nx,ny,nz).
+    :arg epsilon_bar: mean value of epsilon
+    :arg grid_spec: specification of computational grid
+    :arg verbose: verbosity level
 
     Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
     """
+    maxiter = 32
     assert stiffness_tensor.dtype == np.float32
     assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
     assert epsilon_bar.dtype == np.float32
@@ -314,22 +172,21 @@ def lippmann_schwinger_anisotropic_cuda(
     extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
     epsilon = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
     sigma = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
-    iter = cuda_code(
+    its = cuda_code(
         stiffness,
         np.ascontiguousarray(epsilon_bar, dtype=np.float32),
         epsilon,
         sigma,
         cells,
         extents,
-        rtol,
-        atol,
-        maxiter,
-        verbose,
+        rtol=1e-5,
+        atol=1.0e-20,
+        maxiter=maxiter,
+        verbose=verbose,
     )
-    if iter == maxiter:
+    if number_of_iterations is not None:
+        number_of_iterations.set(its)
+
+    if iter >= maxiter:
         raise RuntimeError(f"Solver failed to converge after {maxiter} iterations")
-    return (
-        epsilon,
-        sigma,
-        iter,
-    )
+    return epsilon, sigma

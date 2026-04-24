@@ -88,7 +88,8 @@ def get_xizero(grid_spec, dtype=jnp.float64):
     xi_tilde = get_xi(grid_spec, dtype=dtype)
     # Normalise tilde(xi) to obtain xi^0
     xi_nrm = np.linalg.norm(xi_tilde, axis=0)
-    xi_nrm[xi_nrm < 1.0e-12] = 1  # avoid division by zero
+    tolerance = 1.0e-12 if dtype == jnp.float64 else 1.0e-6
+    xi_nrm[xi_nrm < tolerance] = 1  # avoid division by zero
     return (xi_tilde / xi_nrm).astype(dtype)
 
 

@@ -1,5 +1,7 @@
 """Lippmann Schwinger solver with Anderson acceleration"""
 
+import contextvars
+import contextlib
 import jax
 from jax import numpy as jnp
 from jaxmaterials.solver.derivatives import backward_divergence
@@ -18,7 +20,19 @@ __all__ = [
     "_lippmann_schwinger_jax",
     "_lippmann_schwinger_adjoint_jax",
     "solve",
+    "iteration_counter",
 ]
+
+number_of_iterations = contextvars.ContextVar("its", default=None)
+
+
+@contextlib.contextmanager
+def iteration_counter():
+    token = number_of_iterations.set(-1)
+    try:
+        yield number_of_iterations
+    finally:
+        number_of_iterations.reset(token)
 
 
 def relative_divergence(sigma, grid_spec):
@@ -63,7 +77,16 @@ def relative_divergence_fourier(sigma_hat, xi):
     return dsigma_nrm / sigma_hat_zero_nrm
 
 
-@jax.jit(static_argnames=["grid_spec", "isotropic", "depth", "dtype", "maxiter"])
+@jax.jit(
+    static_argnames=[
+        "grid_spec",
+        "isotropic",
+        "depth",
+        "maxits",
+        "dynamic_stopping",
+        "dtype",
+    ]
+)
 def _lippmann_schwinger_jax(
     material_properties,
     epsilon_bar,
@@ -72,7 +95,8 @@ def _lippmann_schwinger_jax(
     rtol,
     atol,
     depth,
-    maxiter,
+    maxits,
+    dynamic_stopping,
     dtype,
 ):
     """Lippmann Schwinger iteration with Anderson acceleration for linear elasticity
@@ -89,7 +113,8 @@ def _lippmann_schwinger_jax(
     :arg rtol: relative tolerance on normalised stress divergence to check convergence
     :arg atol: absolute tolerance on normalised stress divergence to check convergence
     :arg depth: depth of Anderson acceleration
-    :arg maxiter: maximal number of iterations
+    :arg maxits: maximal number of iterations
+    :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
     :arg dtype: data type
     """
     # Fourier vectors
@@ -141,19 +166,19 @@ def _lippmann_schwinger_jax(
 
         Let e^i = <||div(sigma^i)||> / ||<sigma^i>|| be the current normalised divergence
 
-        This method checkes whether e^i < max (atol, rtol * e^0) or iter > maxiter
+        This method checkes whether e^i < max (atol, rtol * e^0) or its > maxits
 
-        :arg state: current iteration state (epsilon, residual, sigma, A, iter, rel_error, rel_error_0)
+        :arg state: current iteration state (epsilon, residual, sigma, A, , rel_error, rel_error_0)
         """
-        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = state
-        return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (iter < maxiter)
+        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
+        return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
 
     def loop_body(state):
         """Update strain, residual and stress according to update rule
 
-        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, iter, rel_error)
+        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)
         """
-        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = state
+        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
         if isotropic:
             r_hat = fourier_solve_isotropic(sigma_hat, lmbda0, mu0, xizero)
@@ -182,7 +207,7 @@ def _lippmann_schwinger_jax(
         # Fourier transform sigma
         sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
         rel_error = relative_divergence_fourier(sigma_hat, xi)
-        iter += 1
+        its += 1
         return (
             epsilon,
             residual,
@@ -190,31 +215,26 @@ def _lippmann_schwinger_jax(
             sigma_hat,
             A_anderson,
             u_rhs,
-            iter,
+            its,
             rel_error,
         )
 
-    epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = (
-        jax.lax.while_loop(
-            exit_condition,
-            loop_body,
-            init_val=(
-                epsilon,
-                residual,
-                sigma,
-                sigma_hat,
-                A_anderson,
-                u_rhs,
-                0,
-                rel_error_0,
-            ),
+    init_val = (epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, 0, rel_error_0)
+    if dynamic_stopping:
+        loop_result = jax.lax.while_loop(exit_condition, loop_body, init_val=init_val)
+    else:
+        loop_result = jax.lax.fori_loop(
+            0, maxits, lambda _, state: loop_body(state), init_val=init_val
         )
-    )
 
-    return epsilon[0, ...], sigma, iter
+    epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = loop_result
+
+    return epsilon[0, ...], sigma, its
 
 
-@jax.jit(static_argnames=["grid_spec", "isotropic", "dtype", "maxiter"])
+@jax.jit(
+    static_argnames=["grid_spec", "isotropic", "maxits", "dynamic_stopping", "dtype"]
+)
 def _lippmann_schwinger_adjoint_jax(
     material_properties,
     f_rhs,
@@ -222,10 +242,11 @@ def _lippmann_schwinger_adjoint_jax(
     isotropic,
     rtol,
     atol,
-    maxiter,
+    maxits,
+    dynamic_stopping,
     dtype,
 ):
-    """Lippmann Schwinger iteration for adjoint equation of linear elasticity
+    """Lippmann Schwinger itsation for adjoint equation of linear elasticity
 
     Computational routine which should not be called directly.
     The dictionary 'material_properties' is of the form {"lambda":lambda,"mu":mu} for an
@@ -237,7 +258,8 @@ def _lippmann_schwinger_adjoint_jax(
     :arg isotropic: isotropic material?
     :arg rtol: relative tolerance on normalised stress divergence to check convergence
     :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg maxiter: maximal number of iterations
+    :arg maxits: maximal number of iterations
+    :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
     :arg dtype: data type
     """
     # Fourier vectors
@@ -267,18 +289,18 @@ def _lippmann_schwinger_adjoint_jax(
     def exit_condition(state):
         """Check exit condition
 
-        :arg state: current iteration state (epsilon, residual, sigma, A, iter, rel_error, rel_error_0)
+        :arg state: current iteration state (epsilon, residual, sigma, A, its, rel_error, rel_error_0)
         """
-        Lambda, increment_nrm, iter = state
+        Lambda, increment_nrm, its = state
         nrm = jnp.linalg.norm(Lambda)
-        return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (iter < maxiter)
+        return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
 
     def loop_body(state):
         """Update strain, residual and stress according to update rule
 
-        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, iter, rel_error)
+        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)
         """
-        Lambda, increment_nrm, iter = state
+        Lambda, increment_nrm, its = state
         Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
         if isotropic:
             Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
@@ -293,61 +315,83 @@ def _lippmann_schwinger_adjoint_jax(
             )
         Lambda_prev = Lambda
         Lambda = f_rhs + Delta
-        iter += 1
+        its += 1
         increment_nrm = jnp.linalg.norm(Lambda - Lambda_prev)
-        return Lambda, increment_nrm, iter
+        return Lambda, increment_nrm, its
 
-    Lambda, increment_nrm, iter = jax.lax.while_loop(
-        exit_condition,
-        loop_body,
-        init_val=(Lambda, increment_nrm, 0),
-    )
+    if dynamic_stopping:
+        loop_result = jax.lax.while_loop(
+            exit_condition, loop_body, init_val=(Lambda, increment_nrm, 0)
+        )
+    else:
+        loop_result = jax.lax.fori_loop(
+            0,
+            maxits,
+            lambda _, state: loop_body(state),
+            init_val=(Lambda, increment_nrm, 0),
+        )
 
-    return Lambda, iter
+    Lambda, increment_nrm, its = loop_result
+
+    return Lambda, its
 
 
-def solve_impl(material_properties, epsilon_bar, grid_spec):
-    """backend implementation of the forward solve
-
-    Having a single subroutine avoid duplicating the code in _solve() and the
-    forward solve solve_fwd()
+def solve_impl(material_properties, epsilon_bar, grid_spec, dynamic_stopping):
+    """Backend implementation of the forward solve
 
     :arg material_properties: dictionary with Lame coefficients or
         symmetric stiffness tensor
     :arg epsilon_bar: average strain
     :arg grid_spec: specifications of computational grid
+    :arg dynamic_stopping: use dynamic stopping criterion? Otherwise, carry out fixed number
+        of iterations as specified by maxits
     """
     dtype = epsilon_bar.dtype
-    epsilon, sigma, _ = _lippmann_schwinger_jax(
+    maxits = 32
+    epsilon, sigma, its = _lippmann_schwinger_jax(
         material_properties,
         epsilon_bar,
         grid_spec,
         isotropic={"mu", "lambda"} == set(material_properties.keys()),
         rtol=1.0e-20,
-        atol=1.0e-6 if dtype == jnp.float32 else 1.0e-12,
+        atol=1.0e-5 if dtype == jnp.float32 else 1.0e-12,
         depth=0,
-        maxiter=32,
+        maxits=maxits,
+        dynamic_stopping=dynamic_stopping,
         dtype=dtype,
     )
+    if number_of_iterations is not None:
+        number_of_iterations.set(its)
+    if its >= maxits and dynamic_stopping:
+        raise RuntimeError(
+            f"Lippmann Schwinger Solver failed to converge after {maxits} iterations"
+        )
     return epsilon, sigma
 
 
-def _solve(material_properties, epsilon_bar, grid_spec):
-    return solve_impl(material_properties, epsilon_bar, grid_spec)
+def solve_fwd(material_properties, epsilon_bar, grid_spec, dynamic_stopping):
+    """Forward solve to compute stress and strain for given material parameters and epsilon_bar
 
-
-solve = jax.custom_vjp(_solve, nondiff_argnames=("grid_spec",))
-
-
-def solve_fwd(material_properties, epsilon_bar, grid_spec):
-    """Forward solve"""
-    out = solve_impl(material_properties, epsilon_bar, grid_spec)
+    :arg material_properties: dictionary which contains either Lame parameters mu, lambda
+        or the 21 independent components of the 6x6 stiffness tensor.
+    :arg epsilon_bar: mean value of strain
+    :arg dynamic_stopping: use dynamic stopping criterion?
+    """
+    out = solve_impl(material_properties, epsilon_bar, grid_spec, dynamic_stopping)
     epsilon, sigma = out
     return out, (material_properties, epsilon, sigma)
 
 
-def solve_bwd(grid_spec, res, gradients):
-    """Backward solve"""
+def solve_bwd(grid_spec, dynamic_stopping, res, gradients):
+    """Backward solve
+
+    Returns gradients with respect to material parameters and epsilon_bar
+
+    :arg grid_spec: specification of computational grid
+    :arg dynamic_stopping: use dynamic stopping criterion?
+    :arg res: results object returned by solve_fwd()
+    :arg gradients: Riesz-representer of input gradients
+    """
     material_properties, epsilon, _ = res
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
@@ -385,16 +429,23 @@ def solve_bwd(grid_spec, res, gradients):
     else:
         Cg_sigma = compute_sigma_anisotropic(stiffness_tensor, g_sigma)
     f_rhs = -(g_epsilon + Cg_sigma)
-    Lambda, _ = _lippmann_schwinger_adjoint_jax(
+    maxits = 32
+    Lambda, its = _lippmann_schwinger_adjoint_jax(
         material_properties,
         f_rhs,
         grid_spec,
         isotropic=isotropic,
         rtol=1.0e-5 if dtype == jnp.float32 else 1.0e-12,
         atol=1.0e-20,
-        maxiter=32,
+        maxits=maxits,
+        dynamic_stopping=dynamic_stopping,
         dtype=dtype,
     )
+    if its > maxits:
+        raise RuntimeError(
+            f"Adjoint Lippmann Schwinger Solver failed to converge after {maxits} iterations"
+        )
+
     Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
     if isotropic:
         Theta_hat = fourier_solve_isotropic(Lambda_hat, lmbda0, mu0, xizero)
@@ -460,14 +511,6 @@ def solve_bwd(grid_spec, res, gradients):
         return {"stiffness_tensor": g_stiffness_tensor}, g_epsilon_bar
 
 
+# Register custom forward solve and reverse mode gradient
+solve = jax.custom_vjp(solve_impl, nondiff_argnames=("grid_spec", "dynamic_stopping"))
 solve.defvjp(solve_fwd, solve_bwd)
-
-
-def solve_isotropic(mu, lmbda, epsilon_bar, grid_spec):
-    material_properties = {"mu": mu, "lambda": lmbda}
-    return solve(material_properties, epsilon_bar, grid_spec)
-
-
-def solve_anisotropic(stiffness_tensor, epsilon_bar, grid_spec):
-    material_properties = {"stiffness_tensor": stiffness_tensor}
-    return solve(material_properties, epsilon_bar, grid_spec)

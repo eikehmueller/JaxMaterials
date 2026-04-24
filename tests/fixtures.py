@@ -60,8 +60,8 @@ def initialise_material(grid_spec, rng, dtype):
     :arg dtype: data type
     """
     shape = (grid_spec.nx, grid_spec.ny, grid_spec.nz)
-    mu = np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
-    lmbda = np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
+    mu = 0.9 * np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
+    lmbda = 1.1 * np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
     return np.array(mu, dtype=dtype), np.array(lmbda, dtype=dtype)
 
 
