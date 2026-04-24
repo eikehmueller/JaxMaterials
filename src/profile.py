@@ -43,12 +43,12 @@ def initialise_material(grid_spec, fibre_radius=0.2, dtype=jnp.float64):
 
 # Domain size in all three spatial direction
 Lx = 1.2
-Ly = 0.8
+Ly = 1.1
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 32
-ny = 32
-nz = 32
+nx = 64
+ny = 64
+nz = 48
 
 repeat = 10
 grid_spec = GridSpec(nx, ny, nz, Lx, Ly, Lz)
@@ -176,8 +176,16 @@ for dtype in (jnp.float32, jnp.float64):
         run(body)
     print()
 
-gpu_available = False
+gpu_available = True
 if gpu_available:
+    dtype = jnp.float32
+    mu, lmbda = initialise_material(grid_spec, dtype=dtype)
+    zeros = jnp.zeros(mu.shape, dtype=dtype)
+    stiffness_tensor = jnp.stack(
+        3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
+    )
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+
     with measure_time(
         "evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True
     ) as run:

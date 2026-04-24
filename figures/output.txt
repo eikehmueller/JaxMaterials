@@ -1,16 +1,41 @@
-time [evaluation   (isotropic, Jax)] =    0.068 s
-  number of iterations = 5
+time [evaluation   (isotropic, single precision)] =    0.017 s
 
-time [evaluation (anisotropic, Jax)] =    0.106 s
-  number of iterations = 5
-difference =  1.8725913e-07
+  number of iterations = 6
 
-time [evaluation  (isotropic, CUDA)] =    0.032 s
-  number of iterations = 5
+time [evaluation (anisotropic, single precision)] =    0.031 s
 
-time [evaluation  (anisotropic, CUDA)] =    0.120 s
-  number of iterations = 5
-difference =  1.6990252e-07
+  number of iterations = 6
+difference =  1.5250843e-07
 
-time [gradient (isotropic)] =    0.472 s
-time [gradient (anisotropic)] =    0.555 s
+time [gradient (isotropic, single precision)] =    0.076 s
+
+time [gradient (naive, isotropic, single precision)] =    0.164 s
+
+time [gradient (anisotropic, single precision)] =    0.236 s
+
+time [gradient (naive, anisotropic, single precision)] =    0.677 s
+
+time [evaluation   (isotropic, double precision)] =    0.104 s
+
+  number of iterations = 15
+
+time [evaluation (anisotropic, double precision)] =    0.136 s
+
+  number of iterations = 15
+difference =  3.294051600363827e-16
+
+time [gradient (isotropic, double precision)] =    0.247 s
+
+time [gradient (naive, isotropic, double precision)] =    0.493 s
+
+time [gradient (anisotropic, double precision)] =    0.439 s
+
+time [gradient (naive, anisotropic, double precision)] =    1.452 s
+
+time [evaluation  (isotropic, CUDA)] =    0.009 s
+  number of iterations = 6
+
+time [evaluation  (anisotropic, CUDA)] =    0.027 s
+  number of iterations = 6
+difference =  1.6817552e-07
+

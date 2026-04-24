@@ -39,6 +39,8 @@ The following figure compares the performance of the (an-) isotropic JAX and CUD
 
 ![Performance of JAX and CUDA solvers](figures/performance.png)
 
+All results are for a $64\times 64\times 32$ grid. The code was run on a NVIDIA GeForce GTX 1660 Super GPU.
+
 ## Quick installation
 
 Clone and run

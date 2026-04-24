@@ -94,11 +94,14 @@ def lippmann_schwinger_isotropic(
             sigma,
             cells,
             extents,
-            rtol=1e-5,
-            atol=1.0e-20,
-            maxiter=maxits,
-            verbose=verbose,
+            1.0e-5,
+            1.0e-20,
+            maxits,
+            verbose,
         )
+        if number_of_iterations is not None:
+            number_of_iterations.set(its)
+
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
         return epsilon, sigma
@@ -160,10 +163,10 @@ def lippmann_schwinger_anisotropic(
             sigma,
             cells,
             extents,
-            rtol=1e-5,
-            atol=1.0e-20,
-            maxiter=maxits,
-            verbose=verbose,
+            1e-5,
+            1.0e-20,
+            maxits,
+            verbose,
         )
         if number_of_iterations is not None:
             number_of_iterations.set(its)
