@@ -2,34 +2,40 @@
 
 # JaxMaterials
 
-High-performance [Jax](https://docs.jax.dev/en/latest/index.html#)/[CUDA](https://developer.nvidia.com/cuda)-based library for **differentiable materials modelling**, designed to integrate physics-based models into modern machine learning workflows.
+High-performance [JAX](https://docs.jax.dev/en/latest/index.html#)/[CUDA](https://developer.nvidia.com/cuda)-based library for **differentiable materials modelling**, designed to integrate physics-based models into modern machine learning workflows.
 
-Enables gradient-based optimisation of ML surrogate models for material simulations, by combining efficient computation with scalable ML infrastructure which can run on CPUs and GPUs.
+Enables gradient-based sensitivity studies and optimisation of ML surrogate models for material simulations, by combining efficient computation with scalable ML infrastructure which can run on CPUs and GPUs.
 
 ## Goals
 
 Materials with fine microstructure, such as carbon fibre composites, are expensive to simulate with classical PDE methods. Upscaling methods require a large number of simulations to infer distributions of material parameters. In addition, it is often desirable to provide
 
-- Sensitivity of output to input parameters
-- Support for running on CPU and GPU hardware
+- **Sensitivity** of output to **input parameters**
+- Support for **running on CPU and GPU hardware**
 
 Machine learning surrogate models can reduce runtime but require:
 
-- Fast code for data generation and inference
-- Differentiable solvers to use methods like [Physics Enhanced Deep Surrogates](https://arxiv.org/abs/2111.05841)
+- **Fast code** for data generation and inference
+- **Differentiable solvers** to use methods like [Physics Enhanced Deep Surrogates](https://arxiv.org/abs/2111.05841)
+
+While JAX provides automatic forward- and reverse-mode differentiation capabilities, iterative solvers with a dynamic stopping criterion require:
+
+- **Custom backward derivative** implementations
+
+Here, this is realised with the adjoint state method.
 
 ## Features
 
-- Differentiable materials models implemented in JAX  
-- Automatic differentiation for optimisation and ML training  
-- GPU acceleration of differentiable solvers via JAX
-- Bespoke CUDA solvers for data generation and inference
+- **GPU accelerated differentiable material models** (isotropic & anisotropic) implemented in JAX  
+- **Reverse- mode differentiation** with **bespoke adjoint** implementation handles dynamic loop bounds
+- **Automatic differentiation** enables sensitivity studies, optimisation and ML training  
+- **Bespoke CUDA solvers** for fast data generation and inference
 - Modular design for extending models and components
-- Compatible with ML pipelines and optimisation frameworks  
+- Compatible with JAX ML pipelines and optimisation frameworks  
 
 ## Achievements
 
-The following figures compares the performance of the (an-) isotropic JAX and CUDA solvers when applied to an isotropic material.
+The following figure compares the performance of the (an-) isotropic JAX and CUDA solvers when applied to an isotropic material. Results for reverse mode gradient computation with the adjoint state method are also shown.
 
 ![Performance of JAX and CUDA solvers](figures/performance.png)
 
@@ -40,6 +46,58 @@ Clone and run
 pip install jaxmaterials
 ```
 for the JAX-Python library. See detailed instructions below for CUDA support.
+
+## Sample usage
+
+The following code snippets demonstrate the forward-solve and reverse mode differentiation capabilities.
+
+First, import the necessary libraries and set up the specification of the computational grid
+
+```Python
+import numpy as np
+import jax
+
+from jax import numpy as jnp
+
+jax.config.update("jax_enable_x64", True)
+
+from jaxmaterials.common import GridSpec
+from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
+
+nx = 32
+ny = 32
+nz = 16
+
+grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
+```
+
+The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean strain $\overline{\varepsilon}$ requires a call to `lippmann_schwinger_isotropic()` which can optionally use the CUDA backend. It returns the strain $\varepsilon$ and stress $\sigma$:
+
+```Python
+rng = np.random.default_rng(seed=47273)
+
+mu = rng.uniform(low=0.8, high=1.1, size=(nx, ny, nz))
+lmbda = rng.uniform(low=0.6, high=0.7, size=(nx, ny, nz))
+epsilon_bar = rng.normal(size=6)
+
+epsilon, sigma = lippmann_schwinger_isotropic(
+    mu, lmbda, epsilon_bar, grid_spec=grid_spec, use_cuda=True
+)
+```
+
+Since the JAX implementation of `lippmann_schwinger_isotropic()` is fully reverse-mode differentiable, [jax.grad()](https://docs.jax.dev/en/latest/_autosummary/jax.grad.html) can be used to compute the gradient of a loss function $L=L(\varepsilon,\sigma)$ with respect to the inputs $\mu$, $\lambda$ and $\overline{\varepsilon}$. This is demonstrated in the following code snippet:
+
+```Python
+def loss_fn(mu, lmbda, epsilon_bar):
+    epsilon, sigma = lippmann_schwinger_isotropic(
+        mu, lmbda, epsilon_bar, grid_spec=grid_spec
+    )
+    return jnp.sum(epsilon **2 +sigma**2)
+
+grad_fn = jax.grad(loss_fn, argnums=(0, 1, 2))
+
+g_mu, g_lmbda, g_epsilon_bar = grad_fn(mu, lmbda, epsilon_bar)
+```
 
 ## Contents
 This repository contains the following code:
