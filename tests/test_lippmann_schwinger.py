@@ -12,10 +12,8 @@ from jaxmaterials.solver.backend import (
 )
 
 from jaxmaterials.solver.lippmann_schwinger import (
-    lippmann_schwinger_isotropic_jax,
-    lippmann_schwinger_anisotropic_jax,
-    lippmann_schwinger_isotropic_cuda,
-    lippmann_schwinger_anisotropic_cuda,
+    lippmann_schwinger_isotropic,
+    lippmann_schwinger_anisotropic,
 )
 from fixtures import initialise_material, perturbed_stiffness_tensor, grid_spec, rng
 
@@ -145,13 +143,13 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=np.float32)
     mu, lmbda = initialise_material(grid_spec, rng, dtype=np.float32)
     try:
-        epsilon_cuda, sigma_cuda = lippmann_schwinger_isotropic_cuda(
-            mu, lmbda, epsilon_bar, grid_spec
+        epsilon_cuda, sigma_cuda = lippmann_schwinger_isotropic(
+            mu, lmbda, epsilon_bar, grid_spec, use_cuda=True
         )
     except:
         pytest.skip(reason="CUDA code not available")
-    epsilon_jax, sigma_jax = lippmann_schwinger_isotropic_jax(
-        mu, lmbda, epsilon_bar, grid_spec
+    epsilon_jax, sigma_jax = lippmann_schwinger_isotropic(
+        mu, lmbda, epsilon_bar, grid_spec, use_cuda=False
     )
     rel_diff_epsilon_2 = np.sum((epsilon_cuda - epsilon_jax) ** 2) / np.sum(
         epsilon_jax**2
@@ -173,14 +171,14 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
 
     stiffness_tensor = perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1)
     try:
-        epsilon_cuda, sigma_cuda = lippmann_schwinger_anisotropic_cuda(
-            stiffness_tensor, epsilon_bar, grid_spec
+        epsilon_cuda, sigma_cuda = lippmann_schwinger_anisotropic(
+            stiffness_tensor, epsilon_bar, grid_spec, use_cuda=True
         )
     except Exception:
         pytest.skip(reason="CUDA code not available")
 
-    epsilon_jax, sigma_jax = lippmann_schwinger_anisotropic_jax(
-        stiffness_tensor, epsilon_bar, grid_spec
+    epsilon_jax, sigma_jax = lippmann_schwinger_anisotropic(
+        stiffness_tensor, epsilon_bar, grid_spec, use_cuda=False
     )
 
     rel_diff_epsilon_2 = np.sum((epsilon_cuda - epsilon_jax) ** 2) / np.sum(

@@ -8,8 +8,8 @@ import functools
 
 
 from jaxmaterials.solver.lippmann_schwinger import (
-    lippmann_schwinger_isotropic_jax,
-    lippmann_schwinger_anisotropic_jax,
+    lippmann_schwinger_isotropic,
+    lippmann_schwinger_anisotropic,
 )
 from jaxmaterials.solver.backend import _lippmann_schwinger_adjoint_jax
 
@@ -71,7 +71,7 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
     def loss_fn(mu, lmbda, epsilon_bar):
-        epsilon, sigma = lippmann_schwinger_isotropic_jax(
+        epsilon, sigma = lippmann_schwinger_isotropic(
             mu, lmbda, epsilon_bar, grid_spec_small
         )
         return jnp.sum(sigma**2)
@@ -95,7 +95,7 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
     stiffness_tensor = perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1)
 
     def loss_fn(stiffness_tensor, epsilon_bar):
-        epsilon, sigma = lippmann_schwinger_anisotropic_jax(
+        epsilon, sigma = lippmann_schwinger_anisotropic(
             stiffness_tensor, epsilon_bar, grid_spec_small
         )
         return jnp.sum(sigma**2)
