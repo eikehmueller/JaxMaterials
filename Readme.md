@@ -74,6 +74,7 @@ grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
 ```
 
 ### Forward solve
+The interface to the differential solvers for isotropic and anisotropic materials can be found in [lippmann_schwinger.py](src/jaxmaterials/solver/lippmann_schwinger.py)
 
 The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean strain $\overline{\varepsilon}$ requires a call to `lippmann_schwinger_isotropic()` which can optionally use the CUDA backend. It returns the strain $\varepsilon$ and stress $\sigma$:
 
