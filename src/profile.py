@@ -5,6 +5,7 @@ from jax import numpy as jnp
 from jaxmaterials.common import GridSpec
 from jaxmaterials.utilities import save_to_vtk
 from jaxmaterials.utilities import measure_time
+from jaxmaterials.solver.backend import solve_impl
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic,
     lippmann_schwinger_anisotropic,
@@ -45,9 +46,9 @@ Lx = 1.2
 Ly = 0.8
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 64
-ny = 64
-nz = 64
+nx = 32
+ny = 32
+nz = 32
 
 repeat = 10
 grid_spec = GridSpec(nx, ny, nz, Lx, Ly, Lz)
@@ -74,7 +75,7 @@ for dtype in (jnp.float32, jnp.float64):
             return epsilon_isotropic, its
 
         epsilon_isotropic, its = run(body)
-
+    print()
     print(f"  number of iterations = {its}")
     print()
 
@@ -92,6 +93,7 @@ for dtype in (jnp.float32, jnp.float64):
             return epsilon_anisotropic, its
 
         epsilon_anisotropic, its = run(body)
+    print()
     print(f"  number of iterations = {its}")
     print(
         "difference = ",
@@ -115,6 +117,27 @@ for dtype in (jnp.float32, jnp.float64):
             g[0][0].block_until_ready()
 
         run(body)
+    print()
+
+    with measure_time(
+        f"gradient (naive, isotropic, {precision})", repeat=repeat, warmup=True
+    ) as run:
+
+        def body():
+            def loss_fn(mu, lmbda, epsilon_bar):
+                epsilon, sigma = solve_impl(
+                    {"mu": mu, "lambda": lmbda},
+                    epsilon_bar,
+                    grid_spec,
+                    dynamic_stopping=False,
+                )
+                return jnp.sum(sigma**2)
+
+            g = jax.grad(loss_fn, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
+            g[0][0].block_until_ready()
+
+        run(body)
+    print()
 
     with measure_time(
         f"gradient (anisotropic, {precision})", repeat=repeat, warmup=True
@@ -124,6 +147,26 @@ for dtype in (jnp.float32, jnp.float64):
             def loss_fn(stiffness_tensor, epsilon_bar):
                 epsilon, sigma = lippmann_schwinger_anisotropic(
                     stiffness_tensor, epsilon_bar, grid_spec
+                )
+                return jnp.sum(sigma**2)
+
+            g = jax.grad(loss_fn, argnums=(0, 1))(stiffness_tensor, epsilon_bar)
+            g[0][0].block_until_ready()
+
+        run(body)
+    print()
+
+    with measure_time(
+        f"gradient (naive, anisotropic, {precision})", repeat=repeat, warmup=True
+    ) as run:
+
+        def body():
+            def loss_fn(stiffness_tensor, epsilon_bar):
+                epsilon, sigma = solve_impl(
+                    {"stiffness_tensor": stiffness_tensor},
+                    epsilon_bar,
+                    grid_spec,
+                    dynamic_stopping=False,
                 )
                 return jnp.sum(sigma**2)
 
