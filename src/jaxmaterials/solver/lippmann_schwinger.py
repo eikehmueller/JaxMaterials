@@ -1,5 +1,6 @@
 """Lippmann Schwinger solver with Anderson acceleration"""
 
+import warnings
 import ctypes
 import numpy as np
 from jaxmaterials.solver.backend import solve, number_of_iterations
@@ -8,6 +9,10 @@ __all__ = [
     "lippmann_schwinger_isotropic",
     "lippmann_schwinger_anisotropic",
 ]
+
+
+class CUDAUnavailableError(RuntimeError):
+    pass
 
 
 def _load_cuda_library():
@@ -21,7 +26,7 @@ def _load_cuda_library():
     try:
         return ctypes.CDLL("liblippmannschwinger.so")
     except Exception as exc:
-        raise RuntimeError(
+        raise CUDAUnavailableError(
             "Unable to load CUDA library liblippmannschwinger.so"
         ) from exc
 
@@ -35,29 +40,46 @@ def _resolve_cuda_symbol(lib, names):
         symbol = getattr(lib, name, None)
         if symbol is not None:
             return symbol
-    raise RuntimeError(
+    raise CUDAUnavailableError(
         f"Unable to find any CUDA entrypoint among symbols: {', '.join(names)}"
     )
 
 
 def lippmann_schwinger_isotropic(
-    mu, lmbda, epsilon_bar, grid_spec, use_cuda=False, verbose=0
+    mu,
+    lmbda,
+    epsilon_bar,
+    grid_spec,
+    tol=1.0e-5,
+    maxits=1000,
+    depth=0,
+    use_cuda=False,
+    verbose=0,
 ):
-    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in isotropic material
+    """Wrapper for Lippmann Schwinger iteration in isotropic material
+
+    Anderson acceleration can be applied for the forward solve in the JAX implementation
 
     :arg mu: Lame parameter mu
     :arg lmbda: Lame parameter lambda
     :arg epsilon_bar: mean value of epsilon
     :arg grid_spec: specification of computational grid
+    :arg tol: tolerance used for convergence test
+    :arg maxits: maximum number of iterations
+    :arg depth: depth for Anderson iteration; only used in JAX forward solve
     :arg use_cuda: use cuda, requires access to compiled library liblippmannschwinger.so
-    :arg verbose: verbosity level, only used for CUDA version
+    :arg verbose: verbosity level
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
     assert mu.dtype == dtype
     assert lmbda.dtype == dtype
     assert epsilon_bar.dtype == dtype
+    assert depth >= 0
+    assert maxits > 0
+    assert tol > 0
     if use_cuda:
-        maxits = 32
+        if depth > 0:
+            warnings.warn("Parameter depth ignored for CUDA implementations")
         lib = _load_cuda_library()
         # Prefer new name, fall back to legacy symbol for backward compatibility.
         cuda_code = _resolve_cuda_symbol(
@@ -94,8 +116,8 @@ def lippmann_schwinger_isotropic(
             sigma,
             cells,
             extents,
-            1.0e-5,
             1.0e-20,
+            tol,
             maxits,
             verbose,
         )
@@ -108,30 +130,51 @@ def lippmann_schwinger_isotropic(
     else:
         material_properties = {"mu": mu, "lambda": lmbda}
         epsilon, sigma = solve(
-            material_properties, epsilon_bar, grid_spec, dynamic_stopping=True
+            material_properties,
+            epsilon_bar,
+            grid_spec,
+            tol=tol,
+            maxits=maxits,
+            depth=depth,
+            dynamic_stopping=True,
+            verbose=verbose,
         )
     return epsilon, sigma
 
 
 def lippmann_schwinger_anisotropic(
-    stiffness_tensor, epsilon_bar, grid_spec, use_cuda=False, verbose=0
+    stiffness_tensor,
+    epsilon_bar,
+    grid_spec,
+    tol=1.0e-5,
+    maxits=1000,
+    depth=0,
+    use_cuda=False,
+    verbose=0,
 ):
-    """Wrapper for Anderson-accelerated Lippmann Schwinger iteration in anisotropic material
+    """Wrapper for Lippmann Schwinger iteration in anisotropic material
 
+    Anderson acceleration can be applied for the forward solve in the JAX implementation
 
-
-    :arg stiffness_tensor: stiffness tensor,
+    :arg stiffness_tensor: stiffness tensor
     :arg epsilon_bar: mean value of epsilon
     :arg grid_spec: specification of computational grid
+    :arg tol: tolerance used for convergence test
+    :arg maxits: maximum number of iterations
+    :arg depth: depth for Anderson iteration; only used in JAX forward solve
     :arg use_cuda: use cuda, requires access to compiled library liblippmannschwinger.so
-    :arg verbose: verbosity level, only used for CUDA version
+    :arg verbose: verbosity level
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
     assert stiffness_tensor.dtype == dtype
     assert epsilon_bar.dtype == dtype
     assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
+    assert depth >= 0
+    assert maxits > 0
+    assert tol > 0
     if use_cuda:
-        maxits = 32
+        if depth > 0:
+            warnings.warn("Parameter depth ignored for CUDA implementations")
         stiffness = np.ascontiguousarray(stiffness_tensor)
         lib = _load_cuda_library()
         cuda_code = _resolve_cuda_symbol(lib, ["lippmann_schwinger_solve_anisotropic"])
@@ -163,8 +206,8 @@ def lippmann_schwinger_anisotropic(
             sigma,
             cells,
             extents,
-            1e-5,
             1.0e-20,
+            tol,
             maxits,
             verbose,
         )
@@ -177,6 +220,13 @@ def lippmann_schwinger_anisotropic(
     else:
         material_properties = {"stiffness_tensor": stiffness_tensor}
         epsilon, sigma = solve(
-            material_properties, epsilon_bar, grid_spec, dynamic_stopping=True
+            material_properties,
+            epsilon_bar,
+            grid_spec,
+            tol=tol,
+            maxits=maxits,
+            depth=depth,
+            dynamic_stopping=True,
+            verbose=verbose,
         )
     return epsilon, sigma

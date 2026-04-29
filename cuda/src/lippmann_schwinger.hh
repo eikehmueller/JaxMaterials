@@ -153,14 +153,14 @@ public:
      * @param[out] sigma resulting stress (host array, size 6*nvoxels)
      * @param[in] rtol relative tolerance on normalised divergence
      * @param[in] atol absolute tolerance on normalised divergence
-     * @param[in] maxiter maximum number of iterations
+     * @param[in] maxits maximum number of iterations
      */
     int apply(float *__restrict__ lambda,
               float *__restrict__ mu,
               float *__restrict__ epsilon_bar,
               float *__restrict__ epsilon,
               float *__restrict__ sigma,
-              float rtol, float atol, int maxiter = 100);
+              float rtol, float atol, int maxits = 100);
 
 private:
     /** @brief Lame parameter lambda on device */
@@ -210,13 +210,13 @@ public:
      * @param[out] sigma resulting stress (host array, size 6*nvoxels)
      * @param[in] rtol relative tolerance on normalised divergence
      * @param[in] atol absolute tolerance on normalised divergence
-     * @param[in] maxiter maximum number of iterations
+     * @param[in] maxits maximum number of iterations
      */
     int apply(float *__restrict__ stiffness,
               float *__restrict__ epsilon_bar,
               float *__restrict__ epsilon,
               float *__restrict__ sigma,
-              float rtol, float atol, int maxiter = 100);
+              float rtol, float atol, int maxits = 100);
 
 private:
     /** @brief stiffness tensor on device */
@@ -242,7 +242,7 @@ private:
  * @param[in] extents Size of domain in each direction (Lx,Ly,Lz)
  * @param[in] rtol relative tolerance on normalised divergence
  * @param[in] atol absolute tolerance on normalised divergence
- * @param[in] maxiter maximum number of iterations
+ * @param[in] maxits maximum number of iterations
  * @param[in] verbose verbosity level
  *
  * Returns the actual number of iterations
@@ -253,7 +253,7 @@ extern "C"
                                            float *epsilon, float *sigma,
                                            int *voxels,
                                            float *extents,
-                                           float rtol, float atol, int maxiter,
+                                           float rtol, float atol, int maxits,
                                            int verbose);
 
     /** @brief Solve anisotropic linear elasticity problem with Lippmann-Schwinger iteration
@@ -270,7 +270,7 @@ extern "C"
      * @param[in] extents size of domain in each direction (Lx,Ly,Lz)
      * @param[in] rtol relative tolerance on normalised divergence
      * @param[in] atol absolute tolerance on normalised divergence
-     * @param[in] maxiter maximum number of iterations
+     * @param[in] maxits maximum number of iterations
      * @param[in] verbose verbosity level
      *
      * Returns the actual number of iterations.
@@ -282,7 +282,7 @@ extern "C"
                                              int *voxels,
                                              float *extents,
                                              float rtol, float atol,
-                                             int maxiter,
+                                             int maxits,
                                              int verbose);
 }
 

@@ -158,7 +158,7 @@ LippmannSchwingerAnisotropicSolver::~LippmannSchwingerAnisotropicSolver()
 /* apply solver */
 int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
                                    float *epsilon, float *sigma,
-                                   float rtol, float atol, int maxiter)
+                                   float rtol, float atol, int maxits)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   // Average values of lambda and mu
@@ -176,13 +176,13 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
   // main Lippmann-Schwinger loop
   float rel_div_norm = 0;
   float rel_div_norm0;
-  int iter;
-  if (verbose == 2)
+  int its;
+  if (verbose > 1)
   {
-    printf("==== Lippmann Schwinger solver ====\n");
-    printf("  iteration           ||r||   ||r||/||r_0||\n");
+    printf("==== CUDA forward solve ====\n");
+    printf("  iteration  E = ||div(sigma)||/||sigma||  E/E_0\n");
   }
-  for (iter = 0; iter < maxiter; ++iter)
+  for (its = 0; its < maxits; ++its)
   {
     /* ==== STEP 1 ==== Compute stress: sigma_{ij} = C_{ijkl} epsilon_{kl} */
     compute_stress_isotropic(dev_epsilon, dev_sigma, dev_lambda, dev_mu, grid_spec);
@@ -191,10 +191,10 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
     CUDA_CHECK(cudaDeviceSynchronize());
     /* ==== STEP 3 ==== Check convergence */
     rel_div_norm = relative_divergence_norm(dev_sigma_hat);
-    if (iter == 0)
+    if (its == 0)
       rel_div_norm0 = rel_div_norm;
     if (verbose > 1)
-      printf("     %4d          %8.4e  %8.4e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+      printf("     %4d          %8.4e  %8.4e\n", its, rel_div_norm, rel_div_norm / rel_div_norm0);
     if (rel_div_norm < max(rtol * rel_div_norm0, atol))
       break;
     /* ==== STEP 4 ==== Solve in Fourier space: hat(r)_{kl} = -Gamma^{0}_{klij} hat(sigma)_{ij} */
@@ -209,21 +209,18 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
   }
   if (verbose > 0)
   {
-    if (verbose == 1)
-      printf("  LS ");
+    printf("CUDA forward solver ");
+    if (its < maxits)
+      printf("converged after %6d of %6d iterations\n", its, maxits);
     else
-      printf("  ");
-    if (iter < maxiter)
-      printf("converged");
-    else
-      printf("failed to converge");
-    printf(" after %4d its, ||r|| = %6.3e ||r||/||r_0|| = %6.3e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+      printf("failed to converge after %6d iterations\n", maxits);
+    printf("E = ||div(sigma)||/||sigma|| = %8.2e E/E_0 = %6.2e\n", rel_div_norm, rel_div_norm / rel_div_norm0);
   }
   // Copy solution back to host
   CUDA_CHECK(cudaMemcpy(epsilon, dev_epsilon, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(sigma, dev_sigma, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
 
-  return iter;
+  return its;
 }
 
 /* apply solver (anisotropic) */
@@ -231,7 +228,7 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
                                               float *epsilon_bar,
                                               float *epsilon,
                                               float *sigma,
-                                              float rtol, float atol, int maxiter)
+                                              float rtol, float atol, int maxits)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
 
@@ -269,13 +266,13 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
   // Main Lippmann-Schwinger loop.
   float rel_div_norm = 0;
   float rel_div_norm0;
-  int iter;
-  if (verbose == 2)
+  int its;
+  if (verbose > 1)
   {
-    printf("==== Lippmann Schwinger anisotropic solver ====\n");
-    printf("  iteration           ||r||   ||r||/||r_0||\n");
+    printf("==== CUDA forward solve ====\n");
+    printf("  iteration  E = ||div(sigma)||/||sigma||  E/E_0\n");
   }
-  for (iter = 0; iter < maxiter; ++iter)
+  for (its = 0; its < maxits; ++its)
   {
     /* ==== STEP 1 ==== Compute stress: sigma_{ij} = C_{ijkl} epsilon_{kl} */
     compute_stress_anisotropic(dev_epsilon, dev_sigma, dev_stiffness, grid_spec);
@@ -284,10 +281,10 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
     CUDA_CHECK(cudaDeviceSynchronize());
     /* ==== STEP 3 ==== Check convergence */
     rel_div_norm = relative_divergence_norm(dev_sigma_hat);
-    if (iter == 0)
+    if (its == 0)
       rel_div_norm0 = rel_div_norm;
     if (verbose > 1)
-      printf("     %4d          %8.4e  %8.4e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+      printf("     %4d          %8.4e  %8.4e\n", its, rel_div_norm, rel_div_norm / rel_div_norm0);
     if (rel_div_norm < max(rtol * rel_div_norm0, atol))
       break;
     /* ==== STEP 4 ==== Solve in Fourier space: hat(r) = -Gamma^{0} hat(sigma) */
@@ -304,22 +301,19 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
   }
   if (verbose > 0)
   {
-    if (verbose == 1)
-      printf("  LS anisotropic ");
+    printf("CUDA forward solver ");
+    if (its < maxits)
+      printf("converged after %6d of %6d iterations\n", its, maxits);
     else
-      printf("  ");
-    if (iter < maxiter)
-      printf("converged");
-    else
-      printf("failed to converge");
-    printf(" after %4d its, ||r|| = %6.3e ||r||/||r_0|| = %6.3e\n", iter, rel_div_norm, rel_div_norm / rel_div_norm0);
+      printf("failed to converge after %6d iterations\n", maxits);
+    printf("E = ||div(sigma)||/||sigma|| = %8.2e E/E_0 = %6.2e\n", rel_div_norm, rel_div_norm / rel_div_norm0);
   }
 
   // Copy solution back to host.
   CUDA_CHECK(cudaMemcpy(epsilon, dev_epsilon, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
   CUDA_CHECK(cudaMemcpy(sigma, dev_sigma, 6 * nvoxels * sizeof(float), cudaMemcpyDeviceToHost));
 
-  return iter;
+  return its;
 }
 /* Lippmann Schwinger iteration */
 extern "C"
@@ -328,7 +322,7 @@ extern "C"
                                          float *epsilon, float *sigma,
                                          int *voxels,
                                          float *extents,
-                                         float rtol, float atol, int maxiter,
+                                         float rtol, float atol, int maxits,
                                          int verbose)
   {
     GridSpec grid_spec;
@@ -339,10 +333,10 @@ extern "C"
     grid_spec.Ly = extents[1];
     grid_spec.Lz = extents[2];
     LippmannSchwingerSolver solver(grid_spec, verbose);
-    int iter = solver.apply(lambda, mu, epsilon_bar,
-                            epsilon, sigma,
-                            rtol, atol, maxiter);
-    return iter;
+    int its = solver.apply(lambda, mu, epsilon_bar,
+                           epsilon, sigma,
+                           rtol, atol, maxits);
+    return its;
   }
 
   int lippmann_schwinger_solve_anisotropic(float *stiffness,
@@ -352,7 +346,7 @@ extern "C"
                                            int *voxels,
                                            float *extents,
                                            float rtol, float atol,
-                                           int maxiter,
+                                           int maxits,
                                            int verbose)
   {
     GridSpec grid_spec;
@@ -363,9 +357,9 @@ extern "C"
     grid_spec.Ly = extents[1];
     grid_spec.Lz = extents[2];
     LippmannSchwingerAnisotropicSolver solver(grid_spec, verbose);
-    int iter = solver.apply(stiffness, epsilon_bar,
-                            epsilon, sigma,
-                            rtol, atol, maxiter);
-    return iter;
+    int its = solver.apply(stiffness, epsilon_bar,
+                           epsilon, sigma,
+                           rtol, atol, maxits);
+    return its;
   }
 }

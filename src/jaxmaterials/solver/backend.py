@@ -23,11 +23,13 @@ __all__ = [
     "iteration_counter",
 ]
 
+# Context-specific variable for counting the number of iterations
 number_of_iterations = contextvars.ContextVar("its", default=None)
 
 
 @contextlib.contextmanager
 def iteration_counter():
+    """Context which can be used to record the number of iterations"""
     token = number_of_iterations.set(-1)
     try:
         yield number_of_iterations
@@ -85,6 +87,7 @@ def relative_divergence_fourier(sigma_hat, xi):
         "maxits",
         "dynamic_stopping",
         "dtype",
+        "verbose",
     ]
 )
 def _lippmann_schwinger_jax(
@@ -98,6 +101,7 @@ def _lippmann_schwinger_jax(
     maxits,
     dynamic_stopping,
     dtype,
+    verbose,
 ):
     """Lippmann Schwinger iteration with Anderson acceleration for linear elasticity
 
@@ -160,6 +164,11 @@ def _lippmann_schwinger_jax(
     sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
     rel_error = relative_divergence_fourier(sigma_hat, xi)
     rel_error_0 = rel_error
+    if verbose > 1:
+        jax.debug.print("==== JAX forward solve ====", ordered=True)
+        jax.debug.print(
+            "  iteration  E = ||div(sigma)||/||sigma||  E/E_0", ordered=True
+        )
 
     def exit_condition(state):
         """Check exit condition
@@ -171,6 +180,15 @@ def _lippmann_schwinger_jax(
         :arg state: current iteration state (epsilon, residual, sigma, A, , rel_error, rel_error_0)
         """
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
+        if verbose > 1:
+            jax.debug.print(
+                "  {:6d}  {:8.2e}  {:8.2e}",
+                its,
+                rel_error,
+                rel_error / rel_error_0,
+                ordered=True,
+            )
+
         return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
 
     def loop_body(state):
@@ -228,12 +246,42 @@ def _lippmann_schwinger_jax(
         )
 
     epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = loop_result
+    if verbose > 0:
+        jax.lax.cond(
+            its < maxits | jnp.logical_not(dynamic_stopping),
+            lambda x, y: jax.debug.print(
+                "JAX forward solver converged after {:6d} of {:6d} iterations",
+                x,
+                y,
+                ordered=True,
+            ),
+            lambda x, y: jax.debug.print(
+                "JAX forward solver failed to converge after {:6d} iterations",
+                y,
+                ordered=True,
+            ),
+            its,
+            maxits,
+        )
+        jax.debug.print(
+            "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
+            rel_error,
+            rel_error / rel_error_0,
+            ordered=True,
+        )
 
     return epsilon[0, ...], sigma, its
 
 
 @jax.jit(
-    static_argnames=["grid_spec", "isotropic", "maxits", "dynamic_stopping", "dtype"]
+    static_argnames=[
+        "grid_spec",
+        "isotropic",
+        "maxits",
+        "dynamic_stopping",
+        "dtype",
+        "verbose",
+    ]
 )
 def _lippmann_schwinger_adjoint_jax(
     material_properties,
@@ -245,6 +293,7 @@ def _lippmann_schwinger_adjoint_jax(
     maxits,
     dynamic_stopping,
     dtype,
+    verbose,
 ):
     """Lippmann Schwinger itsation for adjoint equation of linear elasticity
 
@@ -285,6 +334,12 @@ def _lippmann_schwinger_adjoint_jax(
     # storage for adjoint solution, array of shape (6,Nx,Ny,Nz)
     Lambda = f_rhs
     increment_nrm = jnp.linalg.norm(Lambda)
+    if verbose > 1:
+        jax.debug.print("==== JAX adjoint solve ====", ordered=True)
+        jax.debug.print(
+            "  iteration  E = ||delta(Lambda)||  ||delta(Lambda)||/||Lambda||",
+            ordered=True,
+        )
 
     def exit_condition(state):
         """Check exit condition
@@ -293,6 +348,15 @@ def _lippmann_schwinger_adjoint_jax(
         """
         Lambda, increment_nrm, its = state
         nrm = jnp.linalg.norm(Lambda)
+        if verbose > 1:
+            jax.debug.print(
+                "  {:6d}  {:8.2e}  {:8.2e}",
+                its,
+                increment_nrm,
+                increment_nrm / nrm,
+                ordered=True,
+            )
+
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
 
     def loop_body(state):
@@ -332,33 +396,70 @@ def _lippmann_schwinger_adjoint_jax(
         )
 
     Lambda, increment_nrm, its = loop_result
+    if verbose > 0:
+        nrm = jnp.linalg.norm(Lambda)
+        jax.lax.cond(
+            its < maxits | jnp.logical_not(dynamic_stopping),
+            lambda x, y: jax.debug.print(
+                "JAX adjoint solver converged after {:6d} of {:6d} iterations",
+                x,
+                y,
+                ordered=True,
+            ),
+            lambda x, y: jax.debug.print(
+                "JAX adjoint solver failed to converge after {:6d} iterations",
+                y,
+                ordered=True,
+            ),
+            its,
+            maxits,
+        )
+        jax.debug.print(
+            "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
+            increment_nrm,
+            increment_nrm / nrm,
+            ordered=True,
+        )
 
     return Lambda, its
 
 
-def solve_impl(material_properties, epsilon_bar, grid_spec, dynamic_stopping):
+def solve_impl(
+    material_properties,
+    epsilon_bar,
+    grid_spec,
+    tol,
+    maxits,
+    depth,
+    dynamic_stopping,
+    verbose=0,
+):
     """Backend implementation of the forward solve
 
     :arg material_properties: dictionary with Lame coefficients or
         symmetric stiffness tensor
     :arg epsilon_bar: average strain
     :arg grid_spec: specifications of computational grid
+    :arg tol: tolerance for Lippmann Schwinger solver
+    :arg maxits: maximum number of iterations
+    :arg depth: depth of Anderson acceleration
     :arg dynamic_stopping: use dynamic stopping criterion? Otherwise, carry out fixed number
         of iterations as specified by maxits
+    :arg verbose: verbosity level
     """
     dtype = epsilon_bar.dtype
-    maxits = 32
     epsilon, sigma, its = _lippmann_schwinger_jax(
         material_properties,
         epsilon_bar,
         grid_spec,
         isotropic={"mu", "lambda"} == set(material_properties.keys()),
         rtol=1.0e-20,
-        atol=1.0e-5 if dtype == jnp.float32 else 1.0e-12,
-        depth=0,
+        atol=tol,
+        depth=depth,
         maxits=maxits,
         dynamic_stopping=dynamic_stopping,
         dtype=dtype,
+        verbose=verbose,
     )
     if number_of_iterations is not None:
         number_of_iterations.set(its)
@@ -369,30 +470,57 @@ def solve_impl(material_properties, epsilon_bar, grid_spec, dynamic_stopping):
     return epsilon, sigma
 
 
-def solve_fwd(material_properties, epsilon_bar, grid_spec, dynamic_stopping):
+def solve_fwd(
+    material_properties,
+    epsilon_bar,
+    grid_spec,
+    tol,
+    maxits,
+    depth,
+    dynamic_stopping,
+    verbose=0,
+):
     """Forward solve to compute stress and strain for given material parameters and epsilon_bar
 
     :arg material_properties: dictionary which contains either Lame parameters mu, lambda
         or the 21 independent components of the 6x6 stiffness tensor.
     :arg epsilon_bar: mean value of strain
+    :arg tol: tolerance for Lippmann Schwinger solver
+    :arg maxits: maximum number of iterations
+    :arg depth: depth of Anderson acceleration
     :arg dynamic_stopping: use dynamic stopping criterion?
+    :arg verbose: verbosity level
     """
-    out = solve_impl(material_properties, epsilon_bar, grid_spec, dynamic_stopping)
+    out = solve_impl(
+        material_properties,
+        epsilon_bar,
+        grid_spec,
+        tol,
+        maxits,
+        depth,
+        dynamic_stopping,
+        verbose,
+    )
     epsilon, sigma = out
     return out, (material_properties, epsilon, sigma)
 
 
-def solve_bwd(grid_spec, dynamic_stopping, res, gradients):
+def solve_bwd(grid_spec, tol, maxits, depth, dynamic_stopping, verbose, res, gradients):
     """Backward solve
 
     Returns gradients with respect to material parameters and epsilon_bar
 
     :arg grid_spec: specification of computational grid
+    :arg tol: tolerance for adjoint solve
+    :arg maxits: maximum number of iterations
+    :arg depth: Anderson depth of forward solve
     :arg dynamic_stopping: use dynamic stopping criterion?
+    :arg verbose: verbosity level
     :arg res: results object returned by solve_fwd()
     :arg gradients: Riesz-representer of input gradients
     """
-    material_properties, epsilon, _ = res
+    material_properties = res[0]
+    epsilon = res[1]
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     isotropic = {"mu", "lambda"} == set(material_properties.keys())
@@ -429,17 +557,17 @@ def solve_bwd(grid_spec, dynamic_stopping, res, gradients):
     else:
         Cg_sigma = compute_sigma_anisotropic(stiffness_tensor, g_sigma)
     f_rhs = -(g_epsilon + Cg_sigma)
-    maxits = 32
     Lambda, its = _lippmann_schwinger_adjoint_jax(
         material_properties,
         f_rhs,
         grid_spec,
         isotropic=isotropic,
-        rtol=1.0e-5 if dtype == jnp.float32 else 1.0e-12,
         atol=1.0e-20,
+        rtol=tol,
         maxits=maxits,
         dynamic_stopping=dynamic_stopping,
         dtype=dtype,
+        verbose=verbose,
     )
     if its > maxits:
         raise RuntimeError(
@@ -512,5 +640,16 @@ def solve_bwd(grid_spec, dynamic_stopping, res, gradients):
 
 
 # Register custom forward solve and reverse mode gradient
-solve = jax.custom_vjp(solve_impl, nondiff_argnames=("grid_spec", "dynamic_stopping"))
+solve = jax.custom_vjp(
+    solve_impl,
+    nondiff_argnames=(
+        "grid_spec",
+        "tol",
+        "maxits",
+        "depth",
+        "dynamic_stopping",
+        "verbose",
+    ),
+)
+
 solve.defvjp(solve_fwd, solve_bwd)

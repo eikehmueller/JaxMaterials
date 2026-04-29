@@ -30,4 +30,8 @@ jobs:
       env:
           PYTEST_ADDOPTS: "--color=yes --disable-warnings"
       run: |
-        pytest -v
+        pytest -v --capture=fd
+        echo ""
+        echo "**** detailled log ****"
+        echo ""
+        cat testoutput.txt
