@@ -123,7 +123,6 @@ def test_convergence(grid_spec, rng, dtype, depth):
         verbose=1,
     )
     rel_div = relative_divergence(sigma, grid_spec)
-    print(its)
     if dtype == np.float32:
         if depth == 0:
             assert its < 8
