@@ -35,6 +35,13 @@ Here, this is realised with the adjoint state method.
 
 ## Achievements
 
+### Results
+
+Diagonal stress $\varepsilon_{1,1}(x)$ (left) and sensitivity $dL/d\mu(x)$ of $L=\int_{\Omega} \left(\sigma_{0,0}^2 +\sigma_{1,1}^2 +\sigma_{2,2}^2\right)\;dx$ with respect to the Lame-parameter $\mu(x)$ (right) for a fibre-resin composite material. The simulation was carried out on a $200\times200\times100$ grid with periodic boundary conditions and a $5\%$ loading $\varepsilon_{0,0}$.
+
+![Demonstration](figures/demonstration.png)
+
+### Performance
 The following figure compares the performance of the (an-) isotropic JAX and CUDA solvers when applied to an isotropic material. Results for reverse mode gradient computation with the adjoint state method are also shown.
 
 ![Performance of JAX and CUDA solvers](figures/performance.png)
