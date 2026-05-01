@@ -463,10 +463,6 @@ def solve_impl(
     )
     if number_of_iterations is not None:
         number_of_iterations.set(its)
-    if its >= maxits and dynamic_stopping:
-        raise RuntimeError(
-            f"Lippmann Schwinger Solver failed to converge after {maxits} iterations"
-        )
     return epsilon, sigma
 
 
@@ -569,10 +565,6 @@ def solve_bwd(grid_spec, tol, maxits, depth, dynamic_stopping, verbose, res, gra
         dtype=dtype,
         verbose=verbose,
     )
-    if its > maxits:
-        raise RuntimeError(
-            f"Adjoint Lippmann Schwinger Solver failed to converge after {maxits} iterations"
-        )
 
     Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
     if isotropic:
