@@ -32,4 +32,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: mathematical-decription
-        path: doc/lippmann_schwinger.pdf
+        path: doc/linear_elasticity.pdf
