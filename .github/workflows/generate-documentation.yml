@@ -1,0 +1,33 @@
+name: Generate documentation
+
+on:
+  push:
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  GenerateDocumentation:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install latex
+      run: |
+        sudo apt-get update
+        sudo apt install texlive-latex-base
+        sudo apt install texlive-latex-extra
+        sudo apt install texlive-latex-recommended
+        sudo apt install texlive-science
+    - name: Build documentation
+      run: |
+        cd doc
+        pdflatex linear_elasticity
+        bibtex linear_elasticity
+        pdflatex linear_elasticity
+        pdflatex linear_elasticity
+    - name: Upload genrated PDF as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: mathematical-decription
+        path: doc/lippmann_schwinger.pdf
