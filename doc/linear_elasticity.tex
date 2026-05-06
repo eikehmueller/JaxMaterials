@@ -435,11 +435,11 @@ in the isotropic case.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 To express the derivatives in \eqref{eqn:func_deriv_anisotropic}, \eqref{eqn:func_deriv_isotropic} in terms of the given $E(x)$, $S(x)$ with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation
 \begin{equation}
-\varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) \tau(y)\;dy
+\varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) \tau(y)\;dy\label{eqn:lippmann_schwinger}
 \end{equation}
-with $\tau(x) = \left(C(x)-C^0(x)\right)\varepsilon(x)$. This can be written in condensed form as $\varepsilon = \overline{\varepsilon}-\Gamma^0 * \left((C-C^0)\varepsilon\right)$ Define the residual operator
+with $\tau(x) = \left(C(x)-C^0\right)\varepsilon(x)$. This can be written in condensed form as $\varepsilon = \overline{\varepsilon}-\Gamma^0 * \left((C-C^0)\varepsilon\right)$. Define the residual operator
 \begin{equation}
-    \mathcal{A}(\varepsilon;C,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left((C-C^0) \varepsilon\right) - \overline{\varepsilon}
+    \mathcal{A}(\varepsilon;C,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left((C-C^0) \varepsilon\right) - \overline{\varepsilon}\label{eqn:residual_operator}
 \end{equation}
 and introduce the Lagrangian
 \begin{equation}
@@ -581,6 +581,48 @@ This implies that $g_j = g^E_j / w^{\text{(Voigt)}}_j$ with the weights $w^{\tex
 \item Divide all incoming tensor-valued gradients elementwise by $w^{\text{(Voigt)}}$
 \item Multiply all outgoing tensor-valued gradients elementwise with $w^{\text{(Voigt)}}$.
 \end{itemize}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Generic model}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+While so far we assumed that $\sigma=C:\varepsilon$, we now consider a more generic model of the form $\sigma=\Sigma(\varepsilon|\theta)$ where the map $\Sigma$ depends linearly on $\varepsilon$ and $\theta$ stands for all input parameters. We assume that the differentiable function $\Sigma$ has been implemented by the user. Instead of $\delta J/\delta C(x)$ as in \eqref{eqn:func_deriv_anisotropic} or $\delta J/\delta \lambda(x)$, $\delta J/\delta \mu(x)$ in \eqref{eqn:func_deriv_isotropic} we are interested in computing the derivative
+\begin{equation}
+\frac{\delta J}{\delta \theta(x)}.
+\end{equation}
+subject to $\varepsilon(x)$ satisfying the Lippmann-Schwinger equation in \eqref{eqn:lippmann_schwinger} with
+\begin{equation}
+\tau = \Sigma(\varepsilon|\theta) - \lambda^0 \operatorname{tr}(\varepsilon)\mathbb{I}-2\mu^0\varepsilon\label{eqn:tau_generic}
+\end{equation}
+for given $\overline{\varepsilon}$. Here we have picked an isotropic, homogeneous reference material characterised by the two Lame parameters $\lambda^0$, $\mu^0$. The residual operator in \eqref{eqn:residual_operator} is replaced by
+\begin{equation}
+    \mathcal{A}(\varepsilon;\theta,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left(\Sigma(\varepsilon|\theta) - \lambda^0 \operatorname{tr}(\varepsilon)-2\mu^0\varepsilon\right) - \overline{\varepsilon}\label{eqn:residual_operator}
+\end{equation}
+and the Lagrangian in \eqref{eqn:lagrangian} is modified appropriately. The resulting adjoint equation is
+\begin{equation}
+\Lambda + (\Gamma^0*\Lambda)\frac{\delta \Sigma}{\delta \varepsilon} - \lambda^0 \operatorname{tr}(\Gamma^0*\Lambda)\mathbb{I} - 2\mu^0 (\Gamma^0*\Lambda) = \mathcal{E} 
+\qquad\text{with $\mathcal{E}(x) = -\left(E(x) + S(x)\frac{\delta \Sigma}{\delta \varepsilon}(x)\right)$}
+\end{equation}
+This results in the Lippmann-Schwinger iteration in \cref{alg:lippmann_schwinger_adjoint_generic}.
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (generic stress-strain relationship)}
+    \label{alg:lippmann_schwinger_adjoint_generic}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=0$}
+    \For{$n=0,1,\dots$}
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Update $\Lambda_{ij}=\mathcal{E}_{ij} + \Theta_{k\ell}\frac{\delta \Sigma_{k\ell}}{\delta \varepsilon_{ij}} -\lambda^0 \Theta_{kk} \delta_{ij} - 2 \mu^0 \Theta_{ij}$}
+    \State{Check convergence}
+    \EndFor
+\State{\Return $\Lambda$}
+\end{algorithmic}
+\end{algorithm}
+$\varepsilon$ we can still be computed with \cref{alg:lippmann_schwinger_incremental}, provided $\sigma$ is obtained from $\varepsilon$ according to $\sigma=\Sigma(\varepsilon|\theta)$. Observe that the terms $S\frac{\delta \Sigma}{\delta \varepsilon}$ and $S\frac{\delta\Sigma}{\delta\varepsilon}$ are vector-Jacobian products, so they are naturally implemented as \verb~jax.vjp~'s. The derivative with respect to the parameters $\theta$ is
+\begin{equation}
+\left(S+\Gamma^0*\Lambda\right):\frac{\delta \Sigma}{\delta \theta}
+\end{equation}
+which is again a \verb~jax.jvp~.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{unsrt}
 \bibliography{linear_elasticity}
 \end{document}
