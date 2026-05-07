@@ -2,13 +2,15 @@ import pytest
 import numpy as np
 import pytest
 import jax
+from jax import numpy as jnp
 
-
+from jaxmaterials.solver.hooke import compute_sigma_isotropic
 from jaxmaterials.solver.fourier import get_xi
 from jaxmaterials.solver.backend import (
     relative_divergence,
     relative_divergence_fourier,
     _lippmann_schwinger_jax,
+    _lippmann_schwinger_generic_jax,
 )
 
 from jaxmaterials.solver.lippmann_schwinger import (
@@ -176,6 +178,51 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     rel_diff_sigma_2 = np.sum((sigma_cuda - sigma_jax) ** 2) / np.sum(sigma_jax**2)
     assert rel_diff_epsilon_2 < 1.0e-2
     assert rel_diff_sigma_2 < 1.0e-2
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_jax_matches_generic_isotropic(grid_spec, rng, dtype):
+    """Verify that JAX solver and generic JAX solver give same results
+
+    :arg grid_spec: grid specification
+    :arg rng: random number generator
+    """
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+    tol = 1.0e-12 if dtype == np.float64 else 1.0e-5
+    maxits = 32
+    mu, lmbda = initialise_material(grid_spec, rng, dtype=dtype)
+    mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
+    lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
+    epsilon, sigma = lippmann_schwinger_isotropic(
+        mu,
+        lmbda,
+        epsilon_bar,
+        grid_spec,
+        tol=tol,
+        maxits=maxits,
+        use_cuda=False,
+        verbose=1,
+    )
+    epsilon_generic, sigma_generic, _ = _lippmann_schwinger_generic_jax(
+        compute_sigma_isotropic,
+        epsilon_bar,
+        {"lambda": lmbda, "mu": mu},
+        {"lambda": lmbda0, "mu": mu0},
+        grid_spec,
+        atol=1e-20,
+        rtol=tol,
+        depth=0,
+        maxits=128,
+        dynamic_stopping=True,
+        dtype=dtype,
+        verbose=1,
+    )
+    rel_diff_epsilon_2 = np.sum((epsilon - epsilon_generic) ** 2) / np.sum(
+        epsilon_generic**2
+    )
+    rel_diff_sigma_2 = np.sum((sigma - sigma_generic) ** 2) / np.sum(sigma_generic**2)
+    assert rel_diff_epsilon_2 < tol
+    assert rel_diff_sigma_2 < tol
 
 
 def test_jax_matches_cuda_anisotropic(grid_spec, rng):

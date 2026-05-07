@@ -8,19 +8,18 @@ from jax import numpy as jnp
 __all__ = ["compute_sigma_isotropic", "compute_sigma_anisotropic"]
 
 
-def compute_sigma_isotropic(lmbda, mu, epsilon):
+def compute_sigma_isotropic(epsilon, params):
     """Compute stress from strain for isotropic material
 
     Returns sigma_{ij} = C_{ijkl}*epsilon_{kl} for an isotropic material characterised
     by the two Lame parameters lambda and mu.
     Voigt notation {00,11,22,01,02,12} is used for the stress and strain tensor.
 
-    :arg lmbda: Lame parameter lambda
-    :arg mu: Lame parameter mu
     :arg epsilon: strain field
+    :arg params: Lame parameters, dictionary of the form {"lambda":lambda, "mu":mu}
     """
     tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
-    sigma = 2 * mu * epsilon + lmbda * jnp.stack(
+    sigma = 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
         3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
     )
     return sigma

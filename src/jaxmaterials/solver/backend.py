@@ -18,6 +18,7 @@ __all__ = [
     "relative_divergence",
     "relative_divergence_fourier",
     "_lippmann_schwinger_jax",
+    "_lippmann_schwinger_generic_jax",
     "_lippmann_schwinger_adjoint_jax",
     "solve",
     "iteration_counter",
@@ -157,7 +158,7 @@ def _lippmann_schwinger_jax(
     A_anderson = jnp.eye(depth + 1, dtype=dtype)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     if isotropic:
-        sigma = compute_sigma_isotropic(lmbda, mu, epsilon[0, ...])
+        sigma = compute_sigma_isotropic(epsilon[0, ...], material_properties)
     else:
         sigma = compute_sigma_anisotropic(stiffness_tensor, epsilon[0, ...])
     # Fourier transform sigma
@@ -219,7 +220,7 @@ def _lippmann_schwinger_jax(
         epsilon = jnp.roll(epsilon, 1, axis=0)
         epsilon = epsilon.at[0, ...].set(epsilon_tilde)
         if isotropic:
-            sigma = compute_sigma_isotropic(lmbda, mu, epsilon[0, ...])
+            sigma = compute_sigma_isotropic(epsilon[0, ...], material_properties)
         else:
             sigma = compute_sigma_anisotropic(stiffness_tensor, epsilon[0, ...])
         # Fourier transform sigma
@@ -257,6 +258,185 @@ def _lippmann_schwinger_jax(
             ),
             lambda x, y: jax.debug.print(
                 "JAX forward solver failed to converge after {:6d} iterations",
+                y,
+                ordered=True,
+            ),
+            its,
+            maxits,
+        )
+        jax.debug.print(
+            "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
+            rel_error,
+            rel_error / rel_error_0,
+            ordered=True,
+        )
+
+    return epsilon[0, ...], sigma, its
+
+
+@jax.jit(
+    static_argnames=[
+        "compute_sigma",
+        "grid_spec",
+        "depth",
+        "maxits",
+        "dynamic_stopping",
+        "dtype",
+        "verbose",
+    ]
+)
+def _lippmann_schwinger_generic_jax(
+    compute_sigma,
+    epsilon_bar,
+    params,
+    ref_params,
+    grid_spec,
+    rtol,
+    atol,
+    depth,
+    maxits,
+    dynamic_stopping,
+    dtype,
+    verbose,
+):
+    """Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain
+    relationship.
+
+    Computational routine which should not be called directly; use the interface routines instead.
+
+    The stress-strain relationship is described by the function compute_sigma which is of the
+    form
+
+        def compute_sigma(epsilon, params):
+            # compute stress sigma from strain epsilon given material parameters params
+            return sigma
+
+    Here params are the material parameters, such as the Lame parameters for an isotropic material
+
+    :arg compute_sigma: function which describes the stress-strain relationship
+    :arg epsilon_bar: mean value of epsilon
+    :arg params: material parameters
+    :arg ref_params: Lame parameters of isotropic reference material, dictionary of the form
+        {"lambda":lambda, "mu":mu}
+    :arg grid_spec: grid specification as a namedtuple
+    :arg rtol: relative tolerance on normalised stress divergence to check convergence
+    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg depth: depth of Anderson acceleration
+    :arg maxits: maximal number of iterations
+    :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
+    :arg dtype: data type
+    """
+    # Fourier vectors
+    xizero = get_xizero(grid_spec, dtype=dtype)
+    xi = get_xi(grid_spec, dtype=dtype)
+    # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
+    epsilon = jnp.zeros(
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
+        dtype=dtype,
+    )
+    epsilon = epsilon.at[0, ...].set(
+        jnp.expand_dims(jnp.astype(epsilon_bar, dtype), [1, 2, 3])
+    )
+    residual = jnp.zeros(
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
+    )
+    # Anderson matrix and vectors
+    A_anderson = jnp.eye(depth + 1, dtype=dtype)
+    u_rhs = jnp.zeros(depth + 1, dtype=dtype)
+    sigma = compute_sigma_isotropic(epsilon[0, ...], params)
+    # Fourier transform sigma
+    sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
+    rel_error = relative_divergence_fourier(sigma_hat, xi)
+    rel_error_0 = rel_error
+    if verbose > 1:
+        jax.debug.print("==== JAX generic forward solve ====", ordered=True)
+        jax.debug.print(
+            "  iteration  E = ||div(sigma)||/||sigma||  E/E_0", ordered=True
+        )
+
+    def exit_condition(state):
+        """Check exit condition
+
+        Let e^i = <||div(sigma^i)||> / ||<sigma^i>|| be the current normalised divergence
+
+        This method checkes whether e^i < max (atol, rtol * e^0) or its > maxits
+
+        :arg state: current iteration state (epsilon, residual, sigma, A, , rel_error, rel_error_0)
+        """
+        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
+        if verbose > 1:
+            jax.debug.print(
+                "  {:6d}  {:8.2e}  {:8.2e}",
+                its,
+                rel_error,
+                rel_error / rel_error_0,
+                ordered=True,
+            )
+
+        return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
+
+    def loop_body(state):
+        """Update strain, residual and stress according to update rule
+
+        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)
+        """
+        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
+        # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
+        r_hat = fourier_solve_isotropic(
+            sigma_hat, ref_params["lambda"], ref_params["mu"], xizero
+        )
+        r = jnp.real(jnp.fft.ifftn(r_hat, axes=[-3, -2, -1]))
+        residual = jnp.roll(residual, 1, axis=0)
+        residual = residual.at[0, ...].set(r)
+        A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
+        dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
+        A_anderson = A_anderson.at[0, :].set(
+            jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
+        )
+        A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
+        u_rhs = jnp.roll(u_rhs, 1)
+        u_rhs = u_rhs.at[0].set(1)
+        v = jnp.linalg.solve(A_anderson, u_rhs)
+        alpha = v / jnp.dot(v, u_rhs)
+        epsilon_tilde = jnp.einsum("s,saijk", alpha, epsilon + residual)
+        epsilon = jnp.roll(epsilon, 1, axis=0)
+        epsilon = epsilon.at[0, ...].set(epsilon_tilde)
+        sigma = compute_sigma(epsilon[0, ...], params)
+        # Fourier transform sigma
+        sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
+        rel_error = relative_divergence_fourier(sigma_hat, xi)
+        its += 1
+        return (
+            epsilon,
+            residual,
+            sigma,
+            sigma_hat,
+            A_anderson,
+            u_rhs,
+            its,
+            rel_error,
+        )
+
+    init_val = (epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, 0, rel_error_0)
+    if dynamic_stopping:
+        loop_result = jax.lax.while_loop(exit_condition, loop_body, init_val=init_val)
+    else:
+        loop_result = jax.lax.fori_loop(
+            0, maxits, lambda _, state: loop_body(state), init_val=init_val
+        )
+
+    epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = loop_result
+    if verbose > 0:
+        jax.lax.cond(
+            its < maxits | jnp.logical_not(dynamic_stopping),
+            lambda x, y: jax.debug.print(
+                "JAX generic forward solver converged after {:6d} of {:6d} iterations",
+                x,
+                y,
+                ordered=True,
+            ),
+            lambda x, y: jax.debug.print(
+                "JAX generic forward solver failed to converge after {:6d} iterations",
                 y,
                 ordered=True,
             ),
@@ -372,7 +552,9 @@ def _lippmann_schwinger_adjoint_jax(
             Theta_hat = fourier_solve_anisotropic(Lambda_hat, N_ref, xizero)
         Theta = jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
         if isotropic:
-            Delta = compute_sigma_isotropic(lmbda - lmbda0, mu - mu0, Theta)
+            Delta = compute_sigma_isotropic(
+                Theta, {"lambda": lmbda - lmbda0, "mu": mu - mu0}
+            )
         else:
             Delta = compute_sigma_anisotropic(
                 stiffness_tensor - stiffness_tensor0[..., None, None, None], Theta
@@ -549,7 +731,7 @@ def solve_bwd(grid_spec, tol, maxits, depth, dynamic_stopping, verbose, res, gra
     g_sigma = g_sigma_euclidean / voigt_weights_bcast
     # solve adjoint equation
     if isotropic:
-        Cg_sigma = compute_sigma_isotropic(lmbda, mu, g_sigma)
+        Cg_sigma = compute_sigma_isotropic(g_sigma, material_properties)
     else:
         Cg_sigma = compute_sigma_anisotropic(stiffness_tensor, g_sigma)
     f_rhs = -(g_epsilon + Cg_sigma)
