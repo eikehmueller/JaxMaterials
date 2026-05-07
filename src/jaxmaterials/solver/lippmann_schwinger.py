@@ -3,6 +3,8 @@
 import warnings
 import ctypes
 import numpy as np
+
+from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.backend import solve, number_of_iterations
 
 __all__ = [
@@ -46,8 +48,7 @@ def _resolve_cuda_symbol(lib, names):
 
 
 def lippmann_schwinger_isotropic(
-    mu,
-    lmbda,
+    params,
     epsilon_bar,
     grid_spec,
     tol=1.0e-5,
@@ -60,8 +61,7 @@ def lippmann_schwinger_isotropic(
 
     Anderson acceleration can be applied for the forward solve in the JAX implementation
 
-    :arg mu: Lame parameter mu
-    :arg lmbda: Lame parameter lambda
+    :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
     :arg epsilon_bar: mean value of epsilon
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance used for convergence test
@@ -71,8 +71,8 @@ def lippmann_schwinger_isotropic(
     :arg verbose: verbosity level
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
-    assert mu.dtype == dtype
-    assert lmbda.dtype == dtype
+    assert params["lambda"].dtype == dtype
+    assert params["mu"].dtype == dtype
     assert epsilon_bar.dtype == dtype
     assert depth >= 0
     assert maxits > 0
@@ -109,8 +109,8 @@ def lippmann_schwinger_isotropic(
             (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
         )
         its = cuda_code(
-            np.ascontiguousarray(mu),
-            np.ascontiguousarray(lmbda),
+            np.ascontiguousarray(params["mu"]),
+            np.ascontiguousarray(params["lambda"]),
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
             epsilon,
             sigma,
@@ -128,9 +128,9 @@ def lippmann_schwinger_isotropic(
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
         return epsilon, sigma
     else:
-        material_properties = {"mu": mu, "lambda": lmbda}
         epsilon, sigma = solve(
-            material_properties,
+            compute_sigma_isotropic,
+            params,
             epsilon_bar,
             grid_spec,
             tol=tol,
@@ -143,8 +143,9 @@ def lippmann_schwinger_isotropic(
 
 
 def lippmann_schwinger_anisotropic(
-    stiffness_tensor,
+    params,
     epsilon_bar,
+    ref_params,
     grid_spec,
     tol=1.0e-5,
     maxits=1000,
@@ -156,8 +157,10 @@ def lippmann_schwinger_anisotropic(
 
     Anderson acceleration can be applied for the forward solve in the JAX implementation
 
-    :arg stiffness_tensor: stiffness tensor
+    :arg params: material parameters, dictionary {"stiffness_tensor":stiffness_tensor}
     :arg epsilon_bar: mean value of epsilon
+    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material, dictionary
+        {"lambda":lambda, "mu":mu}
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance used for convergence test
     :arg maxits: maximum number of iterations
@@ -166,6 +169,7 @@ def lippmann_schwinger_anisotropic(
     :arg verbose: verbosity level
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
+    stiffness_tensor = params["stiffness_tensor"]
     assert stiffness_tensor.dtype == dtype
     assert epsilon_bar.dtype == dtype
     assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
@@ -218,10 +222,11 @@ def lippmann_schwinger_anisotropic(
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
 
     else:
-        material_properties = {"stiffness_tensor": stiffness_tensor}
         epsilon, sigma = solve(
-            material_properties,
+            compute_sigma_anisotropic,
+            params,
             epsilon_bar,
+            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,

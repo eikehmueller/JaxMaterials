@@ -218,17 +218,18 @@ def get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
     return xi_nrm * jnp.transpose(N0_transpose, axes=(3, 4, 0, 1, 2))
 
 
-def fourier_solve_isotropic(tau_hat, lmbda0, mu0, xizero):
+def fourier_solve_isotropic(tau_hat, xizero, ref_params):
     """Solve residual equation for homogeneous isotropic reference material in Fourier space
 
     Computes hat(epsilon)_{kl} = -Gamma^0_{klij} hat(tau)_{ij} for a homogeneous isotropic
     reference material which is characterised by the two Lame parameters lambda^0 and mu^0.
 
     :arg tau_hat: The residual hat(tau) in Fourier space
-    :arg lmbda0: coefficient lambda^0 of homogeneous reference material
-    :arg mu0: coefficient mu^0 of homogeneous reference material
     :arg xizero: Normalised momentum vectors
+    :arg ref_params: Lame coefficients of isotropic reference material
     """
+    lambda0 = ref_params["lambda"]
+    mu0 = ref_params["mu"]
     epsilon_hat_A = jnp.stack(
         [
             xizero[0, ...] ** 2 * tau_hat[0, ...]
@@ -289,7 +290,9 @@ def fourier_solve_isotropic(tau_hat, lmbda0, mu0, xizero):
     )
     epsilon_hat_B = Xi * Xi_dot_tau
     return (
-        1 / mu0 * (-epsilon_hat_A + (lmbda0 + mu0) / (lmbda0 + 2 * mu0) * epsilon_hat_B)
+        1
+        / mu0
+        * (-epsilon_hat_A + (lambda0 + mu0) / (lambda0 + 2 * mu0) * epsilon_hat_B)
     )
 
 

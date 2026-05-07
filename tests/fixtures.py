@@ -52,50 +52,63 @@ def rng():
     return np.random.default_rng(seed=784173)
 
 
-def initialise_material(grid_spec, rng, dtype):
-    """Construct random Lame parameters
+def initialise_isotropic_material(grid_spec, rng, dtype):
+    """Construct random Lame coefficients
 
     :arg grid_spec: specification of grid
     :arg rng: random number generator
     :arg dtype: data type
     """
     shape = (grid_spec.nx, grid_spec.ny, grid_spec.nz)
-    mu = 0.9 * np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
     lmbda = 1.1 * np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
-    return np.array(mu, dtype=dtype), np.array(lmbda, dtype=dtype)
+    mu = 0.9 * np.ones(shape=shape) + rng.uniform(size=shape, low=-0.2, high=+0.2)
+    return {"lambda": np.array(lmbda, dtype=dtype), "mu": np.array(mu, dtype=dtype)}
 
 
-def perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1):
+def reference_parameters(params):
+    """Compute Lame reference coefficients for isotropic, homogeneous material
+
+    :arg params: dictionary with Lame parameters
+    """
+    return {
+        key: 1 / 2 * (np.min(value) + np.max(value)) for key, value in params.items()
+    }
+
+
+def perturbed_parameters(rng, params, delta=0.1):
     """Build mildly anisotropic stiffness tensor around isotropic baseline
 
     :arg rng: random number generator
-    :arg mu: Lame parameter mu
-    :arg lmbda: Lame parameter lambda
+    :arg params: Lame coefficients of isotropic material
     :arg delta: magnitude of perturbation
     """
-    perturb = lambda scale: scale * (1.0 + rng.uniform(-delta, delta, size=mu.shape))
-    return np.stack(
-        [
-            perturb(2 * mu + lmbda),
-            perturb(2 * mu + lmbda),
-            perturb(2 * mu + lmbda),
-            perturb(mu),
-            perturb(mu),
-            perturb(mu),
-            perturb(lmbda),
-            perturb(lmbda),
-            perturb(lmbda),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.2 * mu),
-            perturb(0.1 * mu),
-            perturb(0.1 * mu),
-            perturb(0.1 * mu),
-        ]
-    ).astype(mu.dtype)
+    lmbda = params["lambda"]
+    mu = params["mu"]
+    perturb = lambda scale: scale + rng.uniform(-delta, delta, size=mu.shape)
+    return {
+        "stiffness_tensor": np.stack(
+            [
+                perturb(2 * mu + lmbda),
+                perturb(2 * mu + lmbda),
+                perturb(2 * mu + lmbda),
+                perturb(mu),
+                perturb(mu),
+                perturb(mu),
+                perturb(lmbda),
+                perturb(lmbda),
+                perturb(lmbda),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+                perturb(0),
+            ]
+        ).astype(mu.dtype)
+    }

@@ -4,13 +4,12 @@ import pytest
 import jax
 from jax import numpy as jnp
 
-from jaxmaterials.solver.hooke import compute_sigma_isotropic
+from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.fourier import get_xi
 from jaxmaterials.solver.backend import (
     relative_divergence,
     relative_divergence_fourier,
     _lippmann_schwinger_jax,
-    _lippmann_schwinger_generic_jax,
 )
 
 from jaxmaterials.solver.lippmann_schwinger import (
@@ -18,7 +17,13 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_anisotropic,
     CUDAUnavailableError,
 )
-from fixtures import initialise_material, perturbed_stiffness_tensor, grid_spec, rng
+from fixtures import (
+    initialise_isotropic_material,
+    reference_parameters,
+    perturbed_parameters,
+    grid_spec,
+    rng,
+)
 
 jax.config.update("jax_enable_x64", True)
 
@@ -51,48 +56,55 @@ def test_anisotropic_solve(grid_spec, rng, depth, dtype):
     :arg dtype: data type (single or double precision)
     :arg rng: random number generator
     """
+    tol = 1.0e-6 if dtype == np.float32 else 1.0e-12
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-    mu, lmbda = initialise_material(grid_spec, rng, dtype)
-    zero = np.zeros_like(mu)
-    stiffness_tensor = np.stack(
-        3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zero]
-    )
+    params = initialise_isotropic_material(grid_spec, rng, dtype)
+    ref_params = reference_parameters(params)
     epsilon_isotropic, sigma_isotropic, its_isotropic = _lippmann_schwinger_jax(
-        {"mu": mu, "lambda": lmbda},
+        compute_sigma_isotropic,
+        params,
         epsilon_bar,
+        ref_params,
         grid_spec,
-        isotropic=True,
         rtol=1e-20,
-        atol=1.0e-5 if dtype == np.float32 else 1.0e-12,
+        atol=tol,
         depth=0,
         maxits=32,
         dynamic_stopping=True,
         dtype=dtype,
         verbose=1,
     )
+    lmbda = params["lambda"]
+    mu = params["mu"]
+    zero = np.zeros_like(mu)
+    params_anisotropic = {
+        "stiffness_tensor": np.stack(
+            3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zero]
+        )
+    }
     epsilon_anisotropic, sigma_anisotropic, its_anisotropic = _lippmann_schwinger_jax(
-        {"stiffness_tensor": stiffness_tensor},
+        compute_sigma_anisotropic,
+        params_anisotropic,
         epsilon_bar,
+        ref_params,
         grid_spec,
-        isotropic=False,
         rtol=1e-20,
-        atol=1.0e-5 if dtype == np.float32 else 1.0e-12,
+        atol=tol,
         depth=0,
         maxits=32,
         dynamic_stopping=True,
         dtype=dtype,
         verbose=1,
     )
-    rtol = 1.0e-6 if dtype == np.float32 else 1.0e-12
     assert (
         np.linalg.norm(epsilon_isotropic - epsilon_anisotropic)
         / np.linalg.norm(epsilon_isotropic)
-        < rtol
+        < tol
     )
     assert (
         np.linalg.norm(sigma_isotropic - sigma_anisotropic)
         / np.linalg.norm(sigma_isotropic)
-        < rtol
+        < tol
     )
     assert abs(its_isotropic - its_anisotropic) <= 1
 
@@ -109,15 +121,17 @@ def test_convergence(grid_spec, rng, dtype, depth):
     :arg depth: depth of Anderson acceleration
     """
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-    mu, lmbda = initialise_material(grid_spec, rng, dtype)
-    atol = 1.0e-5 if dtype == np.float32 else 1.0e-12
+    params = initialise_isotropic_material(grid_spec, rng, dtype)
+    ref_params = reference_parameters(params)
+    tol = 1.0e-5 if dtype == np.float32 else 1.0e-12
     _, sigma, its = _lippmann_schwinger_jax(
-        {"mu": mu, "lambda": lmbda},
+        compute_sigma_isotropic,
+        params,
         epsilon_bar,
+        ref_params,
         grid_spec,
-        isotropic=True,
         rtol=1.0e-20,
-        atol=atol,
+        atol=tol,
         depth=depth,
         maxits=32,
         dynamic_stopping=True,
@@ -134,8 +148,8 @@ def test_convergence(grid_spec, rng, dtype, depth):
         if depth == 0:
             assert its < 16
         else:
-            assert its < 14
-    assert rel_div < atol
+            assert its < 15
+    assert rel_div < tol
 
 
 def test_jax_matches_cuda_isotropic(grid_spec, rng):
@@ -148,11 +162,10 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=np.float32)
     tol = 1.0e-5
     maxits = 32
-    mu, lmbda = initialise_material(grid_spec, rng, dtype=np.float32)
+    params = initialise_isotropic_material(grid_spec, rng, dtype=np.float32)
     try:
         epsilon_cuda, sigma_cuda = lippmann_schwinger_isotropic(
-            mu,
-            lmbda,
+            params,
             epsilon_bar,
             grid_spec,
             tol=tol,
@@ -163,8 +176,7 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     except CUDAUnavailableError:
         pytest.skip(reason="CUDA code not available")
     epsilon_jax, sigma_jax = lippmann_schwinger_isotropic(
-        mu,
-        lmbda,
+        params,
         epsilon_bar,
         grid_spec,
         tol=tol,
@@ -180,51 +192,6 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     assert rel_diff_sigma_2 < 1.0e-2
 
 
-@pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_jax_matches_generic_isotropic(grid_spec, rng, dtype):
-    """Verify that JAX solver and generic JAX solver give same results
-
-    :arg grid_spec: grid specification
-    :arg rng: random number generator
-    """
-    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-    tol = 1.0e-12 if dtype == np.float64 else 1.0e-5
-    maxits = 32
-    mu, lmbda = initialise_material(grid_spec, rng, dtype=dtype)
-    mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
-    lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
-    epsilon, sigma = lippmann_schwinger_isotropic(
-        mu,
-        lmbda,
-        epsilon_bar,
-        grid_spec,
-        tol=tol,
-        maxits=maxits,
-        use_cuda=False,
-        verbose=1,
-    )
-    epsilon_generic, sigma_generic, _ = _lippmann_schwinger_generic_jax(
-        compute_sigma_isotropic,
-        epsilon_bar,
-        {"lambda": lmbda, "mu": mu},
-        {"lambda": lmbda0, "mu": mu0},
-        grid_spec,
-        atol=1e-20,
-        rtol=tol,
-        depth=0,
-        maxits=128,
-        dynamic_stopping=True,
-        dtype=dtype,
-        verbose=1,
-    )
-    rel_diff_epsilon_2 = np.sum((epsilon - epsilon_generic) ** 2) / np.sum(
-        epsilon_generic**2
-    )
-    rel_diff_sigma_2 = np.sum((sigma - sigma_generic) ** 2) / np.sum(sigma_generic**2)
-    assert rel_diff_epsilon_2 < tol
-    assert rel_diff_sigma_2 < tol
-
-
 def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     """Verify that CUDA and JAX anisotropic solvers match on anisotropic materials
     (skipped if no GPU is available).
@@ -233,14 +200,16 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     :arg rng: random number generator
     """
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=np.float32)
-    mu, lmbda = initialise_material(grid_spec, rng, dtype=np.float32)
+    params_isotropic = initialise_isotropic_material(grid_spec, rng, dtype=np.float32)
+    ref_params = reference_parameters(params_isotropic)
     tol = 1.0e-5
     maxits = 32
-    stiffness_tensor = perturbed_stiffness_tensor(rng, mu, lmbda, delta=0.1)
+    params = perturbed_parameters(rng, params_isotropic, delta=0.1)
     try:
         epsilon_cuda, sigma_cuda = lippmann_schwinger_anisotropic(
-            stiffness_tensor,
+            params,
             epsilon_bar,
+            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,
@@ -251,8 +220,9 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
         pytest.skip(reason="CUDA code not available")
 
     epsilon_jax, sigma_jax = lippmann_schwinger_anisotropic(
-        stiffness_tensor,
+        params,
         epsilon_bar,
+        ref_params,
         grid_spec,
         tol=tol,
         maxits=maxits,

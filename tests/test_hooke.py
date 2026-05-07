@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 import jax
 
-from fixtures import initialise_material, grid_spec, rng
+from fixtures import initialise_isotropic_material, grid_spec, rng
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 
 
@@ -22,15 +22,17 @@ def test_hooke(grid_spec, dtype, rng):
     epsilon = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(
         dtype
     )
-    mu, lmbda = initialise_material(grid_spec, rng, dtype)
-    zeros = np.zeros(mu.shape, dtype=dtype)
-    stiffness_tensor = np.stack(
-        3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
-    )
-    sigma_isotropic = compute_sigma_isotropic(epsilon, {"lambda": lmbda, "mu": mu})
-    sigma_anisotropic = compute_sigma_anisotropic(
-        epsilon, {"stiffness_tensor": stiffness_tensor}
-    )
+    params = initialise_isotropic_material(grid_spec, rng, dtype)
+    lmbda = params["lambda"]
+    mu = params["mu"]
+    zero = np.zeros_like(mu)
+    params_anisotropic = {
+        "stiffness_tensor": np.stack(
+            3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zero]
+        )
+    }
+    sigma_isotropic = compute_sigma_isotropic(epsilon, params)
+    sigma_anisotropic = compute_sigma_anisotropic(epsilon, params_anisotropic)
     rtol = 1.0e-7 if dtype == np.float32 else 1.0e-12
     assert (
         np.linalg.norm(sigma_isotropic - sigma_anisotropic)
