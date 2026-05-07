@@ -25,7 +25,7 @@ def compute_sigma_isotropic(epsilon, params):
     return sigma
 
 
-def compute_sigma_anisotropic(stiffness_tensor, epsilon):
+def compute_sigma_anisotropic(epsilon, params):
     """Compute stress from strain for anisotropic material
 
     Returns sigma_{ij} = C_{ijkl}*epsilon_{kl} for an anisotropic material characterised
@@ -42,9 +42,10 @@ def compute_sigma_anisotropic(stiffness_tensor, epsilon):
         C_{15} = C_{22,01},   C_{16} = C_{22,02},   C_{17} = C_{22,12},
         C_{18} = C_{01,02},   C_{19} = C_{01,12},   C_{20} = C_{02,12},
 
-    :arg stiffness_tensor: vector representation of stiffness tensor C
     :arg epsilon: strain field
+    :arg stiffness_tensor: dictionary with vector representation of stiffness tensor C
     """
+    stiffness_tensor = params["stiffness_tensor"]
     sigma = jnp.stack(
         [
             stiffness_tensor[0] * epsilon[0]

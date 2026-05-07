@@ -92,7 +92,7 @@ def relative_divergence_fourier(sigma_hat, xi):
     ]
 )
 def _lippmann_schwinger_jax(
-    material_properties,
+    params,
     epsilon_bar,
     grid_spec,
     isotropic,
@@ -108,10 +108,10 @@ def _lippmann_schwinger_jax(
 
     Computational routine which should not be called directly; use the interface routines
     lippmann_schwinger_isotropic_jax() and lippmann_schwinger_anisotropic_jax() instead.
-    The dictionary 'material_properties' is of the form {"lambda":lambda,"mu":mu} for an
+    The dictionary 'params' is of the form {"lambda":lambda,"mu":mu} for an
     isotropic material and of the form {"stiffness_tensor":C} for an anisotropic material.
 
-    :arg material_properties: dictionary with material properties
+    :arg params: dictionary with material properties
     :arg epsilon_bar: mean value of epsilon
     :arg grid_spec: grid specification as a namedtuple
     :arg isotropic: isotropic material?
@@ -127,12 +127,12 @@ def _lippmann_schwinger_jax(
     xi = get_xi(grid_spec, dtype=dtype)
     # reference values of Lame parameter
     if isotropic:
-        mu = material_properties["mu"]
-        lmbda = material_properties["lambda"]
+        mu = params["mu"]
+        lmbda = params["lambda"]
         mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
         lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
     else:
-        stiffness_tensor = material_properties["stiffness_tensor"]
+        stiffness_tensor = params["stiffness_tensor"]
         stiffness_tensor0 = (
             1
             / 2
@@ -158,9 +158,9 @@ def _lippmann_schwinger_jax(
     A_anderson = jnp.eye(depth + 1, dtype=dtype)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     if isotropic:
-        sigma = compute_sigma_isotropic(epsilon[0, ...], material_properties)
+        sigma = compute_sigma_isotropic(epsilon[0, ...], params)
     else:
-        sigma = compute_sigma_anisotropic(stiffness_tensor, epsilon[0, ...])
+        sigma = compute_sigma_anisotropic(epsilon[0, ...], params)
     # Fourier transform sigma
     sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
     rel_error = relative_divergence_fourier(sigma_hat, xi)
@@ -220,9 +220,9 @@ def _lippmann_schwinger_jax(
         epsilon = jnp.roll(epsilon, 1, axis=0)
         epsilon = epsilon.at[0, ...].set(epsilon_tilde)
         if isotropic:
-            sigma = compute_sigma_isotropic(epsilon[0, ...], material_properties)
+            sigma = compute_sigma_isotropic(epsilon[0, ...], params)
         else:
-            sigma = compute_sigma_anisotropic(stiffness_tensor, epsilon[0, ...])
+            sigma = compute_sigma_anisotropic(epsilon[0, ...], params)
         # Fourier transform sigma
         sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
         rel_error = relative_divergence_fourier(sigma_hat, xi)
@@ -464,7 +464,7 @@ def _lippmann_schwinger_generic_jax(
     ]
 )
 def _lippmann_schwinger_adjoint_jax(
-    material_properties,
+    params,
     f_rhs,
     grid_spec,
     isotropic,
@@ -478,10 +478,10 @@ def _lippmann_schwinger_adjoint_jax(
     """Lippmann Schwinger itsation for adjoint equation of linear elasticity
 
     Computational routine which should not be called directly.
-    The dictionary 'material_properties' is of the form {"lambda":lambda,"mu":mu} for an
+    The dictionary params is of the form {"lambda":lambda,"mu":mu} for an
     isotropic material and of the form {"stiffness_tensor":C} for an anisotropic material.
 
-    :arg material_properties: dictionary with material properties
+    :arg params: dictionary with material properties
     :arg f_rhs: right hand side function
     :arg grid_spec: grid specification as a namedtuple
     :arg isotropic: isotropic material?
@@ -495,12 +495,12 @@ def _lippmann_schwinger_adjoint_jax(
     xizero = get_xizero(grid_spec, dtype=dtype)
     # reference values of Lame parameter
     if isotropic:
-        mu = material_properties["mu"]
-        lmbda = material_properties["lambda"]
+        mu = params["mu"]
+        lmbda = params["lambda"]
         mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
         lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
     else:
-        stiffness_tensor = material_properties["stiffness_tensor"]
+        stiffness_tensor = params["stiffness_tensor"]
         stiffness_tensor0 = (
             1
             / 2
@@ -557,7 +557,11 @@ def _lippmann_schwinger_adjoint_jax(
             )
         else:
             Delta = compute_sigma_anisotropic(
-                stiffness_tensor - stiffness_tensor0[..., None, None, None], Theta
+                Theta,
+                {
+                    "stiffness_tensor": stiffness_tensor
+                    - stiffness_tensor0[..., None, None, None]
+                },
             )
         Lambda_prev = Lambda
         Lambda = f_rhs + Delta
@@ -607,7 +611,7 @@ def _lippmann_schwinger_adjoint_jax(
 
 
 def solve_impl(
-    material_properties,
+    params,
     epsilon_bar,
     grid_spec,
     tol,
@@ -618,8 +622,7 @@ def solve_impl(
 ):
     """Backend implementation of the forward solve
 
-    :arg material_properties: dictionary with Lame coefficients or
-        symmetric stiffness tensor
+    :arg params: dictionary with Lame coefficients or symmetric stiffness tensor
     :arg epsilon_bar: average strain
     :arg grid_spec: specifications of computational grid
     :arg tol: tolerance for Lippmann Schwinger solver
@@ -631,10 +634,10 @@ def solve_impl(
     """
     dtype = epsilon_bar.dtype
     epsilon, sigma, its = _lippmann_schwinger_jax(
-        material_properties,
+        params,
         epsilon_bar,
         grid_spec,
-        isotropic={"mu", "lambda"} == set(material_properties.keys()),
+        isotropic={"mu", "lambda"} == set(params.keys()),
         rtol=1.0e-20,
         atol=tol,
         depth=depth,
@@ -649,7 +652,7 @@ def solve_impl(
 
 
 def solve_fwd(
-    material_properties,
+    params,
     epsilon_bar,
     grid_spec,
     tol,
@@ -660,7 +663,7 @@ def solve_fwd(
 ):
     """Forward solve to compute stress and strain for given material parameters and epsilon_bar
 
-    :arg material_properties: dictionary which contains either Lame parameters mu, lambda
+    :arg params: dictionary which contains either Lame parameters mu, lambda
         or the 21 independent components of the 6x6 stiffness tensor.
     :arg epsilon_bar: mean value of strain
     :arg tol: tolerance for Lippmann Schwinger solver
@@ -670,7 +673,7 @@ def solve_fwd(
     :arg verbose: verbosity level
     """
     out = solve_impl(
-        material_properties,
+        params,
         epsilon_bar,
         grid_spec,
         tol,
@@ -680,7 +683,7 @@ def solve_fwd(
         verbose,
     )
     epsilon, sigma = out
-    return out, (material_properties, epsilon, sigma)
+    return out, (params, epsilon, sigma)
 
 
 def solve_bwd(grid_spec, tol, maxits, depth, dynamic_stopping, verbose, res, gradients):
@@ -697,18 +700,18 @@ def solve_bwd(grid_spec, tol, maxits, depth, dynamic_stopping, verbose, res, gra
     :arg res: results object returned by solve_fwd()
     :arg gradients: Riesz-representer of input gradients
     """
-    material_properties = res[0]
+    params = res[0]
     epsilon = res[1]
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
-    isotropic = {"mu", "lambda"} == set(material_properties.keys())
+    isotropic = {"mu", "lambda"} == set(params.keys())
     if isotropic:
-        mu = material_properties["mu"]
-        lmbda = material_properties["lambda"]
+        mu = params["mu"]
+        lmbda = params["lambda"]
         mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
         lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
     else:
-        stiffness_tensor = material_properties["stiffness_tensor"]
+        stiffness_tensor = params["stiffness_tensor"]
         stiffness_tensor0 = (
             1
             / 2
@@ -731,12 +734,12 @@ def solve_bwd(grid_spec, tol, maxits, depth, dynamic_stopping, verbose, res, gra
     g_sigma = g_sigma_euclidean / voigt_weights_bcast
     # solve adjoint equation
     if isotropic:
-        Cg_sigma = compute_sigma_isotropic(g_sigma, material_properties)
+        Cg_sigma = compute_sigma_isotropic(g_sigma, params)
     else:
-        Cg_sigma = compute_sigma_anisotropic(stiffness_tensor, g_sigma)
+        Cg_sigma = compute_sigma_anisotropic(g_sigma, params)
     f_rhs = -(g_epsilon + Cg_sigma)
     Lambda, its = _lippmann_schwinger_adjoint_jax(
-        material_properties,
+        params,
         f_rhs,
         grid_spec,
         isotropic=isotropic,
