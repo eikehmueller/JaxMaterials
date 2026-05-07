@@ -27,7 +27,7 @@ def test_hooke(grid_spec, dtype, rng):
     stiffness_tensor = np.stack(
         3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
     )
-    sigma_isotropic = compute_sigma_isotropic(lmbda, mu, epsilon)
+    sigma_isotropic = compute_sigma_isotropic(epsilon, {"lambda": lmbda, "mu": mu})
     sigma_anisotropic = compute_sigma_anisotropic(stiffness_tensor, epsilon)
     rtol = 1.0e-7 if dtype == np.float32 else 1.0e-12
     assert (
