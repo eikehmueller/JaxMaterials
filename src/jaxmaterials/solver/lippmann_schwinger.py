@@ -48,6 +48,49 @@ def _resolve_cuda_symbol(lib, names):
     )
 
 
+def lippmann_schwinger(
+    compute_sigma,
+    params,
+    epsilon_bar,
+    ref_params,
+    grid_spec,
+    tol=1.0e-5,
+    maxits=1000,
+    depth=0,
+    verbose=0,
+):
+    """Wrapper for Lippmann Schwinger iteration in generic material
+
+    Anderson acceleration can be applied for the forward solve in the JAX implementation
+
+    :arg compute_sigma: stress-strain relationship
+    :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
+    :arg epsilon_bar: mean value of epsilon
+    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
+    :arg grid_spec: specification of computational grid
+    :arg tol: tolerance used for convergence test
+    :arg maxits: maximum number of iterations
+    :arg depth: depth for Anderson iteration; only used in JAX forward solve
+    :arg verbose: verbosity level
+    """
+    assert depth >= 0
+    assert maxits > 0
+    assert tol > 0
+    epsilon, sigma = solve(
+        compute_sigma,
+        params,
+        epsilon_bar,
+        ref_params,
+        grid_spec,
+        tol=tol,
+        maxits=maxits,
+        depth=depth,
+        dynamic_stopping=True,
+        verbose=verbose,
+    )
+    return epsilon, sigma
+
+
 def lippmann_schwinger_isotropic(
     params,
     epsilon_bar,
