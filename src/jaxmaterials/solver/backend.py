@@ -1,5 +1,7 @@
 """Lippmann Schwinger solver with Anderson acceleration"""
 
+from functools import partial
+
 import jax
 from jax import numpy as jnp
 from jaxmaterials.solver.derivatives import backward_divergence
@@ -378,7 +380,20 @@ def _lippmann_schwinger_adjoint_jax(
     return Lambda, its
 
 
-def solve_impl(
+@partial(
+    jax.custom_vjp,
+    nondiff_argnames=(
+        "compute_sigma",
+        "ref_params",
+        "grid_spec",
+        "tol",
+        "maxits",
+        "depth",
+        "dynamic_stopping",
+        "verbose",
+    ),
+)
+def solve(
     compute_sigma,
     params,
     epsilon_bar,
@@ -443,17 +458,17 @@ def solve_fwd(
     :arg dynamic_stopping: use dynamic stopping criterion?
     :arg verbose: verbosity level
     """
-    out = solve_impl(
+    out = _lippmann_schwinger_jax(
         compute_sigma,
         params,
         epsilon_bar,
         ref_params,
         grid_spec,
-        tol,
-        maxits,
-        depth,
-        dynamic_stopping,
-        verbose,
+        tol=tol,
+        depth=depth,
+        maxits=maxits,
+        dynamic_stopping=dynamic_stopping,
+        verbose=verbose,
     )
     epsilon, sigma = out
     return out, (params, epsilon, sigma)
@@ -465,7 +480,7 @@ def solve_bwd(
     grid_spec,
     tol,
     maxits,
-    depth,
+    _depth,
     dynamic_stopping,
     verbose,
     res,
@@ -523,21 +538,5 @@ def solve_bwd(
     # Derivative with respect to parameters
     g_params = sigma_vjp(S_star)[1]
     return g_params, g_epsilon_bar
-
-
-# Register custom forward solve and reverse mode gradient
-solve = jax.custom_vjp(
-    solve_impl,
-    nondiff_argnames=(
-        "compute_sigma",
-        "ref_params",
-        "grid_spec",
-        "tol",
-        "maxits",
-        "depth",
-        "dynamic_stopping",
-        "verbose",
-    ),
-)
 
 solve.defvjp(solve_fwd, solve_bwd)

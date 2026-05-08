@@ -12,8 +12,9 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_anisotropic,
 )
 from jaxmaterials.solver.backend import _lippmann_schwinger_adjoint_jax
+from jaxmaterials.solver.backend import _lippmann_schwinger_jax
 
-from jaxmaterials.solver.backend import solve_impl, solve
+from jaxmaterials.solver.backend import solve
 from fixtures import (
     initialise_isotropic_material,
     reference_parameters,
@@ -154,15 +155,15 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
         return jnp.sum(sigma**2)
 
     def loss_fn(params, epsilon_bar):
-        epsilon, sigma = solve_impl(
+        epsilon, sigma = _lippmann_schwinger_jax(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
             ref_params,
             grid_spec_small,
             tol=tol,
-            maxits=maxits,
             depth=0,
+            maxits=maxits,
             dynamic_stopping=False,
             verbose=1,
         )
@@ -203,15 +204,15 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
         return jnp.sum(sigma**2)
 
     def loss_fn(params_anisotropic, epsilon_bar):
-        epsilon, sigma = solve_impl(
+        epsilon, sigma = _lippmann_schwinger_jax(
             compute_sigma_anisotropic,
             params_anisotropic,
             epsilon_bar,
             ref_params,
             grid_spec_small,
             tol=tol,
-            maxits=maxits,
             depth=0,
+            maxits=maxits,
             dynamic_stopping=False,
             verbose=1,
         )
