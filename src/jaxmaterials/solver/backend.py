@@ -306,6 +306,8 @@ def _lippmann_schwinger_adjoint_jax(
     """
     # Fourier vectors
     xizero = get_xizero(grid_spec, dtype=dtype)
+    voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
+    voigt_weights_bcast = voigt_weights[:, None, None, None]
     # storage for adjoint solution, array of shape (6,Nx,Ny,Nz)
     Lambda = f_rhs
     _, sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
@@ -344,7 +346,9 @@ def _lippmann_schwinger_adjoint_jax(
         Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
         Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
         Theta = jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
-        dSigma_depsilon, _ = sigma_vjp(Theta)
+        # Convert Voigt-dual Theta to Euclidean cotangent for vjp, then map back.
+        dSigma_depsilon, _ = sigma_vjp(voigt_weights_bcast * Theta)
+        dSigma_depsilon = dSigma_depsilon / voigt_weights_bcast
         Delta = dSigma_depsilon - compute_sigma_isotropic(Theta, ref_params)
         Lambda_prev = Lambda
         Lambda = f_rhs + Delta
