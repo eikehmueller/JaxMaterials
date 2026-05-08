@@ -45,7 +45,6 @@ def test_adjoint_isotropic(grid_spec, rng, dtype):
         atol=1.0e-20,
         maxits=32,
         dynamic_stopping=True,
-        dtype=dtype,
         verbose=1,
     )
     assert its < 10 if dtype == np.float32 else 20
@@ -70,7 +69,6 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
         atol=1.0e-20,
         maxits=32,
         dynamic_stopping=True,
-        dtype=dtype,
         verbose=1,
     )
     assert its < 10 if dtype == np.float32 else 21

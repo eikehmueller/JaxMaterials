@@ -87,7 +87,6 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         depth=0,
         maxits=32,
         dynamic_stopping=True,
-        dtype=dtype,
         verbose=1,
     )
     its_isotropic = get_niter(capfd)
@@ -110,7 +109,6 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         depth=0,
         maxits=32,
         dynamic_stopping=True,
-        dtype=dtype,
         verbose=1,
     )
     its_anisotropic = get_niter(capfd)
@@ -153,7 +151,6 @@ def test_convergence(capfd, grid_spec, rng, dtype, depth):
         depth=depth,
         maxits=32,
         dynamic_stopping=True,
-        dtype=dtype,
         verbose=1,
     )
     its = get_niter(capfd)

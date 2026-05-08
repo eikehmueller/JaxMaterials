@@ -69,7 +69,6 @@ def relative_divergence_fourier(sigma_hat, xi):
         "depth",
         "maxits",
         "dynamic_stopping",
-        "dtype",
         "verbose",
     ]
 )
@@ -84,7 +83,6 @@ def _lippmann_schwinger_jax(
     depth,
     maxits,
     dynamic_stopping,
-    dtype,
     verbose,
 ):
     """Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain
@@ -112,8 +110,8 @@ def _lippmann_schwinger_jax(
     :arg depth: depth of Anderson acceleration
     :arg maxits: maximum number of iterations
     :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
-    :arg dtype: data type
     """
+    dtype = epsilon_bar.dtype
     # Fourier vectors
     xizero = get_xizero(grid_spec, dtype=dtype)
     xi = get_xi(grid_spec, dtype=dtype)
@@ -245,7 +243,6 @@ def _lippmann_schwinger_jax(
         "grid_spec",
         "maxits",
         "dynamic_stopping",
-        "dtype",
         "verbose",
     ]
 )
@@ -260,7 +257,6 @@ def _lippmann_schwinger_adjoint_jax(
     atol,
     maxits,
     dynamic_stopping,
-    dtype,
     verbose,
 ):
     """Lippmann Schwinger iteration for adjoint equation
@@ -290,6 +286,7 @@ def _lippmann_schwinger_adjoint_jax(
     :arg dtype: data type
     """
     # Fourier vectors
+    dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
     voigt_weights_bcast = voigt_weights[:, None, None, None]
@@ -408,7 +405,6 @@ def solve_impl(
         of iterations as specified by maxits
     :arg verbose: verbosity level
     """
-    dtype = epsilon_bar.dtype
     epsilon, sigma = _lippmann_schwinger_jax(
         compute_sigma,
         params,
@@ -420,7 +416,6 @@ def solve_impl(
         depth=depth,
         maxits=maxits,
         dynamic_stopping=dynamic_stopping,
-        dtype=dtype,
         verbose=verbose,
     )
     return epsilon, sigma
@@ -518,7 +513,6 @@ def solve_bwd(
         rtol=tol,
         maxits=maxits,
         dynamic_stopping=dynamic_stopping,
-        dtype=dtype,
         verbose=verbose,
     )
 
