@@ -539,4 +539,5 @@ def solve_bwd(
     g_params = sigma_vjp(S_star)[1]
     return g_params, g_epsilon_bar
 
+
 solve.defvjp(solve_fwd, solve_bwd)
