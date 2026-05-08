@@ -78,8 +78,7 @@ def _lippmann_schwinger_jax(
     epsilon_bar,
     ref_params,
     grid_spec,
-    rtol,
-    atol,
+    tol,
     depth,
     maxits,
     dynamic_stopping,
@@ -105,12 +104,13 @@ def _lippmann_schwinger_jax(
     :arg ref_params: Lame coefficients of isotropic reference material, dictionary of the form
         {"lambda":lambda, "mu":mu}
     :arg grid_spec: specification of computational grid
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg tol: absolute tolerance on normalised stress divergence to check convergence
     :arg depth: depth of Anderson acceleration
     :arg maxits: maximum number of iterations
     :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
     """
+    atol = tol
+    rtol = 1.0e-20
     dtype = epsilon_bar.dtype
     # Fourier vectors
     xizero = get_xizero(grid_spec, dtype=dtype)
@@ -253,8 +253,7 @@ def _lippmann_schwinger_adjoint_jax(
     f_rhs,
     ref_params,
     grid_spec,
-    rtol,
-    atol,
+    tol,
     maxits,
     dynamic_stopping,
     verbose,
@@ -279,12 +278,12 @@ def _lippmann_schwinger_adjoint_jax(
     :arg ref_params: Lame coefficients of isotropic reference material, dictionary of form
         {"lambda":lambda, "mu":mu}
     :arg grid_spec: specification of computational grid
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
+    :arg tol: relative tolerance on normalised stress divergence to check convergence
     :arg maxits: maximal number of iterations
     :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
-    :arg dtype: data type
     """
+    rtol = tol
+    atol = 1.0e-20
     # Fourier vectors
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
@@ -411,8 +410,7 @@ def solve_impl(
         epsilon_bar,
         ref_params,
         grid_spec,
-        rtol=1.0e-20,
-        atol=tol,
+        tol=tol,
         depth=depth,
         maxits=maxits,
         dynamic_stopping=dynamic_stopping,
@@ -509,8 +507,7 @@ def solve_bwd(
         f_rhs,
         ref_params,
         grid_spec,
-        atol=1.0e-20,
-        rtol=tol,
+        tol=tol,
         maxits=maxits,
         dynamic_stopping=dynamic_stopping,
         verbose=verbose,
