@@ -108,16 +108,22 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
     """Compare custom gradient with adjoint method to finite difference approximation"""
-    if dtype == np.float32:
-        pytest.skip("Test currently not reliable in single precision")
-    mu, lmbda = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    # if dtype == np.float32:
+    #    pytest.skip("Test currently not reliable in single precision")
+    params = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-    stiffness_tensor = perturbed_parameters(rng, mu, lmbda, delta=0.1)
+    params_anisotropic = perturbed_parameters(rng, params, delta=0.1)
     tol = 1.0e-5 if dtype == jnp.float32 else 1.0e-12
 
-    def loss_fn(stiffness_tensor, epsilon_bar):
+    def loss_fn(params_anisotropic, epsilon_bar):
         epsilon, sigma = lippmann_schwinger_anisotropic(
-            stiffness_tensor, epsilon_bar, grid_spec_small, tol=tol, verbose=1
+            params_anisotropic,
+            epsilon_bar,
+            ref_params,
+            grid_spec_small,
+            tol=tol,
+            verbose=1,
         )
         return jnp.sum(sigma**2)
 
@@ -125,24 +131,26 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
     check_vjp(
         loss_fn,
         functools.partial(jax.vjp, loss_fn),
-        args=(stiffness_tensor, epsilon_bar),
+        args=(params_anisotropic, epsilon_bar),
         rtol=rtol,
     )
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_isotropic(grid_spec_small, rng, dtype):
     """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
-    mu, lmbda = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    params = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     tol = 1.0e-20
     maxits = 128
 
-    def loss_fn_adjoint(mu, lmbda, epsilon_bar):
+    def loss_fn_adjoint(params, epsilon_bar):
         epsilon, sigma = solve(
-            {"mu": mu, "lambda": lmbda},
+            compute_sigma_isotropic,
+            params,
             epsilon_bar,
+            ref_params,
             grid_spec_small,
             tol=tol,
             maxits=maxits,
@@ -152,10 +160,12 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
         )
         return jnp.sum(sigma**2)
 
-    def loss_fn(mu, lmbda, epsilon_bar):
+    def loss_fn(params, epsilon_bar):
         epsilon, sigma = solve_impl(
-            {"mu": mu, "lambda": lmbda},
+            compute_sigma_isotropic,
+            params,
             epsilon_bar,
+            ref_params,
             grid_spec_small,
             tol=tol,
             maxits=maxits,
@@ -165,12 +175,12 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
         )
         return jnp.sum(sigma**2)
 
-    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
-    g_autodiff = jax.grad(loss_fn, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
+    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(params, epsilon_bar)
+    g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
     rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-4
     assert all(
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
-        for x, y in zip(g_adjoint, g_autodiff)
+        for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
     )
 
 
@@ -178,16 +188,19 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_anisotropic(grid_spec_small, rng, dtype):
     """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
-    mu, lmbda = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    params = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-    stiffness_tensor = perturbed_parameters(rng, mu, lmbda, delta=0.1)
+    params_anisotropic = perturbed_parameters(rng, params, delta=0.1)
     tol = 1.0e-20
     maxits = 128
 
-    def loss_fn_adjoint(stiffness_tensor, epsilon_bar):
+    def loss_fn_adjoint(params_anisotropic, epsilon_bar):
         epsilon, sigma = solve(
-            {"stiffness_tensor": stiffness_tensor},
+            compute_sigma_anisotropic,
+            params_anisotropic,
             epsilon_bar,
+            ref_params,
             grid_spec_small,
             tol=tol,
             maxits=maxits,
@@ -197,10 +210,12 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
         )
         return jnp.sum(sigma**2)
 
-    def loss_fn(stiffness_tensor, epsilon_bar):
+    def loss_fn(params_anisotropic, epsilon_bar):
         epsilon, sigma = solve_impl(
-            {"stiffness_tensor": stiffness_tensor},
+            compute_sigma_anisotropic,
+            params_anisotropic,
             epsilon_bar,
+            ref_params,
             grid_spec_small,
             tol=tol,
             maxits=maxits,
@@ -212,21 +227,15 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
 
     g_adjoint = jax.grad(
         loss_fn_adjoint,
-        argnums=(
-            0,
-            1,
-        ),
-    )(stiffness_tensor, epsilon_bar)
+        argnums=(0, 1),
+    )(params_anisotropic, epsilon_bar)
     g_autodiff = jax.grad(
         loss_fn,
-        argnums=(
-            0,
-            1,
-        ),
-    )(stiffness_tensor, epsilon_bar)
+        argnums=(0, 1),
+    )(params_anisotropic, epsilon_bar)
     # only check gradient with respect to epsilon_bar
     rtol = 1.0e-12 if dtype == jnp.float64 else 2.0e-4
     assert all(
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
-        for x, y in zip(g_adjoint, g_autodiff)
+        for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
     )
