@@ -6,7 +6,7 @@ import numpy as np
 import jax
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
-from jaxmaterials.solver.backend import solve, number_of_iterations
+from jaxmaterials.solver.backend import solve
 
 __all__ = [
     "lippmann_schwinger_isotropic",
@@ -124,8 +124,6 @@ def lippmann_schwinger_isotropic(
             maxits,
             verbose,
         )
-        if number_of_iterations is not None:
-            number_of_iterations.set(its)
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
@@ -219,8 +217,6 @@ def lippmann_schwinger_anisotropic(
             maxits,
             verbose,
         )
-        if number_of_iterations is not None:
-            number_of_iterations.set(its)
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")

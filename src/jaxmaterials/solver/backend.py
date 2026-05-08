@@ -1,7 +1,5 @@
 """Lippmann Schwinger solver with Anderson acceleration"""
 
-import contextvars
-import contextlib
 import jax
 from jax import numpy as jnp
 from jaxmaterials.solver.derivatives import backward_divergence
@@ -20,19 +18,6 @@ __all__ = [
     "solve",
     "iteration_counter",
 ]
-
-# Context-specific variable for counting the number of iterations
-number_of_iterations = contextvars.ContextVar("its", default=None)
-
-
-@contextlib.contextmanager
-def iteration_counter():
-    """Context which can be used to record the number of iterations"""
-    token = number_of_iterations.set(-1)
-    try:
-        yield number_of_iterations
-    finally:
-        number_of_iterations.reset(token)
 
 
 def relative_divergence(sigma, grid_spec):
@@ -251,7 +236,7 @@ def _lippmann_schwinger_jax(
             ordered=True,
         )
 
-    return epsilon[0, ...], sigma, its
+    return epsilon[0, ...], sigma
 
 
 @jax.jit(
@@ -424,7 +409,7 @@ def solve_impl(
     :arg verbose: verbosity level
     """
     dtype = epsilon_bar.dtype
-    epsilon, sigma, its = _lippmann_schwinger_jax(
+    epsilon, sigma = _lippmann_schwinger_jax(
         compute_sigma,
         params,
         epsilon_bar,
@@ -438,8 +423,6 @@ def solve_impl(
         dtype=dtype,
         verbose=verbose,
     )
-    if number_of_iterations is not None:
-        number_of_iterations.set(its)
     return epsilon, sigma
 
 
