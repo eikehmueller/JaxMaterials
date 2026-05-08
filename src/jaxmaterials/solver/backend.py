@@ -476,14 +476,27 @@ def solve_fwd(
         verbose,
     )
     epsilon, sigma = out
-    return out, (compute_sigma, params, ref_params, grid_spec, epsilon, sigma)
+    return out, (params, epsilon, sigma)
 
 
-def solve_bwd(tol, maxits, dynamic_stopping, verbose, res, gradients):
+def solve_bwd(
+    compute_sigma,
+    ref_params,
+    grid_spec,
+    tol,
+    maxits,
+    depth,
+    dynamic_stopping,
+    verbose,
+    res,
+    gradients,
+):
     """Backward solve
 
     Returns gradients with respect to material parameters and epsilon_bar
 
+    :arg compute_sigma: stress-strain relationship
+    :arg grid_spec: specification of computational grid
     :arg tol: tolerance for adjoint solve
     :arg maxits: maximum number of iterations
     :arg depth: Anderson depth of forward solve
@@ -492,7 +505,7 @@ def solve_bwd(tol, maxits, dynamic_stopping, verbose, res, gradients):
     :arg res: results object returned by solve_fwd()
     :arg gradients: Riesz-representer of input gradients
     """
-    compute_sigma, params, ref_params, grid_spec, epsilon, _ = res
+    params, epsilon, _ = res
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     # Incoming gradients are dual vectors with respect to *Euclidean*
@@ -505,8 +518,8 @@ def solve_bwd(tol, maxits, dynamic_stopping, verbose, res, gradients):
     voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
     voigt_weights_bcast = voigt_weights[:, None, None, None]
     # solve adjoint equation
-    sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
-    f_rhs = -(g_epsilon + sigma_vjp((g_sigma, None))[0]) / voigt_weights_bcast
+    _, sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
+    f_rhs = -(g_epsilon + sigma_vjp(g_sigma)[0]) / voigt_weights_bcast
     Lambda, _ = _lippmann_schwinger_adjoint_jax(
         compute_sigma,
         params,
@@ -524,18 +537,22 @@ def solve_bwd(tol, maxits, dynamic_stopping, verbose, res, gradients):
 
     Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
     Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
-    S_star = g_sigma - jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
+    S_star = g_sigma - voigt_weights_bcast * jnp.real(
+        jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1))
+    )
     # Convert back to dual vector with respect to Euclidean inner product.
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
     # Derivative with respect to parameters
-    g_params = sigma_vjp((None, S_star))[1]
-    return g_epsilon_bar, g_params
+    g_params = sigma_vjp(S_star)[1]
+    return g_params, g_epsilon_bar
 
 
 # Register custom forward solve and reverse mode gradient
 solve = jax.custom_vjp(
     solve_impl,
     nondiff_argnames=(
+        "compute_sigma",
+        "ref_params",
         "grid_spec",
         "tol",
         "maxits",

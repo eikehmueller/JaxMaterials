@@ -76,26 +76,26 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
     assert its < 10 if dtype == np.float32 else 21
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
     """Compare custom gradient with adjoint method to finite difference approximation"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
     ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
-    tol = 1.0e-5 if dtype == jnp.float32 else 1.0e-12
+    tol = 1.0e-6 if dtype == jnp.float32 else 1.0e-12
 
-    def loss_fn(mu, lmbda, epsilon_bar):
+    def loss_fn(params, epsilon_bar):
         epsilon, sigma = lippmann_schwinger_isotropic(
             params,
             epsilon_bar,
+            ref_params,
             grid_spec_small,
             tol=tol,
             verbose=1,
         )
         return jnp.sum(sigma**2)
 
-    rtol = 1.0e-5 if dtype == jnp.float64 else 5.0e-3
+    rtol = 1.0e-7 if dtype == jnp.float64 else 2.0e-3
     check_vjp(
         loss_fn,
         functools.partial(jax.vjp, loss_fn),

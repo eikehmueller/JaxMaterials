@@ -3,6 +3,7 @@
 import warnings
 import ctypes
 import numpy as np
+import jax
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.backend import solve, number_of_iterations
@@ -50,6 +51,7 @@ def _resolve_cuda_symbol(lib, names):
 def lippmann_schwinger_isotropic(
     params,
     epsilon_bar,
+    ref_params,
     grid_spec,
     tol=1.0e-5,
     maxits=1000,
@@ -63,6 +65,7 @@ def lippmann_schwinger_isotropic(
 
     :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
     :arg epsilon_bar: mean value of epsilon
+    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance used for convergence test
     :arg maxits: maximum number of iterations
@@ -132,6 +135,7 @@ def lippmann_schwinger_isotropic(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
+            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,

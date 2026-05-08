@@ -163,10 +163,12 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     tol = 1.0e-5
     maxits = 32
     params = initialise_isotropic_material(grid_spec, rng, dtype=np.float32)
+    ref_params = reference_parameters(params)
     try:
         epsilon_cuda, sigma_cuda = lippmann_schwinger_isotropic(
             params,
             epsilon_bar,
+            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,
@@ -178,6 +180,7 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     epsilon_jax, sigma_jax = lippmann_schwinger_isotropic(
         params,
         epsilon_bar,
+        ref_params,
         grid_spec,
         tol=tol,
         maxits=maxits,
