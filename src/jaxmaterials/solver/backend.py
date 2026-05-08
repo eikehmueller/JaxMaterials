@@ -18,7 +18,6 @@ __all__ = [
     "_lippmann_schwinger_jax",
     "_lippmann_schwinger_adjoint_jax",
     "solve",
-    "iteration_counter",
 ]
 
 
