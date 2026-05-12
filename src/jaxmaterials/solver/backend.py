@@ -402,7 +402,7 @@ def solve(
     dynamic_stopping,
     verbose=0,
 ):
-    """Backend implementation of the forward solve
+    """Reverse mode differentiable implementation of the forward solve
 
     :arg compute_sigma: stress-strain relationship
     :arg params: parameters of stress-strain function
