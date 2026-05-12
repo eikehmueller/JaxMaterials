@@ -3,7 +3,6 @@
 import warnings
 import ctypes
 import numpy as np
-import jax
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.backend import solve
@@ -11,6 +10,7 @@ from jaxmaterials.solver.backend import solve
 __all__ = [
     "lippmann_schwinger_isotropic",
     "lippmann_schwinger_anisotropic",
+    "lippmann_schwinger",
 ]
 
 
@@ -64,7 +64,7 @@ def lippmann_schwinger(
     Anderson acceleration can be applied for the forward solve in the JAX implementation
 
     :arg compute_sigma: stress-strain relationship
-    :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
+    :arg params: dictionary with material parameters
     :arg epsilon_bar: mean value of epsilon
     :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
     :arg grid_spec: specification of computational grid

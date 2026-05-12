@@ -43,7 +43,8 @@ def compute_sigma_anisotropic(epsilon, params):
         C_{18} = C_{01,02},   C_{19} = C_{01,12},   C_{20} = C_{02,12},
 
     :arg epsilon: strain field
-    :arg stiffness_tensor: dictionary with vector representation of stiffness tensor C
+    :arg params: dictionary of the form {"stiffness_tensor":stiffness_tensor}
+        with vector representation of stiffness tensor C
     """
     stiffness_tensor = params["stiffness_tensor"]
     sigma = jnp.stack(

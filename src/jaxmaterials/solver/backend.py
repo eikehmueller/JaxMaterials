@@ -15,8 +15,6 @@ from jaxmaterials.solver.hooke import compute_sigma_isotropic
 __all__ = [
     "relative_divergence",
     "relative_divergence_fourier",
-    "_lippmann_schwinger_jax",
-    "_lippmann_schwinger_adjoint_jax",
     "solve",
 ]
 
@@ -148,7 +146,7 @@ def _lippmann_schwinger_jax(
 
         This method checkes whether e^i < max (atol, rtol * e^0) or its > maxits
 
-        :arg state: current iteration state (epsilon, residual, sigma, A, , rel_error, rel_error_0)
+        :arg state: current iteration state
         """
         its, rel_error = state[-2:]
         if verbose > 1:
@@ -485,15 +483,19 @@ def solve_bwd(
     res,
     gradients,
 ):
-    """Backward solve
+    """Backward solve based on the adjoint method.
 
     Returns gradients with respect to material parameters and epsilon_bar
 
     :arg compute_sigma: stress-strain relationship
+    :arg ref_params: Lame parameters of isotropic,
+        homogeneous reference material
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance for adjoint solve
     :arg maxits: maximum number of iterations
-    :arg depth: Anderson depth of forward solve
+    :arg _depth: Anderson depth of forward solve (ignored,
+        since the adjoint solve does not currently use
+        Anderson acceleration)
     :arg dynamic_stopping: use dynamic stopping criterion?
     :arg verbose: verbosity level
     :arg res: results object returned by solve_fwd()
@@ -502,9 +504,10 @@ def solve_bwd(
     params, epsilon, _ = res
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
-    # Incoming gradients are dual vectors with respect to *Euclidean*
-    # inner product, need be converted to dual vectors with respect to
-    # weighted dot-product is Voigt notation:
+    # Incoming gradients are dual vectors with respect to
+    # the *Euclidean* inner product. They need be converted
+    # to dual vectors with respect to weighted dot-product
+    # which arises from the use of Voigt notation, namely
     #
     #   <a,b>_V = a_0*b_0 + a_1*b_1 + a_2*b_2
     #           + 2 * ( a_3*b_3 + a_4*b_4 + a_5*b_5 )

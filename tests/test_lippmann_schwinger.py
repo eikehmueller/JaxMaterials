@@ -3,7 +3,6 @@ import numpy as np
 import pytest
 import jax
 import re
-from jax import numpy as jnp
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.fourier import get_xi
@@ -32,7 +31,7 @@ jax.config.update("jax_enable_x64", True)
 def get_niter(capfd):
     """Extract number of iterations from output
 
-    :capfd: output capture
+    :arg capfd: output capture
     """
     captured = capfd.readouterr()
     print(captured.out)
