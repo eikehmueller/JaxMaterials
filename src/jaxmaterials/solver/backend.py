@@ -238,7 +238,7 @@ def _lippmann_schwinger_jax(
 
 @jax.jit(
     static_argnames=[
-        "compute_sigma",
+        "sigma_vjp",
         "grid_spec",
         "maxits",
         "dynamic_stopping",
@@ -246,9 +246,7 @@ def _lippmann_schwinger_jax(
     ]
 )
 def _lippmann_schwinger_adjoint_jax(
-    compute_sigma,
-    params,
-    epsilon,
+    sigma_vjp,
     f_rhs,
     ref_params,
     grid_spec,
@@ -270,9 +268,8 @@ def _lippmann_schwinger_adjoint_jax(
 
     Here params are the material parameters, such as the Lame coefficients for an isotropic material.
 
-    :arg compute_sigma: function for computing stress-strain relationship
-    :arg params: parameters of stress-strain function compute_sigma()
-    :arg epsilon: strain value
+    :arg sigma_vjp: vector-Jacobian product function which represents the derivative
+        dsigma/depsilon, derived from compute_sigma() with jax.vjp
     :arg f_rhs: right hand side in adjoint equation
     :arg ref_params: Lame coefficients of isotropic reference material, dictionary of form
         {"lambda":lambda, "mu":mu}
@@ -284,13 +281,12 @@ def _lippmann_schwinger_adjoint_jax(
     rtol = tol
     atol = 1.0e-20
     # Fourier vectors
-    dtype = epsilon.dtype
+    dtype = f_rhs.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
     voigt_weights_bcast = voigt_weights[:, None, None, None]
     # storage for adjoint solution, array of shape (6,Nx,Ny,Nz)
     Lambda = f_rhs
-    _, sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
     increment_nrm = jnp.linalg.norm(Lambda)
     if verbose > 1:
         jax.debug.print("==== JAX adjoint solve ====", ordered=True)
@@ -518,9 +514,7 @@ def solve_bwd(
     _, sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
     f_rhs = -(g_epsilon + sigma_vjp(g_sigma)[0]) / voigt_weights_bcast
     Lambda, _ = _lippmann_schwinger_adjoint_jax(
-        compute_sigma,
-        params,
-        epsilon,
+        sigma_vjp,
         f_rhs,
         ref_params,
         grid_spec,

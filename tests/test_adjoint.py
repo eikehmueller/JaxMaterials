@@ -34,10 +34,9 @@ def test_adjoint_isotropic(grid_spec, rng, dtype):
     params = initialise_isotropic_material(grid_spec, rng, dtype)
     ref_params = reference_parameters(params)
     epsilon = jnp.zeros((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype)
+    _, sigma_vjp = jax.vjp(compute_sigma_isotropic, epsilon, params)
     _, its = _lippmann_schwinger_adjoint_jax(
-        compute_sigma_isotropic,
-        params,
-        epsilon,
+        sigma_vjp,
         f_rhs,
         ref_params,
         grid_spec,
@@ -57,10 +56,9 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
     ref_params = reference_parameters(params_isotropic)
     params = perturbed_parameters(rng, params_isotropic, delta=0.1)
     epsilon = jnp.zeros((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype)
+    _, sigma_vjp = jax.vjp(compute_sigma_anisotropic, epsilon, params)
     _, its = _lippmann_schwinger_adjoint_jax(
-        compute_sigma_anisotropic,
-        params,
-        epsilon,
+        sigma_vjp,
         f_rhs,
         ref_params,
         grid_spec,
