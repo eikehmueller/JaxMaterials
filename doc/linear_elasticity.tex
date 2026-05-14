@@ -385,6 +385,14 @@ C_3 = C_4 = C_5 &= \mu,\\
 C_6 = C_7 = C_8 &= \lambda.
 \end{aligned}
 \end{equation}
+Obviously, the Lame parameters $\mu$, $\lambda$ can not be recovered from the components of the stiffness tensor $C$. However, a least squares fit leads to
+\begin{equation}
+\begin{aligned}
+\lambda_{\text{LS}} &= \frac{1}{18}\left(Q_0+Q_1+Q_2 - 2 (Q_3+Q_4+Q_5) + 5(Q_6+Q_7+Q_8)
+\right)\\
+\mu_{\text{LS}} &= \frac{1}{9}\left(Q_0+Q_1+Q_2+Q_3+Q_4+Q_5-(Q_6+Q_7+Q_8)\right)
+\end{aligned}
+\end{equation}
 In Voigt-notation \eqref{eqn:stress_strain_anisotropic} becomes:
 \input{generated/anisotropic_stress_strain.tex}
 The tensor $\widehat{\Gamma}^{0}_{k\ell ij}$ also needs to be computed slightly differently. Let the elasticity tensor of the reference material be $C^0$; again this has $21$ independent components.

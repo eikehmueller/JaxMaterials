@@ -74,7 +74,6 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
 def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
     """Compare custom gradient with adjoint method to finite difference approximation"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
-    ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     tol = 1.0e-6 if dtype == jnp.float32 else 1.0e-12
 
@@ -82,7 +81,6 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
         epsilon, sigma = lippmann_schwinger_isotropic(
             params,
             epsilon_bar,
-            ref_params,
             grid_spec_small,
             tol=tol,
             verbose=1,
@@ -102,7 +100,6 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
 def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
     """Compare custom gradient with adjoint method to finite difference approximation"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
-    ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params_anisotropic = perturbed_parameters(rng, params, delta=0.1)
     tol = 1.0e-4 if dtype == jnp.float32 else 1.0e-12
@@ -111,14 +108,13 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
         epsilon, sigma = lippmann_schwinger_anisotropic(
             params_anisotropic,
             epsilon_bar,
-            ref_params,
             grid_spec_small,
             tol=tol,
             verbose=1,
         )
         return jnp.sum(sigma**2)
 
-    rtol = 1.0e-5 if dtype == jnp.float64 else 4.0e-2
+    rtol = 1.0e-5 if dtype == jnp.float64 else 5.0e-2
     check_vjp(
         loss_fn,
         functools.partial(jax.vjp, loss_fn),

@@ -175,12 +175,10 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     tol = 1.0e-5
     maxits = 32
     params = initialise_isotropic_material(grid_spec, rng, dtype=np.float32)
-    ref_params = reference_parameters(params)
     try:
         epsilon_cuda, sigma_cuda = lippmann_schwinger_isotropic(
             params,
             epsilon_bar,
-            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,
@@ -192,7 +190,6 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     epsilon_jax, sigma_jax = lippmann_schwinger_isotropic(
         params,
         epsilon_bar,
-        ref_params,
         grid_spec,
         tol=tol,
         maxits=maxits,
@@ -216,7 +213,6 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     """
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=np.float32)
     params_isotropic = initialise_isotropic_material(grid_spec, rng, dtype=np.float32)
-    ref_params = reference_parameters(params_isotropic)
     tol = 1.0e-5
     maxits = 32
     params = perturbed_parameters(rng, params_isotropic, delta=0.1)
@@ -224,7 +220,6 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
         epsilon_cuda, sigma_cuda = lippmann_schwinger_anisotropic(
             params,
             epsilon_bar,
-            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,
@@ -237,7 +232,6 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     epsilon_jax, sigma_jax = lippmann_schwinger_anisotropic(
         params,
         epsilon_bar,
-        ref_params,
         grid_spec,
         tol=tol,
         maxits=maxits,

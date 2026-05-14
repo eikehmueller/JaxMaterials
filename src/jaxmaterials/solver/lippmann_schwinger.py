@@ -3,6 +3,7 @@
 import warnings
 import ctypes
 import numpy as np
+import jax
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.backend import solve
@@ -94,7 +95,6 @@ def lippmann_schwinger(
 def lippmann_schwinger_isotropic(
     params,
     epsilon_bar,
-    ref_params,
     grid_spec,
     tol=1.0e-5,
     maxits=1000,
@@ -108,7 +108,6 @@ def lippmann_schwinger_isotropic(
 
     :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
     :arg epsilon_bar: mean value of epsilon
-    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance used for convergence test
     :arg maxits: maximum number of iterations
@@ -172,11 +171,15 @@ def lippmann_schwinger_isotropic(
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
         return epsilon, sigma
     else:
+        ref_params = {
+            field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
+            for field in params.keys()
+        }
         epsilon, sigma = solve(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
-            ref_params,
+            jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
             maxits=maxits,
@@ -190,7 +193,6 @@ def lippmann_schwinger_isotropic(
 def lippmann_schwinger_anisotropic(
     params,
     epsilon_bar,
-    ref_params,
     grid_spec,
     tol=1.0e-5,
     maxits=1000,
@@ -204,8 +206,6 @@ def lippmann_schwinger_anisotropic(
 
     :arg params: material parameters, dictionary {"stiffness_tensor":stiffness_tensor}
     :arg epsilon_bar: mean value of epsilon
-    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material, dictionary
-        {"lambda":lambda, "mu":mu}
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance used for convergence test
     :arg maxits: maximum number of iterations
@@ -265,11 +265,26 @@ def lippmann_schwinger_anisotropic(
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
 
     else:
+        # Least squares fit
+        C_avg = (
+            1
+            / 2
+            * (
+                np.min(params["stiffness_tensor"], axis=(1, 2, 3))
+                + np.max(params["stiffness_tensor"], axis=(1, 2, 3))
+            )
+        )
+        ref_params = {
+            "lambda": 1
+            / 18
+            * (np.sum(C_avg[0:3]) - 2 * np.sum(C_avg[4:6]) + 5 * np.sum(C_avg[6:9])),
+            "mu": 1 / 9 * (np.sum(C_avg[0:6]) - np.sum(C_avg[6:9])),
+        }
         epsilon, sigma = solve(
             compute_sigma_anisotropic,
             params,
             epsilon_bar,
-            ref_params,
+            jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
             maxits=maxits,
