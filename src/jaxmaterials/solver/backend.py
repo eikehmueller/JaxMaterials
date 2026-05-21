@@ -221,11 +221,7 @@ def _lippmann_schwinger_jax(
                 y,
                 ordered=True,
             ),
-            lambda x, y: jax.debug.print(
-                "JAX forward solver failed to converge after {:6d} iterations",
-                y,
-                ordered=True,
-            ),
+            lambda x, y: None,
             its,
             maxits,
         )
@@ -234,6 +230,17 @@ def _lippmann_schwinger_jax(
             rel_error,
             rel_error / (rel_error_0 + 1.0e-20),
             ordered=True,
+        )
+    if dynamic_stopping:
+        jax.lax.cond(
+            its >= maxits,
+            lambda x: jax.debug.print(
+                "JAX forward solver failed to converge after {:6d} iterations",
+                x,
+                ordered=True,
+            ),
+            lambda x: None,
+            maxits,
         )
 
     return epsilon[0, ...], sigma
@@ -397,11 +404,7 @@ def _lippmann_schwinger_adjoint_jax(
                 y,
                 ordered=True,
             ),
-            lambda x, y: jax.debug.print(
-                "JAX adjoint solver failed to converge after {:6d} iterations",
-                y,
-                ordered=True,
-            ),
+            lambda x, y: None,
             its,
             maxits,
         )
@@ -410,6 +413,17 @@ def _lippmann_schwinger_adjoint_jax(
             increment_nrm,
             increment_nrm / (nrm + 1.0e-20),
             ordered=True,
+        )
+    if dynamic_stopping:
+        jax.lax.cond(
+            its >= maxits,
+            lambda x: jax.debug.print(
+                "JAX adjoint solver failed to converge after {:6d} iterations",
+                x,
+                ordered=True,
+            ),
+            lambda x: None,
+            maxits,
         )
 
     return Lambda, its
