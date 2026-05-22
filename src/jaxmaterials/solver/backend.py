@@ -377,7 +377,6 @@ def _lippmann_schwinger_adjoint_jax(
     jax.custom_vjp,
     nondiff_argnames=(
         "compute_sigma",
-        "ref_params",
         "grid_spec",
         "tol",
         "maxits",
@@ -464,12 +463,11 @@ def solve_fwd(
         verbose=verbose,
     )
     epsilon, sigma = out
-    return out, (params, epsilon, sigma)
+    return out, (params, epsilon, sigma, ref_params)
 
 
 def solve_bwd(
     compute_sigma,
-    ref_params,
     grid_spec,
     tol,
     maxits,
@@ -497,7 +495,7 @@ def solve_bwd(
     :arg res: results object returned by solve_fwd()
     :arg gradients: Riesz-representer of input gradients
     """
-    params, epsilon, _ = res
+    params, epsilon, _, ref_params = res
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     # Incoming gradients are dual vectors with respect to
@@ -533,7 +531,8 @@ def solve_bwd(
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
     # Derivative with respect to parameters
     g_params = sigma_vjp(S_star)[1]
-    return g_params, g_epsilon_bar
+    g_ref_params = jax.tree.map(jnp.zeros_like, ref_params)
+    return g_params, g_epsilon_bar, g_ref_params
 
 
 solve.defvjp(solve_fwd, solve_bwd)
