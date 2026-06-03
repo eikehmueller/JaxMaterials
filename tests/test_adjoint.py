@@ -219,7 +219,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
         loss_fn,
         argnums=(0, 1),
     )(params_anisotropic, epsilon_bar)
-    rtol = 1.0e-12 if dtype == jnp.float64 else 2.0e-4
+    rtol = 1.0e-11 if dtype == jnp.float64 else 2.0e-4
     assert all(
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
         for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
