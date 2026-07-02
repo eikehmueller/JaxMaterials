@@ -152,14 +152,14 @@ def plot_performance(times: dict[str, float], output: Path, x_limit: float) -> N
 
     bars = ax.barh(y_pos, values_ms, color=colors, edgecolor="none", linewidth=0)
     ax.set_yticks(y_pos)
-    ax.set_yticklabels(y_tick_labels, fontsize=14)
+    ax.set_yticklabels(y_tick_labels, fontsize=18)
     for tick_label in ax.get_yticklabels():
         tick_label.set_ha("right")
         tick_label.set_multialignment("right")
     ax.invert_yaxis()
-    ax.set_xlabel("Time [ms]", fontsize=16)
+    ax.set_xlabel("Time [ms]", fontsize=20)
     ax.set_title("JAX vs CUDA Performance", fontsize=18)
-    ax.tick_params(axis="x", labelsize=15)
+    ax.tick_params(axis="x", labelsize=19)
     ax.tick_params(axis="y", pad=6)
     ax.grid(axis="x", linestyle="--", alpha=0.35)
     ax.set_xlim(0, x_limit)
@@ -194,7 +194,7 @@ def plot_performance(times: dict[str, float], output: Path, x_limit: float) -> N
             f"{value_ms:.0f} ms",
             va="center",
             ha="left",
-            fontsize=14,
+            fontsize=18,
         )
 
     def add_speedup_annotation(jax_label: str, cuda_label: str) -> None:
@@ -207,7 +207,7 @@ def plot_performance(times: dict[str, float], output: Path, x_limit: float) -> N
         cuda_time = values_ms[cuda_idx]
         speedup = jax_time / cuda_time
         ax.text(
-            max(cuda_time, jax_time) + x_limit * 0.1,
+            max(cuda_time, jax_time) + x_limit * 0.15,
             (y_pos[jax_idx] + y_pos[cuda_idx]) / 2,
             f"{speedup:.1f}x speedup",
             ha="left",
