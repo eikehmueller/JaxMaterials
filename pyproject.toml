@@ -36,4 +36,4 @@ classifiers = [
   "Programming Language :: Python :: 3"
 ]
 [project.urls]
-Repository = "https://bitbucket.org/em459/jaxmaterials"
+Repository = "https://github.com/eikehmueller/JaxMaterials"

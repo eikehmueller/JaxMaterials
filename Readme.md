@@ -126,14 +126,6 @@ In addition to the plain Lippmann Schwinger solver, the code also supports Ander
 
 Both solvers use the same discretisation as the [AMITEX solver](https://amitexfftp.github.io/AMITEX/), which is described in [[Gelebart  2020. Comptes Rendus. Mecanique, 348(8-9), pp.693-704]](https://comptes-rendus.academie-sciences.fr/mecanique/item/CRMECA_2020__348_8-9_693_0/). For mathematical details see the [`./doc` subdirectory](./doc/).
 
-#### Fibre distribution generator
-Code for sampling the Lame parameters which can be used as an input to the solvers. The generated samples contain cross-ply layers of fibres as shown in the following figure:
-
-![Generated fibres](doc/material_properties.png)
-
-#### ML toolchain (under construction)
-A ML toolchain which uses the above code to train machine learning models that predict the efficient elasticity tensor for a given pair of Lame-parameter fields will be added later.
-
 ## Installation
 
 ### Prerequisites 
