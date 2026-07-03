@@ -65,8 +65,8 @@ def relative_divergence_fourier(sigma_hat, xi):
     static_argnames=[
         "compute_sigma",
         "grid_spec",
-        "depth",
         "maxits",
+        "depth",
         "dynamic_stopping",
         "verbose",
     ]
@@ -78,8 +78,8 @@ def _lippmann_schwinger_jax(
     ref_params,
     grid_spec,
     tol,
-    depth,
     maxits,
+    depth,
     dynamic_stopping,
     verbose,
 ):
@@ -104,8 +104,8 @@ def _lippmann_schwinger_jax(
         {"lambda":lambda, "mu":mu}
     :arg grid_spec: specification of computational grid
     :arg tol: absolute tolerance on normalised stress divergence to check convergence
-    :arg depth: depth of Anderson acceleration
     :arg maxits: maximum number of iterations
+    :arg depth: depth of Anderson acceleration
     :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
     """
     atol = tol
@@ -241,6 +241,7 @@ def _lippmann_schwinger_jax(
         "sigma_vjp",
         "grid_spec",
         "maxits",
+        "depth",
         "dynamic_stopping",
         "verbose",
     ]
@@ -252,6 +253,7 @@ def _lippmann_schwinger_adjoint_jax(
     grid_spec,
     tol,
     maxits,
+    depth,
     dynamic_stopping,
     verbose,
 ):
@@ -275,7 +277,8 @@ def _lippmann_schwinger_adjoint_jax(
         {"lambda":lambda, "mu":mu}
     :arg grid_spec: specification of computational grid
     :arg tol: relative tolerance on normalised stress divergence to check convergence
-    :arg maxits: maximal number of iterations
+    :arg maxits: maximum number of iterations
+    :arg depth: depth of Anderson acceleration (d=0: no acceleration)
     :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
     """
     rtol = tol
@@ -285,8 +288,18 @@ def _lippmann_schwinger_adjoint_jax(
     xizero = get_xizero(grid_spec, dtype=dtype)
     voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
     voigt_weights_bcast = voigt_weights[:, None, None, None]
-    # storage for adjoint solution, array of shape (6,Nx,Ny,Nz)
-    Lambda = f_rhs
+    # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
+    Lambda = jnp.zeros(
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
+        dtype=dtype,
+    )
+    Lambda = Lambda.at[0, ...].set(f_rhs)
+    residual = jnp.zeros(
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
+    )
+    # Anderson matrix and vectors
+    A_anderson = jnp.eye(depth + 1, dtype=dtype)
+    u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     increment_nrm = jnp.linalg.norm(Lambda)
     if verbose > 1:
         jax.debug.print("==== JAX adjoint solve ====", ordered=True)
@@ -300,8 +313,9 @@ def _lippmann_schwinger_adjoint_jax(
 
         :arg state: current iteration state (epsilon, residual, sigma, A, its, rel_error, rel_error_0)
         """
-        Lambda, increment_nrm, its = state
-        nrm = jnp.linalg.norm(Lambda)
+        Lambda = state[0]
+        increment_nrm, its = state[-2:]
+        nrm = jnp.linalg.norm(Lambda[0, ...])
         if verbose > 1:
             jax.debug.print(
                 "  {:6d}  {:8.2e}  {:8.2e}",
@@ -318,33 +332,54 @@ def _lippmann_schwinger_adjoint_jax(
 
         :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)
         """
-        Lambda, increment_nrm, its = state
-        Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
+        Lambda, residual, A_anderson, u_rhs, increment_nrm, its = state
+        Lambda_hat = jnp.fft.fftn(Lambda[0, ...], axes=(-3, -2, -1))
         Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
         Theta = jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
         # Convert Voigt-dual Theta to Euclidean cotangent for vjp, then map back.
         dSigma_depsilon, _ = sigma_vjp(voigt_weights_bcast * Theta)
         dSigma_depsilon = dSigma_depsilon / voigt_weights_bcast
-        Delta = dSigma_depsilon - compute_sigma_isotropic(Theta, ref_params)
-        Lambda_prev = Lambda
-        Lambda = f_rhs + Delta
+        r = (
+            Lambda[0, ...]
+            - f_rhs
+            - dSigma_depsilon
+            + compute_sigma_isotropic(Theta, ref_params)
+        )
+        residual = jnp.roll(residual, 1, axis=0)
+        residual = residual.at[0, ...].set(r)
+        A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
+        dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
+        A_anderson = A_anderson.at[0, :].set(
+            jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
+        )
+        A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
+        u_rhs = jnp.roll(u_rhs, 1)
+        u_rhs = u_rhs.at[0].set(1)
+        v = jnp.linalg.solve(A_anderson, u_rhs)
+        alpha = v / jnp.dot(v, u_rhs)
+        Lambda_tilde = jnp.einsum("s,saijk", alpha, Lambda - residual)
+        Lambda = jnp.roll(Lambda, 1, axis=0)
+        Lambda = Lambda.at[0, ...].set(Lambda_tilde)
         its += 1
-        increment_nrm = jnp.linalg.norm(Lambda - Lambda_prev)
-        return Lambda, increment_nrm, its
+        increment_nrm = jnp.linalg.norm(r)
+        return Lambda, residual, A_anderson, u_rhs, increment_nrm, its
 
     if dynamic_stopping:
         loop_result = jax.lax.while_loop(
-            exit_condition, loop_body, init_val=(Lambda, increment_nrm, 0)
+            exit_condition,
+            loop_body,
+            init_val=(Lambda, residual, A_anderson, u_rhs, increment_nrm, 0),
         )
     else:
         loop_result = jax.lax.fori_loop(
             0,
             maxits,
             lambda _, state: loop_body(state),
-            init_val=(Lambda, increment_nrm, 0),
+            init_val=(Lambda, residual, A_anderson, u_rhs, increment_nrm, 0),
         )
 
-    Lambda, increment_nrm, its = loop_result
+    Lambda = loop_result[0][0]
+    increment_nrm, its = loop_result[-2:]
     if verbose > 0:
         nrm = jnp.linalg.norm(Lambda)
         jax.lax.cond(
@@ -418,8 +453,8 @@ def solve(
         ref_params,
         grid_spec,
         tol=tol,
-        depth=depth,
         maxits=maxits,
+        depth=depth,
         dynamic_stopping=dynamic_stopping,
         verbose=verbose,
     )
@@ -457,8 +492,8 @@ def solve_fwd(
         ref_params,
         grid_spec,
         tol=tol,
-        depth=depth,
         maxits=maxits,
+        depth=depth,
         dynamic_stopping=dynamic_stopping,
         verbose=verbose,
     )
@@ -471,7 +506,7 @@ def solve_bwd(
     grid_spec,
     tol,
     maxits,
-    _depth,
+    depth,
     dynamic_stopping,
     verbose,
     res,
@@ -487,9 +522,7 @@ def solve_bwd(
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance for adjoint solve
     :arg maxits: maximum number of iterations
-    :arg _depth: Anderson depth of forward solve (ignored,
-        since the adjoint solve does not currently use
-        Anderson acceleration)
+    :arg depth: depth of Anderson acceleration
     :arg dynamic_stopping: use dynamic stopping criterion?
     :arg verbose: verbosity level
     :arg res: results object returned by solve_fwd()
@@ -518,6 +551,7 @@ def solve_bwd(
         grid_spec,
         tol=tol,
         maxits=maxits,
+        depth=depth,
         dynamic_stopping=dynamic_stopping,
         verbose=verbose,
     )

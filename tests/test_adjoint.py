@@ -28,7 +28,8 @@ jax.config.update("jax_enable_x64", True)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_adjoint_isotropic(grid_spec, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 1, 2, 4, 8])
+def test_adjoint_isotropic(grid_spec, rng, dtype, depth):
     """Check that isotropic adjoint solver converges in a small number of iterations"""
     f_rhs = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(dtype)
     params = initialise_isotropic_material(grid_spec, rng, dtype)
@@ -41,6 +42,7 @@ def test_adjoint_isotropic(grid_spec, rng, dtype):
         ref_params,
         grid_spec,
         tol=1.0e-6 if dtype == np.float32 else 1.0e-12,
+        depth=depth,
         maxits=32,
         dynamic_stopping=True,
         verbose=1,
@@ -49,7 +51,8 @@ def test_adjoint_isotropic(grid_spec, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_adjoint_anisotropic(grid_spec, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 1, 2, 4, 8])
+def test_adjoint_anisotropic(grid_spec, rng, dtype, depth):
     """Check that anisotropic adjoint solver converges in a small number of iterations"""
     f_rhs = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(dtype)
     params_isotropic = initialise_isotropic_material(grid_spec, rng, dtype)
@@ -63,6 +66,7 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
         ref_params,
         grid_spec,
         tol=1.0e-6 if dtype == np.float32 else 1.0e-12,
+        depth=depth,
         maxits=32,
         dynamic_stopping=True,
         verbose=1,
