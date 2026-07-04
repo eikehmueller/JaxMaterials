@@ -339,7 +339,7 @@ The Lippmann-Schwinger algorithm with Anderson acceleration \cite{wicht2021ander
 \begin{algorithmic}[1]
     \State{Set $\varepsilon=E$}
     \State{Initialise $\varepsilon^{(0)} = \varepsilon$, $\varepsilon^{(j)} = 0$ for $j=1,2,\dots,d$}
-    \State{Initialise $r^{(0)} = 0$ for $s=0,1,2,\dots,d$}
+    \State{Initialise $r^{(s)} = 0$ for $s=0,1,2,\dots,d$}
     \State{Initialise $(d+1)\times (d+1)$ identity matrix $A=\mathbb{I}$}
     \For{$n=0,1,\dots$}
     \State{Compute stress $\sigma_{ij}=C_{ijk\ell}\varepsilon_{k\ell}$ according to \eqref{eqn:tau_computation}}
@@ -357,7 +357,7 @@ The Lippmann-Schwinger algorithm with Anderson acceleration \cite{wicht2021ander
     \For{$s=0,1,2,\dots,m_k$}
     \State{Set $A_{0s} = A_{s0}\gets r^{(0)}_{ij}r^{(s)}_{ij}$}
     \EndFor
-    \State{Solve $Av=u$ with $u=(1,1,\dots,1)\in\mathbb{R}^d$}
+    \State{Solve $Av=u$ with $u=(1,1,\dots,1)\in\mathbb{R}^{d+1}$}
     \State{Set $\alpha = v/(u^\top v)$}
     \State{Set $\varepsilon_{ij} = \sum_{s=0}^{d} \alpha_s (\varepsilon^{(s)}_{ij}-r^{(s)}_{ij})$}
     \For{$s=m_k,m_k-1,\dots,2,1$}
@@ -630,6 +630,44 @@ $\varepsilon$ we can still be computed with \cref{alg:lippmann_schwinger_increme
 \left(S+\Gamma^0*\Lambda\right):\frac{\delta \Sigma}{\delta \theta}
 \end{equation}
 which is again a \verb~jax.jvp~.
+
+An Anderson-accelerated version of~\cref{alg:lippmann_schwinger_adjoint_generic} is shown in~\cref{alg:lippmann_schwinger_adjoint_generic_anderson}.
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (generic stress-strain relationship, Anderson acceleration with depth $d$)}
+    \label{alg:lippmann_schwinger_adjoint_generic_anderson}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=\mathcal{E}_{ij}$}
+    \State{Initialise $\Lambda^{(0)}=\Lambda$, $\Lambda^{(s)}=0$ for $j=1,2,\dots,d$}
+    \State{Initialise $r^{(s)}=0$ for $s=0,1,2,\dots,d$}
+    \State{Initialise $(d+1)\times(d+1)$ identity matrix $A=\mathbb{I}$}
+    \For{$n=0,1,\dots$}
+    \State{Set $m_k=\min\{n,d\}$}
+    \For{$s=m_k,m_k-1,\dots,2,1$}
+    \State{Set $r^{(s)}\gets r^{(s-1)}$}
+    \For{$t=m_k,m_k-1,\dots,2,1$}
+    \State{Set $A_{st}\gets A_{s-1,t-1}$}
+    \EndFor
+    \EndFor
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Set $r^{(0)}_{ij}=\Lambda_{ij}-\mathcal{E}_{ij} - \Theta_{k\ell}\frac{\delta \Sigma_{k\ell}}{\delta \varepsilon_{ij}} +\lambda^0 \Theta_{kk} \delta_{ij} + 2 \mu^0 \Theta_{ij}$}
+    \State{Check convergence by inspecting $\|r^{(0)}\|$}
+    \For{$s=0,1,2,\dots,m_k$}
+    \State{Set $A_{0s}=A_{s0}\gets r^{(0)}_{ij} r^{(s)}_{ij}$}
+    \EndFor
+    \State{Solve $Av=u$ with $u=(1,1,\dots,1)\in\mathbb{R}^{d+1}$}
+    \State{Set $\alpha=v/(u^\top v)$}
+    \State{Set $\Lambda_{ij} = \sum_{s=0}^d\alpha_s(\Lambda^{(s)}_{ij}-r^{(s)}_{ij})$}
+    \For{$s=m_k,m_k-1,\dots,2,1$}
+    \State{Set $\Lambda^{(s)}\gets \Lambda^{(s-1)}$}
+    \EndFor
+    \State{Set $\Lambda_{ij}\gets \Lambda^{(0)}$}
+    \EndFor
+\State{\Return $\Lambda$}
+\end{algorithmic}
+\end{algorithm}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{unsrt}
 \bibliography{linear_elasticity}

@@ -28,7 +28,8 @@ jax.config.update("jax_enable_x64", True)
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_adjoint_isotropic(grid_spec, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 1, 2, 4, 8])
+def test_adjoint_isotropic(grid_spec, rng, dtype, depth):
     """Check that isotropic adjoint solver converges in a small number of iterations"""
     f_rhs = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(dtype)
     params = initialise_isotropic_material(grid_spec, rng, dtype)
@@ -41,6 +42,7 @@ def test_adjoint_isotropic(grid_spec, rng, dtype):
         ref_params,
         grid_spec,
         tol=1.0e-6 if dtype == np.float32 else 1.0e-12,
+        depth=depth,
         maxits=32,
         dynamic_stopping=True,
         verbose=1,
@@ -49,7 +51,8 @@ def test_adjoint_isotropic(grid_spec, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_adjoint_anisotropic(grid_spec, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 1, 2, 4, 8])
+def test_adjoint_anisotropic(grid_spec, rng, dtype, depth):
     """Check that anisotropic adjoint solver converges in a small number of iterations"""
     f_rhs = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(dtype)
     params_isotropic = initialise_isotropic_material(grid_spec, rng, dtype)
@@ -63,6 +66,7 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
         ref_params,
         grid_spec,
         tol=1.0e-6 if dtype == np.float32 else 1.0e-12,
+        depth=depth,
         maxits=32,
         dynamic_stopping=True,
         verbose=1,
@@ -71,7 +75,8 @@ def test_adjoint_anisotropic(grid_spec, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 4])
+def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype, depth):
     """Compare custom gradient with adjoint method to finite difference approximation"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
@@ -83,6 +88,7 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
             epsilon_bar,
             grid_spec_small,
             tol=tol,
+            depth=depth,
             verbose=1,
         )
         return jnp.sum(sigma**2)
@@ -97,7 +103,8 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 4])
+def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype, depth):
     """Compare custom gradient with adjoint method to finite difference approximation"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
@@ -110,6 +117,7 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
             epsilon_bar,
             grid_spec_small,
             tol=tol,
+            depth=depth,
             verbose=1,
         )
         return jnp.sum(sigma**2)
@@ -124,7 +132,8 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_vjp_isotropic(grid_spec_small, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 4])
+def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
     """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
     ref_params = reference_parameters(params)
@@ -141,7 +150,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
             grid_spec_small,
             tol=tol,
             maxits=maxits,
-            depth=0,
+            depth=depth,
             dynamic_stopping=False,
             verbose=1,
         )
@@ -155,7 +164,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
             ref_params,
             grid_spec_small,
             tol=tol,
-            depth=0,
+            depth=depth,
             maxits=maxits,
             dynamic_stopping=False,
             verbose=1,
@@ -172,7 +181,8 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_vjp_anisotropic(grid_spec_small, rng, dtype):
+@pytest.mark.parametrize("depth", [0, 4])
+def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
     """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
     ref_params = reference_parameters(params)
@@ -190,7 +200,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
             grid_spec_small,
             tol=tol,
             maxits=maxits,
-            depth=0,
+            depth=depth,
             dynamic_stopping=False,
             verbose=1,
         )
@@ -204,7 +214,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype):
             ref_params,
             grid_spec_small,
             tol=tol,
-            depth=0,
+            depth=depth,
             maxits=maxits,
             dynamic_stopping=False,
             verbose=1,

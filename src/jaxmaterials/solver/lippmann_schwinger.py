@@ -182,8 +182,8 @@ def lippmann_schwinger_isotropic(
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
-            maxits=maxits,
             depth=depth,
+            maxits=maxits,
             dynamic_stopping=True,
             verbose=verbose,
         )
