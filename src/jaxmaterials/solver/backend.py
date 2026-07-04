@@ -169,20 +169,23 @@ def _lippmann_schwinger_jax(
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
         r_hat = fourier_solve_isotropic(sigma_hat, xizero, ref_params)
         r = jnp.real(jnp.fft.ifftn(r_hat, axes=[-3, -2, -1]))
-        residual = jnp.roll(residual, 1, axis=0)
-        residual = residual.at[0, ...].set(r)
-        A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
-        dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
-        A_anderson = A_anderson.at[0, :].set(
-            jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
-        )
-        A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
-        u_rhs = jnp.roll(u_rhs, 1)
-        u_rhs = u_rhs.at[0].set(1)
-        v = jnp.linalg.solve(A_anderson, u_rhs)
-        alpha = v / jnp.dot(v, u_rhs)
-        epsilon_tilde = jnp.einsum("s,saijk", alpha, epsilon + residual)
-        epsilon = jnp.roll(epsilon, 1, axis=0)
+        if depth > 0:
+            residual = jnp.roll(residual, 1, axis=0)
+            residual = residual.at[0, ...].set(r)
+            A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
+            dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
+            A_anderson = A_anderson.at[0, :].set(
+                jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
+            )
+            A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
+            u_rhs = jnp.roll(u_rhs, 1)
+            u_rhs = u_rhs.at[0].set(1)
+            v = jnp.linalg.solve(A_anderson, u_rhs)
+            alpha = v / jnp.dot(v, u_rhs)
+            epsilon_tilde = jnp.einsum("s,saijk", alpha, epsilon + residual)
+            epsilon = jnp.roll(epsilon, 1, axis=0)
+        else:
+            epsilon_tilde = epsilon[0, ...] + r
         epsilon = epsilon.at[0, ...].set(epsilon_tilde)
         sigma = compute_sigma(epsilon[0, ...], params)
         # Fourier transform sigma
