@@ -278,7 +278,7 @@ def _lippmann_schwinger_adjoint_jax(
     :arg grid_spec: specification of computational grid
     :arg tol: relative tolerance on normalised stress divergence to check convergence
     :arg maxits: maximum number of iterations
-    :arg depth: depth of Anderson acceleration (d=0: no acceleration)
+    :arg depth: depth of Anderson acceleration (depth=0: no acceleration)
     :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
     """
     rtol = tol
@@ -345,21 +345,25 @@ def _lippmann_schwinger_adjoint_jax(
             - dSigma_depsilon
             + compute_sigma_isotropic(Theta, ref_params)
         )
-        residual = jnp.roll(residual, 1, axis=0)
-        residual = residual.at[0, ...].set(r)
-        A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
-        dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
-        A_anderson = A_anderson.at[0, :].set(
-            jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
-        )
-        A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
-        u_rhs = jnp.roll(u_rhs, 1)
-        u_rhs = u_rhs.at[0].set(1)
-        v = jnp.linalg.solve(A_anderson, u_rhs)
-        alpha = v / jnp.dot(v, u_rhs)
-        Lambda_tilde = jnp.einsum("s,saijk", alpha, Lambda - residual)
-        Lambda = jnp.roll(Lambda, 1, axis=0)
+        if depth > 0:
+            residual = jnp.roll(residual, 1, axis=0)
+            residual = residual.at[0, ...].set(r)
+            A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
+            dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
+            A_anderson = A_anderson.at[0, :].set(
+                jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
+            )
+            A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
+            u_rhs = jnp.roll(u_rhs, 1)
+            u_rhs = u_rhs.at[0].set(1)
+            v = jnp.linalg.solve(A_anderson, u_rhs)
+            alpha = v / jnp.dot(v, u_rhs)
+            Lambda_tilde = jnp.einsum("s,saijk", alpha, Lambda - residual)
+            Lambda = jnp.roll(Lambda, 1, axis=0)
+        else:
+            Lambda_tilde = Lambda[0, ...] - r
         Lambda = Lambda.at[0, ...].set(Lambda_tilde)
+
         its += 1
         increment_nrm = jnp.linalg.norm(r)
         return Lambda, residual, A_anderson, u_rhs, increment_nrm, its
