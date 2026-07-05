@@ -214,9 +214,21 @@ def _lippmann_schwinger_jax(
     epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = loop_result
     if verbose > 0:
         jax.lax.cond(
-            (its < maxits) | jnp.logical_not(dynamic_stopping),
+            (its < maxits),
             lambda x, y: jax.debug.print(
                 "JAX forward solver converged after {:6d} of {:6d} iterations",
+                x,
+                y,
+                ordered=True,
+            ),
+            lambda x, y: None,
+            its,
+            maxits,
+        )
+        jax.lax.cond(
+            (its >= maxits) & jnp.logical_not(dynamic_stopping),
+            lambda x, y: jax.debug.print(
+                "JAX forward stopped after {:6d} of {:6d} iterations",
                 x,
                 y,
                 ordered=True,
@@ -397,9 +409,21 @@ def _lippmann_schwinger_adjoint_jax(
     if verbose > 0:
         nrm = jnp.linalg.norm(Lambda)
         jax.lax.cond(
-            (its < maxits) | jnp.logical_not(dynamic_stopping),
+            (its < maxits),
             lambda x, y: jax.debug.print(
                 "JAX adjoint solver converged after {:6d} of {:6d} iterations",
+                x,
+                y,
+                ordered=True,
+            ),
+            lambda x, y: None,
+            its,
+            maxits,
+        )
+        jax.lax.cond(
+            (its >= maxits) & jnp.logical_not(dynamic_stopping),
+            lambda x, y: jax.debug.print(
+                "JAX adjoint solver stopped after {:6d} of {:6d} iterations",
                 x,
                 y,
                 ordered=True,
