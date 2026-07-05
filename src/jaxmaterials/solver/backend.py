@@ -154,7 +154,7 @@ def _lippmann_schwinger_jax(
                 "  {:6d}  {:8.2e}  {:8.2e}",
                 its,
                 rel_error,
-                rel_error / rel_error_0,
+                rel_error / (rel_error_0 + 1.0e-20),
                 ordered=True,
             )
 
@@ -214,7 +214,7 @@ def _lippmann_schwinger_jax(
     epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = loop_result
     if verbose > 0:
         jax.lax.cond(
-            its < maxits | jnp.logical_not(dynamic_stopping),
+            (its < maxits) | jnp.logical_not(dynamic_stopping),
             lambda x, y: jax.debug.print(
                 "JAX forward solver converged after {:6d} of {:6d} iterations",
                 x,
@@ -232,7 +232,7 @@ def _lippmann_schwinger_jax(
         jax.debug.print(
             "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
             rel_error,
-            rel_error / rel_error_0,
+            rel_error / (rel_error_0 + 1.0e-20),
             ordered=True,
         )
 
@@ -324,7 +324,7 @@ def _lippmann_schwinger_adjoint_jax(
                 "  {:6d}  {:8.2e}  {:8.2e}",
                 its,
                 increment_nrm,
-                increment_nrm / nrm,
+                increment_nrm / (nrm + 1.0e-20),
                 ordered=True,
             )
 
@@ -390,7 +390,7 @@ def _lippmann_schwinger_adjoint_jax(
     if verbose > 0:
         nrm = jnp.linalg.norm(Lambda)
         jax.lax.cond(
-            its < maxits | jnp.logical_not(dynamic_stopping),
+            (its < maxits) | jnp.logical_not(dynamic_stopping),
             lambda x, y: jax.debug.print(
                 "JAX adjoint solver converged after {:6d} of {:6d} iterations",
                 x,
@@ -408,7 +408,7 @@ def _lippmann_schwinger_adjoint_jax(
         jax.debug.print(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
-            increment_nrm / nrm,
+            increment_nrm / (nrm + 1.0e-20),
             ordered=True,
         )
 
