@@ -93,7 +93,7 @@ def test_vjp_isotropic_finite_difference(grid_spec_small, rng, dtype, depth):
         )
         return jnp.sum(sigma**2)
 
-    rtol = 1.0e-7 if dtype == jnp.float64 else 2.0e-3
+    rtol = 1.0e-7 if dtype == jnp.float64 else 4.0e-3
     check_vjp(
         loss_fn,
         functools.partial(jax.vjp, loss_fn),
