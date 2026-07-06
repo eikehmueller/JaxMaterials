@@ -216,10 +216,17 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     tol = 1.0e-5
     maxits = 32
     params = perturbed_parameters(rng, params_isotropic, delta=0.1)
+    ref_params = {
+        field: 1
+        / 2
+        * (np.min(params_isotropic[field]) + np.max(params_isotropic[field]))
+        for field in params_isotropic.keys()
+    }
     try:
         epsilon_cuda, sigma_cuda = lippmann_schwinger_anisotropic(
             params,
             epsilon_bar,
+            ref_params,
             grid_spec,
             tol=tol,
             maxits=maxits,
@@ -232,6 +239,7 @@ def test_jax_matches_cuda_anisotropic(grid_spec, rng):
     epsilon_jax, sigma_jax = lippmann_schwinger_anisotropic(
         params,
         epsilon_bar,
+        ref_params,
         grid_spec,
         tol=tol,
         maxits=maxits,

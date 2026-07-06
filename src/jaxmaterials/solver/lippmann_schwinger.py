@@ -193,6 +193,7 @@ def lippmann_schwinger_isotropic(
 def lippmann_schwinger_anisotropic(
     params,
     epsilon_bar,
+    ref_params,
     grid_spec,
     tol=1.0e-5,
     maxits=1000,
@@ -206,6 +207,7 @@ def lippmann_schwinger_anisotropic(
 
     :arg params: material parameters, dictionary {"stiffness_tensor":stiffness_tensor}
     :arg epsilon_bar: mean value of epsilon
+    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
     :arg grid_spec: specification of computational grid
     :arg tol: tolerance used for convergence test
     :arg maxits: maximum number of iterations
@@ -266,20 +268,6 @@ def lippmann_schwinger_anisotropic(
 
     else:
         # Least squares fit
-        C_avg = (
-            1
-            / 2
-            * (
-                np.min(params["stiffness_tensor"], axis=(1, 2, 3))
-                + np.max(params["stiffness_tensor"], axis=(1, 2, 3))
-            )
-        )
-        ref_params = {
-            "lambda": 1
-            / 18
-            * (np.sum(C_avg[0:3]) - 2 * np.sum(C_avg[4:6]) + 5 * np.sum(C_avg[6:9])),
-            "mu": 1 / 9 * (np.sum(C_avg[0:6]) - np.sum(C_avg[6:9])),
-        }
         epsilon, sigma = solve(
             compute_sigma_anisotropic,
             params,

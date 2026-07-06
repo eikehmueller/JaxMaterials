@@ -110,11 +110,16 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype, depth):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params_anisotropic = perturbed_parameters(rng, params, delta=0.1)
     tol = 1.0e-4 if dtype == jnp.float32 else 1.0e-12
+    ref_params = {
+        field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
+        for field in params.keys()
+    }
 
     def loss_fn(params_anisotropic, epsilon_bar):
         epsilon, sigma = lippmann_schwinger_anisotropic(
             params_anisotropic,
             epsilon_bar,
+            ref_params,
             grid_spec_small,
             tol=tol,
             depth=depth,
