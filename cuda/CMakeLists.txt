@@ -2,7 +2,7 @@
 # Main CMake file #
 ###################
 
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.20)
 
 project(LinearElasticity)
 set(CMAKE_CXX_STANDARD 14)
