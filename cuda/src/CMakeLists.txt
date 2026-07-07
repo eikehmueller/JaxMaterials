@@ -9,6 +9,7 @@ target_sources(lippmannschwinger
         common.cc
         derivatives.cu        
         fourier.cu
+        hooke.cu
         lippmann_schwinger.cu
         
     PUBLIC
@@ -18,12 +19,12 @@ target_sources(lippmannschwinger
             common.hh
             derivatives.hh                        
             fourier.hh
+            hooke.hh
             lippmann_schwinger.hh
 )
 
 target_link_libraries(lippmannschwinger
     PRIVATE
-        CUDA::cublas
         CUDA::cufft
 )
 
@@ -36,7 +37,6 @@ add_executable(driver)
 target_link_libraries(driver 
     PRIVATE
         CUDA::cufft
-        CUDA::cublas
         lippmannschwinger
 )
 target_sources(driver
@@ -56,7 +56,6 @@ if(GTest_FOUND)
     target_link_libraries(test
         PRIVATE
             CUDA::cufft
-            CUDA::cublas
             lippmannschwinger
             GTest::gtest_main                     
     )

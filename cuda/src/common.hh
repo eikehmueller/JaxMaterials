@@ -9,6 +9,9 @@
 #include <math.h>
 #include <stdio.h>
 
+// Size of a warp
+#define WARPSIZE 32
+
 // Block size used for 3d kernel launches
 #define BLOCKSIZE_X 8
 #define BLOCKSIZE_Y 8
@@ -83,6 +86,8 @@ struct GridSpec
   float Lz;
   /** @brief Return total number of voxels */
   size_t number_of_voxels() const { return nx * ny * nz; }
+  /** @brief Return total number of Fourier modes */
+  size_t number_of_modes() const { return nx * ny * (nz / 2 + 1); }
 };
 
 /** @brief Compute relative L2 norm
@@ -92,8 +97,7 @@ struct GridSpec
  *
  * @param[out] u: field (host pointer)
  * @param[out] u_ref: reference field to compare to (host pointer)
- * @param[in] ndof number of unknowns
- */
+ * @param[in] ndof number of unknowns */
 float relative_difference(float *u, float *u_ref, const size_t ndof);
 
 /** @brief Compute norm of real-valued vector field

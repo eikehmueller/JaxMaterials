@@ -13,3 +13,4 @@ linear_elasticity.pdf
 cuda/build/*
 cuda/CMakeFiles/*
 **/jaxmaterials.egg-info/
+build/*

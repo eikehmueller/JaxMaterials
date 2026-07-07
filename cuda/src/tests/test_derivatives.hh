@@ -2,13 +2,14 @@
 #ifndef TEST_DERIVATIVES_HH
 #define TEST_DERIVATIVES_HH TEST_DERIVATIVES_HH
 #include <random>
+#include <string>
 #include <algorithm>
 #include "derivatives.hh"
 #include <gtest/gtest.h>
 
 /** @brief Class for testing derivatives
  */
-class DerivativeTest : public ::testing::Test
+class DerivativeTest : public ::testing::TestWithParam<std::string>
 {
 public:
     /** @brief Constructor
@@ -19,9 +20,18 @@ protected:
     /** @brief initialise test parameters */
     void SetUp() override
     {
-        grid_spec.nx = 48;
-        grid_spec.ny = 64;
-        grid_spec.nz = 32;
+        if (GetParam() == "even")
+        {
+            grid_spec.nx = 48;
+            grid_spec.ny = 64;
+            grid_spec.nz = 32;
+        }
+        else
+        {
+            grid_spec.nx = 47;
+            grid_spec.ny = 61;
+            grid_spec.nz = 37;
+        }
         grid_spec.Lx = 1.1;
         grid_spec.Ly = 0.9;
         grid_spec.Lz = 0.7;
@@ -131,20 +141,22 @@ protected:
     std::normal_distribution<float> distribution;
 };
 
+INSTANTIATE_TEST_SUITE_P(Derivative, DerivativeTest, testing::Values("even", "odd"));
+
 /** @brief Check whether derivative in x-direction agrees between device and host
  */
-TEST_F(DerivativeTest, TestXDerivative) { test_derivative(0); }
+TEST_P(DerivativeTest, TestXDerivative) { test_derivative(0); }
 
 /** @brief Check whether derivative in y-direction agrees between device and host
  */
-TEST_F(DerivativeTest, TestYDerivative) { test_derivative(1); }
+TEST_P(DerivativeTest, TestYDerivative) { test_derivative(1); }
 
 /** @brief Check whether derivative in z-direction agrees between device and host
  */
-TEST_F(DerivativeTest, TestZDerivative) { test_derivative(2); }
+TEST_P(DerivativeTest, TestZDerivative) { test_derivative(2); }
 
 /** @brief Check whether divergence agrees between device and host
  */
-TEST_F(DerivativeTest, TestDivergence) { test_divergence(); }
+TEST_P(DerivativeTest, TestDivergence) { test_divergence(); }
 
 #endif // TEST_DERIVATIVES_HH

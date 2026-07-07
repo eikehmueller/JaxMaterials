@@ -60,6 +60,8 @@ def backward_derivative(g, grid_spec, direction):
                 - jnp.roll(g, (1, 1, 1), axis=(-3, -2, -1))
             )
         )
+    else:
+        raise IndexError(f"Invalid direction: {direction}")
     return dg
 
 

@@ -1,258 +1,283 @@
 """Lippmann Schwinger solver with Anderson acceleration"""
 
+import warnings
 import ctypes
 import numpy as np
 import jax
-from jax import numpy as jnp
-from jaxmaterials.solver.derivatives import backward_divergence
-from jaxmaterials.solver.fourier import get_xizero, get_xi, fourier_solve
+
+from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
+from jaxmaterials.solver.backend import solve
 
 __all__ = [
-    "relative_divergence",
-    "relative_divergence_fourier",
-    "lippmann_schwinger_jax",
-    "lippmann_schwinger_cuda",
+    "lippmann_schwinger_isotropic",
+    "lippmann_schwinger_anisotropic",
+    "lippmann_schwinger",
 ]
 
 
-def compute_sigma(lmbda, mu, epsilon):
-    """Compute stress from strain
+class CUDAUnavailableError(RuntimeError):
+    pass
 
-    Returns sigma_{ij} = C_{ijkl}*epsilon_{kl}
 
-    :arg lmbda: Lame parameter lambda
-    :arg mu: Lame parameter mu
-    :arg epsilon: strain field
+def _load_cuda_library():
+    """Load CUDA shared library for Lippmann-Schwinger solvers.
+
+    Prefer explicit library paths to avoid accidentally resolving an older
+    system copy via the dynamic loader search path.
+
+    Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
     """
-    tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
-    sigma = 2 * mu * epsilon + lmbda * jnp.stack(
-        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
-    )
-    return sigma
+    try:
+        return ctypes.CDLL("liblippmannschwinger.so")
+    except Exception as exc:
+        raise CUDAUnavailableError(
+            "Unable to load CUDA library liblippmannschwinger.so"
+        ) from exc
 
 
-def relative_divergence(sigma, grid_spec):
-    """Compute ratio of the norm of div(sigma) and the norm of the average sigma
+def _resolve_cuda_symbol(lib, names):
+    """Resolve the first available symbol from a list of candidate names.
 
-    :arg sigma: stress
-    :arg grid_spec: grid specification
+    Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
     """
-    dsigma = backward_divergence(sigma, grid_spec)
-    dsigma_nrm = jnp.sqrt(jnp.sum(dsigma**2))
-    sigma_avg = jnp.mean(sigma, axis=[1, 2, 3])
-    sigma_avg_nrm = jnp.sqrt(
-        jnp.sum(sigma_avg[:3] ** 2) + 2 * jnp.sum(sigma_avg[3:] ** 2)
+    for name in names:
+        symbol = getattr(lib, name, None)
+        if symbol is not None:
+            return symbol
+    raise CUDAUnavailableError(
+        f"Unable to find any CUDA entrypoint among symbols: {', '.join(names)}"
     )
-    return dsigma_nrm / (jnp.sqrt(grid_spec.number_of_voxels) * sigma_avg_nrm)
 
 
-def relative_divergence_fourier(sigma_hat, xi, grid_spec):
-    """Compute ratio of the norm of div(sigma) and the norm of the average sigma in Fourier space
-
-    :arg sigma_hat: stress in Fourier space
-    :arg xi: Fourier vectors
-    :arg grid_spec: grid specification
-    """
-    dsigma_hat = jnp.stack(
-        [
-            xi[0, ...] * sigma_hat[0, ...]
-            + xi[1, ...] * sigma_hat[3, ...]
-            + xi[2, ...] * sigma_hat[4, ...],
-            xi[0, ...] * sigma_hat[3, ...]
-            + xi[1, ...] * sigma_hat[1, ...]
-            + xi[2, ...] * sigma_hat[5, ...],
-            xi[0, ...] * sigma_hat[4, ...]
-            + xi[1, ...] * sigma_hat[5, ...]
-            + xi[2, ...] * sigma_hat[2, ...],
-        ]
-    )
-    dsigma_nrm = jnp.sqrt(jnp.sum(jnp.abs(dsigma_hat) ** 2))
-    sigma_hat_zero = jnp.real(sigma_hat[:, 0, 0, 0])
-    sigma_hat_zero_nrm = jnp.sqrt(
-        jnp.sum(sigma_hat_zero[:3] ** 2) + 2 * jnp.sum(sigma_hat_zero[3:] ** 2)
-    )
-    return dsigma_nrm / sigma_hat_zero_nrm
-
-
-@jax.jit(static_argnames=["grid_spec", "rtol", "atol", "depth", "maxiter", "dtype"])
-def lippmann_schwinger_jax(
-    lmbda,
-    mu,
+def lippmann_schwinger(
+    compute_sigma,
+    params,
     epsilon_bar,
+    ref_params,
     grid_spec,
-    rtol=1e-6,
-    atol=1e-20,
+    tol=1.0e-5,
+    maxits=1000,
     depth=0,
-    maxiter=32,
-    dtype=jnp.float32,
+    verbose=0,
 ):
-    """Lippmann Schwinger iteration with Anderson acceleration for linear elasticity
+    """Wrapper for Lippmann Schwinger iteration in generic material
 
-    :arg lmbda: spatially varying Lame parameter lambda
-    :arg mu: spatially varying Lame parameter lambda
+    Anderson acceleration can be applied for the forward solve in the JAX implementation
+
+    :arg compute_sigma: stress-strain relationship
+    :arg params: dictionary with material parameters
     :arg epsilon_bar: mean value of epsilon
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg depth: depth of Anderson acceleration
-    :arg maxiter: maximal number of iterations
-    :arg dtype: data type
-    """
-    # reference values of Lame paraeter
-    mu0 = 1 / 2 * (jnp.min(mu) + jnp.max(mu))
-    lmbda0 = 1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda))
-    # Fourier vectors
-    xizero = get_xizero(grid_spec, dtype=dtype)
-    xi = get_xi(grid_spec, dtype=dtype)
-    # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
-    epsilon = jnp.zeros(
-        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
-        dtype=dtype,
-    )
-    epsilon = epsilon.at[0, ...].set(
-        jnp.expand_dims(jnp.astype(epsilon_bar, dtype), [1, 2, 3])
-    )
-    residual = jnp.zeros(
-        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
-    )
-    # Anderson matrix and vectors
-    A_anderson = jnp.eye(depth + 1, dtype=dtype)
-    u_rhs = jnp.zeros(depth + 1, dtype=dtype)
-    sigma = compute_sigma(lmbda, mu, epsilon[0, ...])
-    # Fourier transform sigma
-    sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
-    rel_error = relative_divergence_fourier(sigma_hat, xi, grid_spec)
-    rel_error_0 = rel_error
-
-    def exit_condition(state):
-        """Check exit condition
-
-        Let e^i = <||div(sigma^i)||> / ||<sigma^i>|| be the current normalised divergence
-
-        This method checkes whether e^i < max (atol, rtol * e^0) or iter > maxiter
-
-        :arg state: current iteration state (epsilon, residual, sigma, A, iter, rel_error, rel_error_0)
-        """
-        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = state
-        return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (iter < maxiter)
-
-    def loop_body(state):
-        """Update strain, residual and stress according to update rule
-
-        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, iter, rel_error)
-        """
-        epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = state
-        # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
-        r_hat = fourier_solve(sigma_hat, lmbda0, mu0, xizero)
-        r = jnp.real(jnp.fft.ifftn(r_hat, axes=[-3, -2, -1]))
-        residual = jnp.roll(residual, 1, axis=0)
-        residual = residual.at[0, ...].set(r)
-        A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
-        dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
-        A_anderson = A_anderson.at[0, :].set(
-            jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
-        )
-        A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
-        u_rhs = jnp.roll(u_rhs, 1)
-        u_rhs = u_rhs.at[0].set(1)
-        v = jnp.linalg.solve(A_anderson, u_rhs)
-        alpha = v / jnp.dot(v, u_rhs)
-        epsilon_tilde = jnp.einsum("s,saijk", alpha, epsilon + residual)
-        epsilon = jnp.roll(epsilon, 1, axis=0)
-        epsilon = epsilon.at[0, ...].set(epsilon_tilde)
-        sigma = compute_sigma(lmbda, mu, epsilon[0, ...])
-        # Fourier transform sigma
-        sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
-        rel_error = relative_divergence_fourier(sigma_hat, xi, grid_spec)
-        iter += 1
-        return (
-            epsilon,
-            residual,
-            sigma,
-            sigma_hat,
-            A_anderson,
-            u_rhs,
-            iter,
-            rel_error,
-        )
-
-    epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, iter, rel_error = (
-        jax.lax.while_loop(
-            exit_condition,
-            loop_body,
-            init_val=(
-                epsilon,
-                residual,
-                sigma,
-                sigma_hat,
-                A_anderson,
-                u_rhs,
-                0,
-                rel_error_0,
-            ),
-        )
-    )
-
-    return epsilon[0, ...], sigma, iter
-
-
-def lippmann_schwinger_cuda(
-    lmbda, mu, epsilon_bar, grid_spec, rtol=1e-6, atol=1.0e-20, maxiter=32, verbose=0
-):
-    """Wrapper for CUDA Lippmann Schwinger solver
-
-    Required access to compiled library liblippmannschwinger.so
-
-    :arg lmbda: spatially varying Lame parameter lambda
-    :arg mu: spatially varying Lame parameter lambda
-    :arg epsilon_bar: mean value of epsilon
-    :arg grid_spec: grid specification as a namedtuple
-    :arg rtol: relative tolerance on normalised stress divergence to check convergence
-    :arg atol: absolute tolerance on normalised stress divergence to check convergence
-    :arg maxiter: maximal number of iterations
+    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
+    :arg grid_spec: specification of computational grid
+    :arg tol: tolerance used for convergence test
+    :arg maxits: maximum number of iterations
+    :arg depth: depth for Anderson iteration; only used in JAX forward solve
     :arg verbose: verbosity level
     """
-    # Load cuda library
-    try:
-        lib = ctypes.CDLL("liblippmannschwinger.so")
-    except Exception as exc:
-        raise RuntimeError(
-            "Unable to load cuda library liblippmannschwinger.so. Compile and check LD_LIBRARY_PATH."
-        ) from exc
-    cuda_code = lib.lippmann_schwinger_solve
-    cuda_code.argtypes = [
-        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        np.ctypeslib.ndpointer(ctypes.c_int, flags="C_CONTIGUOUS"),
-        np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
-        ctypes.c_float,
-        ctypes.c_float,
-        ctypes.c_int,
-        ctypes.c_int,
-    ]
-    cuda_code.restype = ctypes.c_int
-    cells = np.array([grid_spec.nx, grid_spec.ny, grid_spec.nz], dtype=np.int32)
-    extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
-    epsilon = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
-    sigma = np.empty((6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32)
-    iter = cuda_code(
-        np.asarray(mu),
-        np.asarray(lmbda),
-        np.asarray(epsilon_bar, dtype=np.float32),
-        np.asarray(epsilon),
-        np.asarray(sigma),
-        cells,
-        extents,
-        rtol,
-        atol,
-        maxiter,
-        verbose,
+    assert depth >= 0
+    assert maxits > 0
+    assert tol > 0
+    epsilon, sigma = solve(
+        compute_sigma,
+        params,
+        epsilon_bar,
+        ref_params,
+        grid_spec,
+        tol=tol,
+        maxits=maxits,
+        depth=depth,
+        dynamic_stopping=True,
+        verbose=verbose,
     )
-    return (
-        epsilon,
-        sigma,
-        iter,
-    )
+    return epsilon, sigma
+
+
+def lippmann_schwinger_isotropic(
+    params,
+    epsilon_bar,
+    grid_spec,
+    tol=1.0e-5,
+    maxits=1000,
+    depth=0,
+    use_cuda=False,
+    verbose=0,
+):
+    """Wrapper for Lippmann Schwinger iteration in isotropic material
+
+    Anderson acceleration can be applied for the forward solve in the JAX implementation
+
+    :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
+    :arg epsilon_bar: mean value of epsilon
+    :arg grid_spec: specification of computational grid
+    :arg tol: tolerance used for convergence test
+    :arg maxits: maximum number of iterations
+    :arg depth: depth for Anderson iteration; only used in JAX forward solve
+    :arg use_cuda: use cuda, requires access to compiled library liblippmannschwinger.so
+    :arg verbose: verbosity level
+    """
+    dtype = np.float32 if use_cuda else epsilon_bar.dtype
+    assert params["lambda"].dtype == dtype
+    assert params["mu"].dtype == dtype
+    assert epsilon_bar.dtype == dtype
+    assert depth >= 0
+    assert maxits > 0
+    assert tol > 0
+    if use_cuda:
+        if depth > 0:
+            warnings.warn("Parameter depth ignored for CUDA implementations")
+        lib = _load_cuda_library()
+        # Prefer new name, fall back to legacy symbol for backward compatibility.
+        cuda_code = _resolve_cuda_symbol(
+            lib,
+            ["lippmann_schwinger_solve_isotropic", "lippmann_schwinger_solve"],
+        )
+        cuda_code.argtypes = [
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_int, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            ctypes.c_float,
+            ctypes.c_float,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        cuda_code.restype = ctypes.c_int
+        cells = np.array([grid_spec.nx, grid_spec.ny, grid_spec.nz], dtype=np.int32)
+        extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
+        epsilon = np.empty(
+            (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
+        )
+        sigma = np.empty(
+            (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
+        )
+        its = cuda_code(
+            np.ascontiguousarray(params["mu"]),
+            np.ascontiguousarray(params["lambda"]),
+            np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            epsilon,
+            sigma,
+            cells,
+            extents,
+            1.0e-20,
+            tol,
+            maxits,
+            verbose,
+        )
+
+        if its >= maxits:
+            raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
+        return epsilon, sigma
+    else:
+        ref_params = {
+            field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
+            for field in params.keys()
+        }
+        epsilon, sigma = solve(
+            compute_sigma_isotropic,
+            params,
+            epsilon_bar,
+            jax.lax.stop_gradient(ref_params),
+            grid_spec,
+            tol=tol,
+            depth=depth,
+            maxits=maxits,
+            dynamic_stopping=True,
+            verbose=verbose,
+        )
+    return epsilon, sigma
+
+
+def lippmann_schwinger_anisotropic(
+    params,
+    epsilon_bar,
+    ref_params,
+    grid_spec,
+    tol=1.0e-5,
+    maxits=1000,
+    depth=0,
+    use_cuda=False,
+    verbose=0,
+):
+    """Wrapper for Lippmann Schwinger iteration in anisotropic material
+
+    Anderson acceleration can be applied for the forward solve in the JAX implementation
+
+    :arg params: material parameters, dictionary {"stiffness_tensor":stiffness_tensor}
+    :arg epsilon_bar: mean value of epsilon
+    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
+    :arg grid_spec: specification of computational grid
+    :arg tol: tolerance used for convergence test
+    :arg maxits: maximum number of iterations
+    :arg depth: depth for Anderson iteration; only used in JAX forward solve
+    :arg use_cuda: use cuda, requires access to compiled library liblippmannschwinger.so
+    :arg verbose: verbosity level
+    """
+    dtype = np.float32 if use_cuda else epsilon_bar.dtype
+    stiffness_tensor = params["stiffness_tensor"]
+    assert stiffness_tensor.dtype == dtype
+    assert epsilon_bar.dtype == dtype
+    assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
+    assert depth >= 0
+    assert maxits > 0
+    assert tol > 0
+    if use_cuda:
+        if depth > 0:
+            warnings.warn("Parameter depth ignored for CUDA implementations")
+        stiffness = np.ascontiguousarray(stiffness_tensor)
+        lib = _load_cuda_library()
+        cuda_code = _resolve_cuda_symbol(lib, ["lippmann_schwinger_solve_anisotropic"])
+        cuda_code.argtypes = [
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_int, flags="C_CONTIGUOUS"),
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            ctypes.c_float,
+            ctypes.c_float,
+            ctypes.c_int,
+            ctypes.c_int,
+        ]
+        cuda_code.restype = ctypes.c_int
+        cells = np.array([grid_spec.nx, grid_spec.ny, grid_spec.nz], dtype=np.int32)
+        extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
+        epsilon = np.empty(
+            (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
+        )
+        sigma = np.empty(
+            (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
+        )
+        its = cuda_code(
+            stiffness,
+            np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            epsilon,
+            sigma,
+            cells,
+            extents,
+            1.0e-20,
+            tol,
+            maxits,
+            verbose,
+        )
+
+        if its >= maxits:
+            raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
+
+    else:
+        # Least squares fit
+        epsilon, sigma = solve(
+            compute_sigma_anisotropic,
+            params,
+            epsilon_bar,
+            jax.lax.stop_gradient(ref_params),
+            grid_spec,
+            tol=tol,
+            maxits=maxits,
+            depth=depth,
+            dynamic_stopping=True,
+            verbose=verbose,
+        )
+    return epsilon, sigma

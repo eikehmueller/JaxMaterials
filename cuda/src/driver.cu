@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
   const float atol = 1.E-4;
   const int maxiter = 32;
   const int verbose = 2;
-  int niter = lippmann_schwinger_solve(lambda, mu, epsilon_bar, epsilon, sigma, voxels, extents, rtol, atol, maxiter, verbose);
+  int niter = lippmann_schwinger_solve_isotropic(lambda, mu, epsilon_bar, epsilon, sigma, voxels, extents, rtol, atol, maxiter, verbose);
 
   CUDA_CHECK(cudaFreeHost(lambda));
   CUDA_CHECK(cudaFreeHost(mu));

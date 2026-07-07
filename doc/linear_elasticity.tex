@@ -135,7 +135,7 @@ C^0_{ijk\ell} = \lambda^0 \delta_{ij}\delta_{k\ell} + \mu^0 \left(\delta_{ik}\de
 we have
 \begin{equation}
     \begin{aligned}
-\widehat{\varepsilon}^*_{k\ell ij} &= -\Gamma^0_{k\ell ij} \widehat{\tau}_{ij}\\
+\widehat{\varepsilon}^*_{k\ell ij} &= -\widehat{\Gamma}^0_{k\ell ij} \widehat{\tau}_{ij}\\
 K^0_{ij} &= (\lambda^0+\mu^0)\widetilde{\xi}_i\widetilde{\xi}_j + \mu^0 |\widetilde{\vec{\xi}}|^2 \delta_{ij}\\
 N^0_{ij} =\left((K^0)^{-1}\right)_{ij} &= \frac{1}{\mu^0 |\widetilde{\vec{\xi}}|^2}\left(\delta_{ij}-\frac{\widetilde{\xi}_i\widetilde{\xi}_j}{|\widetilde{\vec{\xi}}|^2}\frac{\lambda^0+\mu^0}{\lambda^0+2\mu^0}\right)\\
 \widehat{\Gamma}^0_{k\ell ij} &= \frac{1}{4}\left(N^0_{\ell i}\widetilde{\xi}_j\widetilde{\xi}_k+N^0_{k i}\widetilde{\xi}_j\widetilde{\xi}_\ell + N^0_{\ell j}\widetilde{\xi}_i\widetilde{\xi}_k+N^0_{kj}\widetilde{\xi}_i\widetilde{\xi}_\ell\right)\\
@@ -256,12 +256,12 @@ We can write $\tau_{ij} = C_{ijk\ell}  \varepsilon_{k\ell}$ explicitly as
 \tau_{12} &= 2\mu\varepsilon_{12}.
 \end{aligned}\label{eqn:tau_computation}
 \end{equation}
-This leads to the Lippmann Schwinger iteration shown in \cref{alg:lippmann_schwinger}. Alternatively the method can be written in residual form as in \cref{alg:lippmann_schwinger_residual}.
+This leads to the Lippmann Schwinger iteration shown in \cref{alg:lippmann_schwinger}. Alternatively the method can be written in incremental form as in \cref{alg:lippmann_schwinger_incremental}; this uses the fact that $\Gamma^0*C^0 \varepsilon=\varepsilon$.
 \begin{algorithm}
     \caption{Lippmann Schwinger iteration: simplest formulation}
     \label{alg:lippmann_schwinger}
 \begin{algorithmic}[1]
-    \State{Set $\varepsilon=E$}
+    \State{Set $\varepsilon=\overline{\varepsilon}$}
     \For{$n=0,1,\dots$}
     \State{Compute stress $\sigma_{ij}=C_{ijk\ell}\varepsilon_{k\ell}$ according to \eqref{eqn:tau_computation}}
     \State{Check convergence based on $D^-_j \sigma_{ij}$}
@@ -274,10 +274,10 @@ This leads to the Lippmann Schwinger iteration shown in \cref{alg:lippmann_schwi
 \end{algorithmic}
 \end{algorithm}
 \begin{algorithm}
-    \caption{Lippmann Schwinger iteration: residual formulation}
-    \label{alg:lippmann_schwinger_residual}
+    \caption{Lippmann Schwinger iteration: incremental formulation}
+    \label{alg:lippmann_schwinger_incremental}
 \begin{algorithmic}[1]
-    \State{Set $\varepsilon=E$}
+    \State{Set $\varepsilon=\overline{\varepsilon}$}
     \For{$n=0,1,\dots$}
     \State{Compute stress $\sigma_{ij}=C_{ijk\ell}\varepsilon_{k\ell}$ according to \eqref{eqn:tau_computation}}
     \State{Check convergence based on $D^-_j \sigma_{ij}$}    
@@ -339,7 +339,7 @@ The Lippmann-Schwinger algorithm with Anderson acceleration \cite{wicht2021ander
 \begin{algorithmic}[1]
     \State{Set $\varepsilon=E$}
     \State{Initialise $\varepsilon^{(0)} = \varepsilon$, $\varepsilon^{(j)} = 0$ for $j=1,2,\dots,d$}
-    \State{Initialise $r^{(0)} = 0$ for $s=0,1,2,\dots,d$}
+    \State{Initialise $r^{(s)} = 0$ for $s=0,1,2,\dots,d$}
     \State{Initialise $(d+1)\times (d+1)$ identity matrix $A=\mathbb{I}$}
     \For{$n=0,1,\dots$}
     \State{Compute stress $\sigma_{ij}=C_{ijk\ell}\varepsilon_{k\ell}$ according to \eqref{eqn:tau_computation}}
@@ -357,7 +357,7 @@ The Lippmann-Schwinger algorithm with Anderson acceleration \cite{wicht2021ander
     \For{$s=0,1,2,\dots,m_k$}
     \State{Set $A_{0s} = A_{s0}\gets r^{(0)}_{ij}r^{(s)}_{ij}$}
     \EndFor
-    \State{Solve $Av=u$ with $u=(1,1,\dots,1)\in\mathbb{R}^d$}
+    \State{Solve $Av=u$ with $u=(1,1,\dots,1)\in\mathbb{R}^{d+1}$}
     \State{Set $\alpha = v/(u^\top v)$}
     \State{Set $\varepsilon_{ij} = \sum_{s=0}^{d} \alpha_s (\varepsilon^{(s)}_{ij}-r^{(s)}_{ij})$}
     \For{$s=m_k,m_k-1,\dots,2,1$}
@@ -368,6 +368,307 @@ The Lippmann-Schwinger algorithm with Anderson acceleration \cite{wicht2021ander
 \State{\Return $\varepsilon$}
 \end{algorithmic}
 \end{algorithm}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Anisotropic case}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+In this case, we have that
+\begin{equation}
+\sigma_{ij} = C_{ijk\ell}\varepsilon_{k\ell}\label{eqn:stress_strain_anisotropic}
+\end{equation}
+where due to the symmetries of $C$ only $21$ components of the $3\times 3\times 3 \times 3$ tensor $C$ are independent. Using Voigt-notation these can be taken to be the $21$ independent entries $C_{i}$ of a symmetric $6\times 6$ matrix $C$ defined by
+\input{generated/anisotropic_elasticity.tex}
+Observe that in the isotropic case the only non-zero entries $C_j$ are
+\begin{equation}
+\begin{aligned}
+C_0 = C_1 = C_2 &= 2\mu + \lambda,\\
+C_3 = C_4 = C_5 &= \mu,\\
+C_6 = C_7 = C_8 &= \lambda.
+\end{aligned}
+\end{equation}
+Obviously, the Lame parameters $\mu$, $\lambda$ can not be recovered from the components of the stiffness tensor $C$. However, a least squares fit leads to
+\begin{equation}
+\begin{aligned}
+\lambda_{\text{LS}} &= \frac{1}{18}\left(Q_0+Q_1+Q_2 - 2 (Q_3+Q_4+Q_5) + 5(Q_6+Q_7+Q_8)
+\right)\\
+\mu_{\text{LS}} &= \frac{1}{9}\left(Q_0+Q_1+Q_2+Q_3+Q_4+Q_5-(Q_6+Q_7+Q_8)\right)
+\end{aligned}
+\end{equation}
+In Voigt-notation \eqref{eqn:stress_strain_anisotropic} becomes:
+\input{generated/anisotropic_stress_strain.tex}
+The tensor $\widehat{\Gamma}^{0}_{k\ell ij}$ also needs to be computed slightly differently. Let the elasticity tensor of the reference material be $C^0$; again this has $21$ independent components.
+For each Fourier mode compute the symmetric $3\times 3$ matrix $K^{0}$ with
+\input{generated/anisotropic_acoustic_matrix.tex}
+As a sanity check, we can compute $K^0$ for the isotropic case, i.e. $C^0_0=C^0_1=C^0_2=2\mu^0+\lambda^0$, $C^0_3=C^0_4=C^5_0=\mu^0$, $C^0_6=C^0_7=C^0_8=\lambda^0$. In this case we find
+\input{generated/isotropic_acoustic_matrix.tex}
+which is equivalent to $K^0_{ij} = (\lambda^0+\mu^0)\mathring{\widetilde{\xi}}_i\mathring{\widetilde{\xi}}_j + \mu^0 |\mathring{\widetilde{\vec{\xi}}}|^2 \delta_{ij}$.
+
+The inverse of $K^0$ is the $3\times 3$ matrix $N^{0}$. This requires storage of additional 6 numbers for each Fourier mode. From this, build the symmetric $6\times 6$ matrix which is defined by
+\input{generated/anisotropic_fourier_matrix.tex}
+Finally, compute
+\begin{equation}
+\widehat{\sigma}_i = -\widehat{\Gamma}^{0}_{ij} \widehat{\tau}_j.
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Reverse mode differentiation with the adjoint method}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Assume that we have an objective function
+\begin{equation}
+    J = J(\varepsilon(\cdot),\sigma(\cdot)).
+\end{equation}
+Define the \textit{partial} functional derivatives of $J$ with respect to strain $\varepsilon(x)$ and stress $\sigma(x) = C(x)\varepsilon(x)$ as
+\begin{xalignat}{2}
+    E(x) &:= \frac{\delta J}{\delta \varepsilon(x)}, &
+    S(x) &:= \frac{\delta J}{\delta \sigma(x)},\label{eqn:J_derivatives}
+\end{xalignat}
+where
+\begin{equation}
+A:B=\sum_{ij}A_{ij}B_{ij}.\label{eqn:scalar_product}
+\end{equation}
+In a slight abuse of notation, here (and in the following) we implicitly assume that the quantities defined this way are in fact the Riesz-representers with respect to the scalar product in \eqref{eqn:scalar_product}:
+\begin{equation}
+\frac{\delta J}{\delta \varepsilon(x)}(H) = E(x):H(x) \qquad\text{for all $H(x)$}.
+\label{eqn:riesz_representer}
+\end{equation}
+This has implications for the implementation which are discussed in \cref{sec:voigt_scalar_product}. Given $E(x)$, $S(x)$ we want to compute
+\begin{equation}
+\frac{\delta J}{\delta \overline{\varepsilon}},\qquad\frac{\delta J}{\delta C(x)}\label{eqn:func_deriv_anisotropic}
+\end{equation}
+in the general, anisotropic case and 
+\begin{equation}
+\frac{\delta J}{\delta \overline{\varepsilon}(x)},\qquad\frac{\delta J}{\delta \mu(x)},\qquad\frac{\delta J}{\delta \lambda(x)} \label{eqn:func_deriv_isotropic}
+\end{equation}
+in the isotropic case.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Adjoint equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To express the derivatives in \eqref{eqn:func_deriv_anisotropic}, \eqref{eqn:func_deriv_isotropic} in terms of the given $E(x)$, $S(x)$ with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation
+\begin{equation}
+\varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) \tau(y)\;dy\label{eqn:lippmann_schwinger}
+\end{equation}
+with $\tau(x) = \left(C(x)-C^0\right)\varepsilon(x)$. This can be written in condensed form as $\varepsilon = \overline{\varepsilon}-\Gamma^0 * \left((C-C^0)\varepsilon\right)$. Define the residual operator
+\begin{equation}
+    \mathcal{A}(\varepsilon;C,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left((C-C^0) \varepsilon\right) - \overline{\varepsilon}\label{eqn:residual_operator}
+\end{equation}
+and introduce the Lagrangian
+\begin{equation}
+\mathcal{L}(\varepsilon,\Lambda;C,\overline{\varepsilon}) = \mathcal{J}(\varepsilon) + \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz\qquad\text{with $\mathcal{J}(\varepsilon) = J(\varepsilon,\sigma(\varepsilon))$}\label{eqn:lagrangian}
+\end{equation}
+The Lagrange multiplier $\Lambda(x)$ has been introduced to make $\mathcal{L}$ independent of $\varepsilon(x)$, i.e. we require that the total derivative with respect to $\varepsilon(x)$ vanishes:
+\begin{equation}
+\frac{\delta\mathcal{L}}{\delta\varepsilon(x)} = 0.
+\end{equation}
+To compute the derivative of the integral on the right hand side of \eqref{eqn:lagrangian}, observe that
+\begin{equation}
+    \begin{aligned}
+        \frac{\delta}{\delta\varepsilon(x)}\int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})(z)\;dz&=\frac{\delta}{\delta\varepsilon(x)}\left( \int_\Omega \Lambda(z):\varepsilon(z)\;dz+\int_{\Omega}\int_{\Omega}\Lambda(z) : \Gamma^0(z-y)\left(C(y)-C^0\right)\varepsilon(y)\;dy\;dz\right)\\
+&=\Lambda(x) + \int_\Omega \Lambda(z):\Gamma^0(z-x)\left(C(x)-C^0\right)\;dz \\
+&=\Lambda(x) +  \left(C(x)-C^0\right) \int_\Omega  \Gamma^0(x-z) \Lambda(z)\;dz
+    \end{aligned}
+\end{equation}
+where the last identity follows from $\Gamma^0(-x) = \Gamma^0(x)$, $\Gamma^0_{ijk\ell} = \Gamma^0_{k\ell ij}$ and $C_{ijk\ell}=C_{k\ell ij}$. This leads to
+\begin{equation}
+0 = \frac{\delta\mathcal{L}}{\delta\varepsilon} = \frac{\delta \mathcal{J}}{\delta \varepsilon} + \Lambda + \left(C-C^0\right) \left(\Gamma^0 * \Lambda\right)
+\end{equation}
+Note that the derivatives in \eqref{eqn:J_derivatives} are \textit{partial} derivatives. Using the definition of the stress $\sigma(x) = C(x)\varepsilon(x)$, the \textit{total} derivative which appears on the right hand side of the adjoint equation is 
+\begin{equation}
+    \begin{aligned}
+\frac{\delta \mathcal{J}}{\delta \varepsilon(x)} &= \frac{\delta J}{\delta \varepsilon(x)}+ C(x)\frac{\delta J}{\delta \sigma(x)}\\
+&=E(x)+ C(x)S(x).
+    \end{aligned}
+\end{equation}
+Hence, the adjoint equation is
+\begin{equation}
+    \Lambda + \left(C-C^0\right) : \left(\Gamma^0 * \Lambda\right) = \mathcal{E}\qquad\text{with $\mathcal{E}(x):= -\left(E(x)+ C(x)S(x)\right)$}\label{eqn:adjoint_equation}
+\end{equation}
+The Lippmann-Schwinger iteration for solving the adjoint equation in \eqref{eqn:adjoint_equation} is shown in \cref{alg:lippmann_schwinger_adjoint}.
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (simplest form)}
+    \label{alg:lippmann_schwinger_adjoint}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=0$}
+    \For{$n=0,1,\dots$}
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Update $\Lambda_{ij}=\mathcal{E}_{ij}+(C-C^0)_{ijk\ell}\Theta_{k\ell}$}
+    \State{Check convergence}
+    \EndFor
+\State{\Return $\Lambda$}
+\end{algorithmic}
+\end{algorithm}
+Comparing \cref{alg:lippmann_schwinger} and \cref{alg:lippmann_schwinger_adjoint}, we see that the primal- and adjoint Lippmann Schwinger iteration only differ in the order in which $\Gamma^0$ and $C$ are applied and in the update step. Also, the algorithm is readily applied to both the isotropic and anisotropic case by use the appropriate way of computing $\Delta = C\Theta$.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Derivatives with respect to $C(x)$ and $\overline{\varepsilon}$}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The derivative with respect to $C$ is made up of two contributions. First, the direct contribution is
+\begin{equation}
+\frac{\delta \mathcal{J}}{\delta C_{ijk\ell}(x)} = S_{ij}(x)\varepsilon_{k\ell}(x).
+\end{equation}
+Second, the adjoint contribution is obtained by observing that
+\begin{equation}
+    \begin{aligned}
+    \frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &=\frac{\delta }{\delta C_{ijk\ell}(x)} \int_\Omega\int_\Omega \Lambda_{ab}(z)\Gamma^0_{abcd}(z-y)\left(C(y)-C^0\right)_{cdrs}\varepsilon_{rs}(y)\;dy\;dz\\
+    &= \int_\Omega \Lambda_{ab}(z)\Gamma^0_{abij}(z-x)\varepsilon_{k\ell}(x)\;dz\\
+    &= \left(\int_\Omega\Gamma^0_{ijab}(x-z)\Lambda_{ab}(z)\;dz\right)\varepsilon_{k\ell}(x)\\
+    &= \left(\Gamma^0*\Lambda\right)_{ij}(x)\varepsilon_{k\ell}(x)
+    \end{aligned}
+\end{equation}
+Putting everything together, we get
+\begin{equation}
+\frac{\delta \mathcal{L}}{\delta C_{ijk\ell}} = S^*_{ij}\varepsilon_{k\ell}
+\qquad\text{where $S^* = S+\Gamma^0*\Lambda$.}
+\label{eqn:gradC}
+\end{equation}
+
+The derivative with respect to $\overline{\varepsilon}$ only has an adjoint contribution:
+\begin{equation}
+    \begin{aligned}
+    \frac{\delta}{\delta \overline{\varepsilon}} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &= -\int_\Omega \Lambda(z) \;dz
+    \end{aligned}
+\end{equation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Anisotropic case: derivatives with respect to $C(x)$}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The tensor $C$ is symmetric, i.e. $C_{ijk\ell} = C_{k\ell ij}$. This can be taken into account by setting
+\begin{equation}
+\frac{\delta \mathcal{L}}{\delta C_{ijk\ell}} =\begin{cases} S^*_{ij}\varepsilon_{ij} & \text{if $i=k$ and $j=\ell$}, \\
+    S^*_{ij}\varepsilon_{k\ell} + \varepsilon_{ij}S^*_{k\ell}& \text{otherwise},
+\end{cases}
+\end{equation}
+where $S^*$ is defined in \eqref{eqn:gradC}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsubsection{Isotropic case: derivatives with respect to $\lambda(x)$ and $\mu(x)$}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+In the isotropic case where $C_{ijk\ell} = \lambda \delta_{ij}\delta_{k\ell} + \mu (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$ we get with the chain rule
+\begin{xalignat}{2}
+\frac{\delta \mathcal{L}}{\delta \lambda} &= \frac{\delta \mathcal{L}}{\delta C_{ijkl}}\frac{\delta C_{ijkl}}{\delta \lambda} = \frac{\delta \mathcal{L}}{\delta C_{ijkl}} \delta_{ij}\delta_{k\ell},&
+\frac{\delta \mathcal{L}}{\delta \mu} &= \frac{\delta \mathcal{L}}{\delta C_{ijkl}}\frac{\delta C_{ijkl}}{\delta \mu} = \frac{\delta \mathcal{L}}{\delta C_{ijkl}} (\delta_{ik}\delta_{j\ell}+\delta_{i\ell}\delta_{jk})
+\end{xalignat}
+and therefore
+\begin{equation}
+\begin{aligned}
+\frac{\delta \mathcal{L}}{\delta \lambda} &= \operatorname{tr}\left(S^*\right)\operatorname{tr}(\varepsilon),\\
+\frac{\delta \mathcal{L}}{\delta \mu} &= 2\; S^*:\varepsilon.\\
+\end{aligned}
+\end{equation}
+with $S^*$  given in \eqref{eqn:gradC}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Scalar product in Voigt notation}\label{sec:voigt_scalar_product}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Care has to be taken when using Voigt notation. Representing a symmetric $3\times 3$ matrix $A$ by the six numbers
+\begin{xalignat}{6}
+    a_0 & = A_{00},&
+    a_1 & = A_{11},&
+    a_2 & = A_{22},&
+    a_3 & = A_{01},&
+    a_4 & = A_{02},&
+    a_5 & = A_{12}
+\end{xalignat}
+we have for the dot-product of two matrices $A$ and $B$
+\begin{equation}
+A:B = a_0 b_0 + a_1 b_1 + a_2 b_2 + 2 (a_3 b_3 + a_4 b_4 + a_5 b_5) = \sum_{j=0}^{5} w_j a_j b_j =: \langle a,b\rangle_{V}.
+\end{equation}
+with
+\begin{equation}
+w^{\text{(Voigt)}} = \begin{pmatrix}1 & 1 & 1 & 2 & 2 &2\end{pmatrix}.\label{eqn:voigt_weight}
+\end{equation}
+This differs from the normal, Euclidean dot-product
+\begin{equation}
+a\cdot b = \langle a,b\rangle = \sum_{j=0}^{5} a_j b_j.
+\end{equation}
+In JAX the numerical values of tensors that represent derivatives (which mathematically are dual vectors) are the Riesz-representers with respect to the $\langle \cdot,\cdot \rangle$. For example, the derivative with respect to $A$ would be defined by
+\begin{equation}
+\frac{\delta J}{\delta A}(H) = \langle g^E, h \rangle \qquad\text{for all $h$}
+\end{equation}
+This differs from \eqref{eqn:riesz_representer}, where
+\begin{equation}
+\frac{\delta J}{\delta A}(H) = G : H = \langle g , h\rangle_V \qquad\text{for all $h$}.
+\end{equation}
+This implies that $g_j = g^E_j / w^{\text{(Voigt)}}_j$ with the weights $w^{\text{(Voigt)}}$ given in \eqref{eqn:voigt_weight}. To take care of this in the code we need to:
+\begin{itemize}
+\item Divide all incoming tensor-valued gradients elementwise by $w^{\text{(Voigt)}}$
+\item Multiply all outgoing tensor-valued gradients elementwise with $w^{\text{(Voigt)}}$.
+\end{itemize}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Generic model}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+While so far we assumed that $\sigma=C:\varepsilon$, we now consider a more generic model of the form $\sigma=\Sigma(\varepsilon|\theta)$ where the map $\Sigma$ depends linearly on $\varepsilon$ and $\theta$ stands for all input parameters. We assume that the differentiable function $\Sigma$ has been implemented by the user. Instead of $\delta J/\delta C(x)$ as in \eqref{eqn:func_deriv_anisotropic} or $\delta J/\delta \lambda(x)$, $\delta J/\delta \mu(x)$ in \eqref{eqn:func_deriv_isotropic} we are interested in computing the derivative
+\begin{equation}
+\frac{\delta J}{\delta \theta(x)}.
+\end{equation}
+subject to $\varepsilon(x)$ satisfying the Lippmann-Schwinger equation in \eqref{eqn:lippmann_schwinger} with
+\begin{equation}
+\tau = \Sigma(\varepsilon|\theta) - \lambda^0 \operatorname{tr}(\varepsilon)\mathbb{I}-2\mu^0\varepsilon\label{eqn:tau_generic}
+\end{equation}
+for given $\overline{\varepsilon}$. Here we have picked an isotropic, homogeneous reference material characterised by the two Lame parameters $\lambda^0$, $\mu^0$. The residual operator in \eqref{eqn:residual_operator} is replaced by
+\begin{equation}
+    \mathcal{A}(\varepsilon;\theta,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left(\Sigma(\varepsilon|\theta) - \lambda^0 \operatorname{tr}(\varepsilon)-2\mu^0\varepsilon\right) - \overline{\varepsilon}\label{eqn:residual_operator}
+\end{equation}
+and the Lagrangian in \eqref{eqn:lagrangian} is modified appropriately. The resulting adjoint equation is
+\begin{equation}
+\Lambda + (\Gamma^0*\Lambda)\frac{\delta \Sigma}{\delta \varepsilon} - \lambda^0 \operatorname{tr}(\Gamma^0*\Lambda)\mathbb{I} - 2\mu^0 (\Gamma^0*\Lambda) = \mathcal{E} 
+\qquad\text{with $\mathcal{E}(x) = -\left(E(x) + S(x)\frac{\delta \Sigma}{\delta \varepsilon}(x)\right)$}
+\end{equation}
+This results in the Lippmann-Schwinger iteration in \cref{alg:lippmann_schwinger_adjoint_generic}.
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (generic stress-strain relationship)}
+    \label{alg:lippmann_schwinger_adjoint_generic}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=0$}
+    \For{$n=0,1,\dots$}
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Update $\Lambda_{ij}=\mathcal{E}_{ij} + \Theta_{k\ell}\frac{\delta \Sigma_{k\ell}}{\delta \varepsilon_{ij}} -\lambda^0 \Theta_{kk} \delta_{ij} - 2 \mu^0 \Theta_{ij}$}
+    \State{Check convergence}
+    \EndFor
+\State{\Return $\Lambda$}
+\end{algorithmic}
+\end{algorithm}
+$\varepsilon$ we can still be computed with \cref{alg:lippmann_schwinger_incremental}, provided $\sigma$ is obtained from $\varepsilon$ according to $\sigma=\Sigma(\varepsilon|\theta)$. Observe that the terms $S\frac{\delta \Sigma}{\delta \varepsilon}$ and $S\frac{\delta\Sigma}{\delta\varepsilon}$ are vector-Jacobian products, so they are naturally implemented as \verb~jax.vjp~'s. The derivative with respect to the parameters $\theta$ is
+\begin{equation}
+\left(S+\Gamma^0*\Lambda\right):\frac{\delta \Sigma}{\delta \theta}
+\end{equation}
+which is again a \verb~jax.jvp~.
+
+An Anderson-accelerated version of~\cref{alg:lippmann_schwinger_adjoint_generic} is shown in~\cref{alg:lippmann_schwinger_adjoint_generic_anderson}.
+\begin{algorithm}
+    \caption{Adjoint Lippmann Schwinger iteration (generic stress-strain relationship, Anderson acceleration with depth $d$)}
+    \label{alg:lippmann_schwinger_adjoint_generic_anderson}
+\begin{algorithmic}[1]
+    \State{Set $\Lambda=\mathcal{E}_{ij}$}
+    \State{Initialise $\Lambda^{(0)}=\Lambda$, $\Lambda^{(s)}=0$ for $j=1,2,\dots,d$}
+    \State{Initialise $r^{(s)}=0$ for $s=0,1,2,\dots,d$}
+    \State{Initialise $(d+1)\times(d+1)$ identity matrix $A=\mathbb{I}$}
+    \For{$n=0,1,\dots$}
+    \State{Set $m_k=\min\{n,d\}$}
+    \For{$s=m_k,m_k-1,\dots,2,1$}
+    \State{Set $r^{(s)}\gets r^{(s-1)}$}
+    \For{$t=m_k,m_k-1,\dots,2,1$}
+    \State{Set $A_{st}\gets A_{s-1,t-1}$}
+    \EndFor
+    \EndFor
+    \State{Compute $\widehat{\Lambda}_{ij} = \mathscr{F}[\Lambda_{ij}]$}\Comment{Fourier-transform}
+    \State{Set $\widehat{\Theta}_{k\ell} = -\widehat{\Gamma}^0_{k\ell ij} \widehat{\Lambda}_{ij}$}\Comment{Solve in Fourier space}
+    \State{Compute $\Theta_{k\ell} = \mathscr{F}^{-1}[\widehat{\Theta}_{k\ell}]$}\Comment{Inverse Fourier-transform}        
+    \State{Set $r^{(0)}_{ij}=\Lambda_{ij}-\mathcal{E}_{ij} - \Theta_{k\ell}\frac{\delta \Sigma_{k\ell}}{\delta \varepsilon_{ij}} +\lambda^0 \Theta_{kk} \delta_{ij} + 2 \mu^0 \Theta_{ij}$}
+    \State{Check convergence by inspecting $\|r^{(0)}\|$}
+    \For{$s=0,1,2,\dots,m_k$}
+    \State{Set $A_{0s}=A_{s0}\gets r^{(0)}_{ij} r^{(s)}_{ij}$}
+    \EndFor
+    \State{Solve $Av=u$ with $u=(1,1,\dots,1)\in\mathbb{R}^{d+1}$}
+    \State{Set $\alpha=v/(u^\top v)$}
+    \State{Set $\Lambda_{ij} = \sum_{s=0}^d\alpha_s(\Lambda^{(s)}_{ij}-r^{(s)}_{ij})$}
+    \For{$s=m_k,m_k-1,\dots,2,1$}
+    \State{Set $\Lambda^{(s)}\gets \Lambda^{(s-1)}$}
+    \EndFor
+    \State{Set $\Lambda_{ij}\gets \Lambda^{(0)}$}
+    \EndFor
+\State{\Return $\Lambda$}
+\end{algorithmic}
+\end{algorithm}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{unsrt}
 \bibliography{linear_elasticity}
 \end{document}

@@ -1,5 +1,117 @@
-# Jax Materials
-High performance implementation of linear elasticity solvers based on [CUDA](https://developer.nvidia.com/cuda) and [Jax](https://docs.jax.dev/en/latest/index.html#). These solvers are used in machine learning framework for predicting the effective linear elasticity tensor for materials containing layers of fibres.
+[![Automated testing](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml)
+
+# JaxMaterials
+
+High-performance [JAX](https://docs.jax.dev/en/latest/index.html#)/[CUDA](https://developer.nvidia.com/cuda)-based library for **differentiable materials modelling**, designed to integrate physics-based models into modern machine learning workflows.
+
+Enables gradient-based sensitivity studies and optimisation of ML surrogate models for material simulations, by combining efficient computation with scalable ML infrastructure which can run on CPUs and GPUs.
+
+## Goals
+
+Materials with fine microstructure, such as carbon fibre composites, are expensive to simulate with classical PDE methods. Upscaling methods require a large number of simulations to infer distributions of material parameters. In addition, it is often desirable to provide
+
+- **Sensitivity** of output to **input parameters**
+- Support for **running on CPU and GPU hardware**
+
+Machine learning surrogate models can reduce runtime but require:
+
+- **Fast code** for data generation and inference
+- **Differentiable solvers** to use methods like [Physics Enhanced Deep Surrogates](https://arxiv.org/abs/2111.05841)
+
+While JAX provides automatic forward- and reverse-mode differentiation capabilities, iterative solvers with a dynamic stopping criterion require:
+
+- **Custom backward derivative** implementations
+
+Here, this is realised with the adjoint state method.
+
+## Features
+
+- **GPU accelerated differentiable material models** (isotropic & anisotropic) implemented in JAX  
+- **Reverse- mode differentiation** with **bespoke adjoint** implementation handles dynamic loop bounds
+- **Automatic differentiation** enables sensitivity studies, optimisation and ML training  
+- **Bespoke CUDA solvers** for fast data generation and inference
+- Modular design for extending models and components
+- Compatible with JAX ML pipelines and optimisation frameworks  
+
+## Achievements
+
+### Results
+
+Diagonal stress $\varepsilon_{1,1}(x)$ (left) and sensitivity $dL/d\mu(x)$ of $L=\int_{\Omega} \left(\sigma_{0,0}^2 +\sigma_{1,1}^2 +\sigma_{2,2}^2\right)dx$ with respect to the Lame-parameter $\mu(x)$ (right) for a fibre-resin composite material. The simulation was carried out on a $200\times200\times100$ grid with periodic boundary conditions and a 5% loading $\varepsilon_{0,0}$.
+
+![Demonstration](figures/demonstration.png)
+
+### Performance
+The following figure compares the performance of the (an-) isotropic JAX and CUDA solvers when applied to an isotropic material. Results for reverse mode gradient computation with the adjoint state method are also shown.
+
+![Performance of JAX and CUDA solvers](figures/performance.png)
+
+All results are for a $64\times 64\times 32$ grid. The code was run on a NVIDIA GeForce GTX 1660 Super GPU.
+
+## Quick installation
+
+Clone and run
+```
+pip install jaxmaterials
+```
+for the JAX-Python library. See detailed instructions below for CUDA support.
+
+## Sample usage
+
+The following code snippets demonstrate the forward-solve and reverse mode differentiation capabilities.
+
+First, import the necessary libraries and set up the specification of the computational grid
+
+```Python
+import numpy as np
+import jax
+
+from jax import numpy as jnp
+
+jax.config.update("jax_enable_x64", True)
+
+from jaxmaterials.common import GridSpec
+from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
+
+nx = 32
+ny = 32
+nz = 16
+
+grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
+```
+
+### Forward solve
+The interface to the differential solvers for isotropic and anisotropic materials can be found in [lippmann_schwinger.py](src/jaxmaterials/solver/lippmann_schwinger.py)
+
+The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean strain $\overline{\varepsilon}$ requires a call to `lippmann_schwinger_isotropic()` which can optionally use the CUDA backend. It returns the strain $\varepsilon$ and stress $\sigma$:
+
+```Python
+rng = np.random.default_rng(seed=47273)
+
+mu = rng.uniform(low=0.8, high=1.1, size=(nx, ny, nz))
+lmbda = rng.uniform(low=0.6, high=0.7, size=(nx, ny, nz))
+epsilon_bar = rng.normal(size=6)
+
+epsilon, sigma = lippmann_schwinger_isotropic(
+    mu, lmbda, epsilon_bar, grid_spec=grid_spec, use_cuda=True
+)
+```
+
+### Gradient computation
+
+Since the JAX implementation of `lippmann_schwinger_isotropic()` is fully reverse-mode differentiable, [jax.grad()](https://docs.jax.dev/en/latest/_autosummary/jax.grad.html) can be used to compute the gradient of a loss function $L=L(\varepsilon,\sigma)$ with respect to the inputs $\mu$, $\lambda$ and $\overline{\varepsilon}$. This is demonstrated in the following code snippet:
+
+```Python
+def loss_fn(mu, lmbda, epsilon_bar):
+    epsilon, sigma = lippmann_schwinger_isotropic(
+        mu, lmbda, epsilon_bar, grid_spec=grid_spec
+    )
+    return jnp.sum(epsilon**2 + sigma**2)
+
+grad_fn = jax.grad(loss_fn, argnums=(0, 1, 2))
+
+g_mu, g_lmbda, g_epsilon_bar = grad_fn(mu, lmbda, epsilon_bar)
+```
 
 ## Contents
 This repository contains the following code:
@@ -8,22 +120,16 @@ This repository contains the following code:
 A highly efficient [CUDA](https://developer.nvidia.com/cuda) accelerated solver of the linear elasticity equation in isotropic materials based on the Lippmann Schwinger method by [[Moulinec and Suquet, 1998. Computer Methods in Applied Mechanics and Engineering, 157(1-2), pp.69-94]](https://arxiv.org/abs/2012.08962).
 
 #### Jax linear elasticity solver
-A [Jax](https://docs.jax.dev/en/latest/index.html#) implementation of the same method, which allows back-propagation through the solver for use in a ML setting. In addition to the plain Lippmann Schwinger solver, the code also supports Anderson acceleration as described in [[Wicht, Schneider and Boehlke, T., 2021. International Journal for Numerical Methods in Engineering, 122(9), pp.2287-2311]](https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/nme.6622). Since any Jax code is inherently differentiable, the solver can be used as a building block in a machine learning framework (see below).
+A [Jax](https://docs.jax.dev/en/latest/index.html#) implementation of the same method, which allows back-propagation through the solver for later use in a ML setting. Solvers for both isotropic and anisotropic materials have been implemented.
+
+In addition to the plain Lippmann Schwinger solver, the code also supports Anderson acceleration as described in [[Wicht, Schneider and Boehlke, T., 2021. International Journal for Numerical Methods in Engineering, 122(9), pp.2287-2311]](https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/nme.6622). Since any Jax code is inherently differentiable, the solver can be used as a building block in a machine learning framework (see below).
 
 Both solvers use the same discretisation as the [AMITEX solver](https://amitexfftp.github.io/AMITEX/), which is described in [[Gelebart  2020. Comptes Rendus. Mecanique, 348(8-9), pp.693-704]](https://comptes-rendus.academie-sciences.fr/mecanique/item/CRMECA_2020__348_8-9_693_0/). For mathematical details see the [`./doc` subdirectory](./doc/).
-
-#### Fibre distribution generator
-Code for sampling the Lame parameters which can be used as an input to the solvers. The generated samples contain cross-ply layers of fibres as shown in the following figure:
-
-![Generated fibres](doc/material_properties.png)
-
-#### ML toolchain
-A ML toolchain which uses the above code to train machine learning models that predict the efficient elasticity tensor for a given pair of Lame-parameter fields.
 
 ## Installation
 
 ### Prerequisites 
-The CUDA solver requires a working cuda installation, including the [NVidia CUDA Toolkit](https://developer.nvidia.com/cuda/toolkit) which contains the [NVida CUBLAS](https://docs.nvidia.com/cuda/cublas/) and [NVidia CuFFT library](https://developer.nvidia.com/cuda/toolkit). A working C++ compiler and [CMake](https://google.github.io/googletest/) is required to compile and install the solver. To run the automated tests, the [GoogleTest](https://google.github.io/googletest/) is required.
+The CUDA solver requires a working cuda installation, including the [NVidia CUDA Toolkit](https://developer.nvidia.com/cuda/toolkit) which contains the [NVidia CuFFT library](https://developer.nvidia.com/cuda/toolkit). A working C++ compiler and [CMake](https://google.github.io/googletest/) is required to compile and install the solver. To run the automated tests, the [GoogleTest](https://google.github.io/googletest/) is required.
 
 See [`pyproject.toml`](pyproject.toml) for a list of required Python packages.
 
@@ -62,5 +168,9 @@ python -m pip install .
 ```
 Optionally, add `--editable` flag for an editable install.
 
+Run the tests suite with
 
+```
+python -m pytest
+```
 
