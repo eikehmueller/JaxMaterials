@@ -206,8 +206,8 @@ public:
      *
      * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
      * @param[in] epsilon_bar average value of epsilon (host array, size 6)
-     * @param[in] lambda_0 reference Lame parameter lambda
-     * @param[in] mu_0 reference Lame parameter mu
+     * @param[in] lambda_ref reference Lame parameter lambda
+     * @param[in] mu_ref reference Lame parameter mu
      * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
      * @param[out] sigma resulting stress (host array, size 6*nvoxels)
      * @param[in] rtol relative tolerance on normalised divergence
@@ -216,8 +216,8 @@ public:
      */
     int apply(float *__restrict__ stiffness,
               float *__restrict__ epsilon_bar,
-              const float lambda_0,
-              const float mu_0,
+              const float lambda_ref,
+              const float mu_ref,
               float *__restrict__ epsilon,
               float *__restrict__ sigma,
               float rtol, float atol, int maxits = 100);
@@ -263,8 +263,8 @@ extern "C"
      *
      * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
      * @param[in] epsilon_bar average value of epsilon (host array, size 6)
-     * @param[in] lambda_0 reference Lame parameter lambda
-     * @param[in] mu_0 reference Lame parameter mu
+     * @param[in] lambda_ref reference Lame parameter lambda
+     * @param[in] mu_ref reference Lame parameter mu
      * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
      * @param[out] sigma resulting stress (host array, size 6*nvoxels)
      * @param[in] voxels number of voxels (nx,ny,nz)
@@ -278,8 +278,8 @@ extern "C"
      */
     int lippmann_schwinger_solve_anisotropic(float *stiffness,
                                              float *epsilon_bar,
-                                             const float lambda_0,
-                                             const float mu_0,
+                                             const float lambda_ref,
+                                             const float mu_ref,
                                              float *epsilon,
                                              float *sigma,
                                              int *voxels,

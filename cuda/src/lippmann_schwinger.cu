@@ -156,8 +156,8 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   // Average values of lambda and mu
-  float lambda_0 = 0.5 * (*std::max_element(lambda, lambda + nvoxels) + *std::min_element(lambda, lambda + nvoxels));
-  float mu_0 = 0.5 * (*std::max_element(mu, mu + nvoxels) + *std::min_element(mu, mu + nvoxels));
+  float lambda_ref = 0.5 * (*std::max_element(lambda, lambda + nvoxels) + *std::min_element(lambda, lambda + nvoxels));
+  float mu_ref = 0.5 * (*std::max_element(mu, mu + nvoxels) + *std::min_element(mu, mu + nvoxels));
 
   // copy Lame parameters to device
   CUDA_CHECK(cudaMemcpy(dev_lambda, lambda, nvoxels * sizeof(float), cudaMemcpyHostToDevice));
@@ -192,7 +192,7 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
     if (rel_div_norm < max(rtol * rel_div_norm0, atol))
       break;
     /* ==== STEP 4 ==== Solve in Fourier space: hat(r)_{kl} = -Gamma^{0}_{klij} hat(sigma)_{ij} */
-    fourier_solve_device(dev_sigma_hat, dev_residual_hat, dev_xi_zero, lambda_0, mu_0, grid_spec);
+    fourier_solve_device(dev_sigma_hat, dev_residual_hat, dev_xi_zero, lambda_ref, mu_ref, grid_spec);
     CUDA_CHECK(cudaDeviceSynchronize());
     /* ==== STEP 5 ==== Inverse Fourier transform: r = FFT^{-1}(hat(r)) */
     CUFFT_CHECK(cufftExecC2R(plan_inverse, dev_residual_hat, dev_residual));
@@ -220,8 +220,8 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
 /* apply solver (anisotropic) */
 int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
                                               float *epsilon_bar,
-                                              const float lambda_0,
-                                              const float mu_0,
+                                              const float lambda_ref,
+                                              const float mu_ref,
                                               float *epsilon,
                                               float *sigma,
                                               float rtol, float atol, int maxits)
@@ -260,7 +260,7 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
     if (rel_div_norm < max(rtol * rel_div_norm0, atol))
       break;
     /* ==== STEP 4 ==== Solve in Fourier space: hat(r) = -Gamma^{0} hat(sigma) */
-    fourier_solve_device(dev_sigma_hat, dev_residual_hat, dev_xi_zero, lambda_0, mu_0, grid_spec);
+    fourier_solve_device(dev_sigma_hat, dev_residual_hat, dev_xi_zero, lambda_ref, mu_ref, grid_spec);
     CUDA_CHECK(cudaDeviceSynchronize());
     /* ==== STEP 5 ==== Inverse Fourier transform: r = FFT^{-1}(hat(r)) */
     CUFFT_CHECK(cufftExecC2R(plan_inverse, dev_residual_hat, dev_residual));
@@ -311,8 +311,8 @@ extern "C"
 
   int lippmann_schwinger_solve_anisotropic(float *stiffness,
                                            float *epsilon_bar,
-                                           const float lambda_0,
-                                           const float mu_0,
+                                           const float lambda_ref,
+                                           const float mu_ref,
                                            float *epsilon,
                                            float *sigma,
                                            int *voxels,
@@ -330,7 +330,7 @@ extern "C"
     grid_spec.Lz = extents[2];
     LippmannSchwingerAnisotropicSolver solver(grid_spec, verbose);
     int its = solver.apply(stiffness, epsilon_bar,
-                           lambda_0, mu_0,
+                           lambda_ref, mu_ref,
                            epsilon, sigma,
                            rtol, atol, maxits);
     return its;
