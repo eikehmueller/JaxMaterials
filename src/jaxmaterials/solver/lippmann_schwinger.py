@@ -232,6 +232,8 @@ def lippmann_schwinger_anisotropic(
         cuda_code.argtypes = [
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
+            ctypes.c_float,
+            ctypes.c_float,
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_int, flags="C_CONTIGUOUS"),
@@ -253,6 +255,8 @@ def lippmann_schwinger_anisotropic(
         its = cuda_code(
             stiffness,
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            ref_params["lambda"],
+            ref_params["mu"],
             epsilon,
             sigma,
             cells,
