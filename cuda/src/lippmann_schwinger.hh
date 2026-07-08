@@ -206,6 +206,8 @@ public:
      *
      * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
      * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[in] lambda_0 reference Lame parameter lambda
+     * @param[in] mu_0 reference Lame parameter mu
      * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
      * @param[out] sigma resulting stress (host array, size 6*nvoxels)
      * @param[in] rtol relative tolerance on normalised divergence
@@ -214,6 +216,8 @@ public:
      */
     int apply(float *__restrict__ stiffness,
               float *__restrict__ epsilon_bar,
+              const float lambda_0,
+              const float mu_0,
               float *__restrict__ epsilon,
               float *__restrict__ sigma,
               float rtol, float atol, int maxits = 100);
