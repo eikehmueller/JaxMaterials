@@ -225,6 +225,8 @@ TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
     for (int alpha = 9; alpha < 21; ++alpha)
       stiffness[alpha * nvoxels + ell] = 0.0f;
   }
+  float lambda_0 = 0.5 * (*std::max_element(lambda, lambda + nvoxels) + *std::min_element(lambda, lambda + nvoxels));
+  float mu_0 = 0.5 * (*std::max_element(mu, mu + nvoxels) + *std::min_element(mu, mu + nvoxels));
 
   LippmannSchwingerSolver isotropic_solver(grid_spec);
   LippmannSchwingerAnisotropicSolver anisotropic_solver(grid_spec);
@@ -234,6 +236,7 @@ TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
                                               epsilon_isotropic, sigma_isotropic,
                                               rtol, atol);
   int iter_anisotropic = anisotropic_solver.apply(stiffness, epsilon_bar,
+                                                  lambda_0, mu_0,
                                                   epsilon_anisotropic, sigma_anisotropic,
                                                   rtol, atol);
 
