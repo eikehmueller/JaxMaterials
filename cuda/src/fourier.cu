@@ -197,7 +197,7 @@ float reduce_fourier(cufftComplex *dev_u, float *dev_sum, float *sum, const size
     CUDA_CHECK(cudaMemset(dev_sum, 0, sizeof(float)));
     reduce_fourier_kernel<<<nblocks, BLOCKSIZE, BLOCKSIZE / WARPSIZE * sizeof(float)>>>(dev_u, dev_sum, batchsize * nmodes, grid_spec.nz);
     CUDA_CHECK(cudaDeviceSynchronize());
-    CUDA_CHECK(cudaMemcpy(sum, dev_sum, sizeof(float), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(sum, dev_sum, sizeof(float), cudaMemcpyDeviceToHost));
     float nrm = sqrt(sum[0]);
     return nrm;
 }
