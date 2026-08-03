@@ -1,6 +1,14 @@
-"""Hooke's law for isotropic and anisotropic materials
+"""Methods for relating strain :math:`\\epsilon` and stress :math:`\\sigma=\\sigma(\\epsilon)`
 
-Relates strain epsilon and stress sigma via :math:`\\sigma_{ij} = C_{ijkl}*\\epsilon_{kl}`
+Implementation of Hooke's law for isotropic and anisotropic materials. All methods conform to the
+common interface::
+
+    def compute_sigma(epsilon, params):
+        # compute sigma from epsilon and params
+        return sigma
+
+where ``epsilon`` is the strain :math:`\\epsilon` and `params` is
+a `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_ with the parameters.
 """
 
 from jax import numpy as jnp

@@ -1,4 +1,9 @@
-"""Lippmann Schwinger solver with Anderson acceleration"""
+"""Backend implementation of Lippmann Schwinger solver with Anderson acceleration
+
+Computational routines for solving the forward and adjoint Lippmann Schwinger equation.
+The methods should not be called directly; use the interface routines in
+:py:mod:`jaxmaterials.solver.lippmann_schwinger` instead.
+"""
 
 from functools import partial
 
@@ -20,10 +25,26 @@ __all__ = [
 
 
 def relative_divergence(sigma, grid_spec):
-    """Compute ratio of the norm of div(sigma) and the norm of the average sigma
+    """Relative divergence of stress :math:`\\sigma` in real space
 
-    :arg sigma: stress
-    :arg grid_spec: grid specification
+    Computes the ratio
+
+    .. math::
+
+        \\frac{\\langle\\|\\partial\\sigma\\|_2\\rangle}{\\|\\langle\\sigma\\rangle\\|_2}
+
+    used in convergence tests.
+
+    Parameters
+    ==========
+    sigma : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        stress :math:`\\sigma`, array of shape ``(6,nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+
+    Returns
+    =======
+    ratio :math:`\\langle\\|\\partial\\sigma\\|_2\\rangle/\\|\\langle\\sigma\\rangle\\|_2`
     """
     dsigma = backward_divergence(sigma, grid_spec)
     dsigma_nrm = jnp.sqrt(jnp.sum(dsigma**2))
@@ -35,10 +56,24 @@ def relative_divergence(sigma, grid_spec):
 
 
 def relative_divergence_fourier(sigma_hat, xi):
-    """Compute ratio of the norm of div(sigma) and the norm of the average sigma in Fourier space
+    """Relative divergence of stress :math:`\\sigma` in Fourier space
 
-    :arg sigma_hat: stress in Fourier space
-    :arg xi: Fourier vectors
+    Computes
+
+    .. math::
+
+        \\frac{\\langle|\\xi\\cdot\\widehat{\\sigma}|_2\\rangle}{|\\widehat{\\sigma}(\\xi=0)|_2}
+
+    Parameters
+    ==========
+    sigma_hat : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        stress :math:`\\sigma` in Fourier space, array of shape ``(6,nx,ny,nz)``
+    :arg xi : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        Fourier vectors, array of shape ``(6,nx,ny,nz)``
+
+    Returns
+    =======
+    ratio :math:`\\langle|\\xi\\cdot\\widehat{\\sigma}|_2\\rangle/|\\widehat{\\sigma}(\\xi=0)|_2`
     """
     dsigma_hat = jnp.stack(
         [
@@ -84,29 +119,43 @@ def _lippmann_schwinger_jax(
     verbose,
 ):
     """Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain
-    relationship.
-
-    Computational routine which should not be called directly; use the interface routines instead.
+    relationship
 
     The stress-strain relationship is described by the function compute_sigma which is of the
-    form
+    form::
 
         def compute_sigma(epsilon, params):
             # compute stress sigma from strain epsilon given material parameters params
             return sigma
 
-    Here params are the material parameters, such as the Lame coefficients for an isotropic material.
+    as discussed in :py:mod:`jaxmaterials.solver.hooke`. Here ``params`` are the material parameters,
+    such as the spatially varying Lame coefficients for an isotropic material.
 
-    :arg compute_sigma: function which describes the stress-strain relationship
-    :arg params: material parameters which are passed on to compute_sigma()
-    :arg epsilon_bar: mean value of epsilon
-    :arg ref_params: Lame coefficients of isotropic reference material, dictionary of the form
-        {"lambda":lambda, "mu":mu}
-    :arg grid_spec: specification of computational grid
-    :arg tol: absolute tolerance on normalised stress divergence to check convergence
-    :arg maxits: maximum number of iterations
-    :arg depth: depth of Anderson acceleration
-    :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
+    Parameters
+    ==========
+    compute_sigma
+        function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
+    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+        material parameters which are passed on to ``compute_sigma()``
+    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    ref_params : dict
+        Lame coefficients of isotropic reference material, dictionary of the form
+        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    dynamic_stopping : logical
+        stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
+
+    Returns
+    =======
+    Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     atol = tol
     rtol = 1.0e-20
@@ -142,11 +191,25 @@ def _lippmann_schwinger_jax(
     def exit_condition(state):
         """Check exit condition
 
-        Let e^i = <||div(sigma^i)||> / ||<sigma^i>|| be the current normalised divergence
+        Let
 
-        This method checkes whether e^i < max (atol, rtol * e^0) or its > maxits
+        .. math::
 
-        :arg state: current iteration state
+            e^{(i)} = \\frac{\\langle\\|\\partial \\sigma^{(i)}\\|_2\\rangle}{\\|\langle \\sigma^{(i)}\\rangle\\|_2}
+
+        be the current normalised divergence
+
+        This method checks whether :math:`e^{(i)}` is sufficiently small or the maximum number of
+        iterations has been reached.
+
+        Parameters
+        ==========
+        state : tuple
+            current iteration state ``(epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)``
+
+        Returns
+        =======
+        ``True`` if :math:`e^{(i)} < \\max\\{atol, rtol\\cdot e^{(0)}\\}` or :math:`its > maxits`
         """
         its, rel_error = state[-2:]
         if verbose > 1:
@@ -163,7 +226,14 @@ def _lippmann_schwinger_jax(
     def loop_body(state):
         """Update strain, residual and stress according to update rule
 
-        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)
+        Parameters
+        ==========
+        state : tuple
+            current iteration state ``(epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)``
+
+        Returns
+        =======
+        Updated iteration state
         """
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
@@ -284,24 +354,42 @@ def _lippmann_schwinger_adjoint_jax(
     Computational routine which should not be called directly.
 
     The stress-strain relationship is described by the function compute_sigma which is of the
-    form
+    form::
 
         def compute_sigma(epsilon, params):
             # compute stress sigma from strain epsilon given material parameters params
             return sigma
 
-    Here params are the material parameters, such as the Lame coefficients for an isotropic material.
+    as discussed in :py:mod:`jaxmaterials.solver.hooke`. Here params are the material parameters,
+    such as the Lame coefficients for an isotropic material. This method gets passed
+    :math:`\\delta \\sigma/\\delta \\epsilon`, derived from ``compute_sigma()`` which is derived from
+    ``compute_sigma()`` with
+        `jax.vjp https://docs.jax.dev/en/latest/_autosummary/jax.vjp.html`_
+    `jax.vjp https://docs.jax.dev/en/latest/_autosummary/jax.vjp.html`_ of ``compute_sigma``.
 
-    :arg sigma_vjp: vector-Jacobian product function which represents the derivative
-        dsigma/depsilon, derived from compute_sigma() with jax.vjp
-    :arg f_rhs: right hand side in adjoint equation
-    :arg ref_params: Lame coefficients of isotropic reference material, dictionary of form
-        {"lambda":lambda, "mu":mu}
-    :arg grid_spec: specification of computational grid
-    :arg tol: relative tolerance on normalised stress divergence to check convergence
-    :arg maxits: maximum number of iterations
-    :arg depth: depth of Anderson acceleration (depth=0: no acceleration)
-    :arg dynamic_stopping: stop based on rtol and atol. If False, stop after maxits iterations
+    Parameters
+    ==========
+    sigma_vjp
+        vector-Jacobian product function :math:`\\delta \\sigma/\\delta \\epsilon`
+    f_rhs : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        right hand side in adjoint equation, array of shape ``(6,nx,ny,nz)
+    ref_params : dict
+        Lame coefficients of isotropic reference material, dictionary of the form
+        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        relative tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration (depth=0: no acceleration)
+    dynamic_stopping : logical
+            stop based on ``rtol`` and ``atol``? If ``False``, stop after ``maxits`` iterations
+
+    Returns
+    =======
+    Adjoint state :math:`\\Lambda` and number of iterations
     """
     rtol = tol
     atol = 1.0e-20
@@ -333,7 +421,19 @@ def _lippmann_schwinger_adjoint_jax(
     def exit_condition(state):
         """Check exit condition
 
-        :arg state: current iteration state (epsilon, residual, sigma, A, its, rel_error, rel_error_0)
+        This method checks whether the relative change
+        :math:`\\|\\Lambda^{(i)}-\\Lambda^{(i-1)}\\|_2` is sufficiently small or the maximum number
+        of iterations has been reached.
+
+        Parameters
+        ==========
+        state : tuple
+            current iteration state ``Lambda, residual, A_anderson, u_rhs, increment_nrm, its``
+
+        Returns
+        =======
+        ``True`` if :math:`\\|\\Lambda^{(i)}-\\Lambda^{(i-1)}\\|_2 < \\max\\{atol, rtol\\cdot \\|\\Lambda^{(i)}\\|_2\\}`
+        or :math:`its > maxits`
         """
         Lambda = state[0]
         increment_nrm, its = state[-2:]
@@ -350,9 +450,12 @@ def _lippmann_schwinger_adjoint_jax(
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
 
     def loop_body(state):
-        """Update strain, residual and stress according to update rule
+        """Update state according to update rule
 
-        :arg state: current iteration state (epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)
+        Parameters
+        ==========
+        state : dict
+            current iteration state ``Lambda, residual, A_anderson, u_rhs, increment_nrm, its``
         """
         Lambda, residual, A_anderson, u_rhs, increment_nrm, its = state
         Lambda_hat = jnp.fft.fftn(Lambda[0, ...], axes=(-3, -2, -1))
@@ -477,19 +580,35 @@ def solve(
     dynamic_stopping,
     verbose=0,
 ):
-    """Reverse mode differentiable implementation of the forward solve
+    """Reverse mode differentiable implementation of the forward solve in :py:func:`_lippmann_schwinger_jax`
 
-    :arg compute_sigma: stress-strain relationship
-    :arg params: parameters of stress-strain function
-    :arg epsilon_bar: average strain
-    :arg ref_params: dictionary with Lame coefficients or symmetric stiffness tensor
-    :arg grid_spec: specifications of computational grid
-    :arg tol: tolerance for Lippmann Schwinger solver
-    :arg maxits: maximum number of iterations
-    :arg depth: depth of Anderson acceleration
-    :arg dynamic_stopping: use dynamic stopping criterion? Otherwise, carry out fixed number
-        of iterations as specified by maxits
-    :arg verbose: verbosity level
+    Parameters
+    ==========
+    compute_sigma
+        function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
+    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+        material parameters which are passed on to ``compute_sigma()``
+    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    ref_params : dict
+        Lame coefficients of isotropic reference material, dictionary of the form
+        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    dynamic_stopping : logical
+        stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
+    verbose : int
+        verbosity level
+
+    Returns
+    =======
+    Strain :math:`\\epsilon` and strain :math:`\\sigma`
     """
     epsilon, sigma = _lippmann_schwinger_jax(
         compute_sigma,
@@ -506,7 +625,7 @@ def solve(
     return epsilon, sigma
 
 
-def solve_fwd(
+def _solve_fwd(
     compute_sigma,
     params,
     epsilon_bar,
@@ -518,18 +637,35 @@ def solve_fwd(
     dynamic_stopping,
     verbose=0,
 ):
-    """Forward solve to compute stress and strain for given material parameters and epsilon_bar
+    """Wrapped for forward solve
 
-    :arg compute_sigma: stress-strain relationship
-    :arg params: parameters of stress-strain function
-    :arg epsilon_bar: average strain
-    :arg ref_params: dictionary with Lame coefficients or symmetric stiffness tensor
-    :arg tol: tolerance for Lippmann Schwinger solver
-    :arg maxits: maximum number of iterations
-    :arg depth: depth of Anderson acceleration
-    :arg dynamic_stopping: use dynamic stopping criterion?
-    :arg verbose: verbosity level
-    """
+    Parameters
+    ==========
+    compute_sigma
+        function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
+    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+        material parameters which are passed on to ``compute_sigma()``
+    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    ref_params : dict
+        Lame coefficients of isotropic reference material, dictionary of the form
+        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    dynamic_stopping : logical
+        stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
+    verbose : int
+        verbosity level
+
+    Returns
+    =======
+    Strain :math:`\\epsilon` and strain :math:`\\sigma`"""
     out = _lippmann_schwinger_jax(
         compute_sigma,
         params,
@@ -546,7 +682,7 @@ def solve_fwd(
     return out, (params, epsilon, sigma, ref_params)
 
 
-def solve_bwd(
+def _solve_bwd(
     compute_sigma,
     grid_spec,
     tol,
@@ -557,21 +693,36 @@ def solve_bwd(
     res,
     gradients,
 ):
-    """Backward solve based on the adjoint method.
+    """Backward solve based on the adjoint method
 
     Returns gradients with respect to material parameters and epsilon_bar
 
-    :arg compute_sigma: stress-strain relationship
-    :arg ref_params: Lame parameters of isotropic,
-        homogeneous reference material
-    :arg grid_spec: specification of computational grid
-    :arg tol: tolerance for adjoint solve
-    :arg maxits: maximum number of iterations
-    :arg depth: depth of Anderson acceleration
-    :arg dynamic_stopping: use dynamic stopping criterion?
-    :arg verbose: verbosity level
-    :arg res: results object returned by solve_fwd()
-    :arg gradients: Riesz-representer of input gradients
+    Parameters
+    ==========
+    compute_sigma
+        function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    dynamic_stopping : logical
+        stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
+    verbose : int
+        verbosity level
+    res
+        results object returned by :py:func:`solve_fwd()`
+    gradients
+        Riesz-representer of input gradients
+
+    Returns
+    =======
+    Gradients :math:`\\delta/\\delta\\Theta`, :math:`\\delta/\\delta\\overline{\\epsilion}` and
+    :math:`\\delta/\\delta\\Theta_{rfe}` where :math:`\\Theta` and :math:`\\Theta_{ref}` are the
+    parameters and reference parameters respectively.
     """
     params, epsilon, _, ref_params = res
     dtype = epsilon.dtype
@@ -614,4 +765,4 @@ def solve_bwd(
     return g_params, g_epsilon_bar, g_ref_params
 
 
-solve.defvjp(solve_fwd, solve_bwd)
+solve.defvjp(_solve_fwd, _solve_bwd)
