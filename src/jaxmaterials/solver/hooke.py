@@ -1,6 +1,6 @@
 """Hooke's law for isotropic and anisotropic materials
 
-Relates strain epsilon and strain sigma via sigma_{ij} = C_{ijkl}*epsilon_{kl}
+Relates strain epsilon and stress sigma via :math:`\\sigma_{ij} = C_{ijkl}*\\epsilon_{kl}`
 """
 
 from jax import numpy as jnp
@@ -11,12 +11,16 @@ __all__ = ["compute_sigma_isotropic", "compute_sigma_anisotropic"]
 def compute_sigma_isotropic(epsilon, params):
     """Compute stress from strain for isotropic material
 
-    Returns sigma_{ij} = C_{ijkl}*epsilon_{kl} for an isotropic material characterised
-    by the two Lame parameters lambda and mu.
-    Voigt notation {00,11,22,01,02,12} is used for the stress and strain tensor.
+    Returns :math:`\sigma_{ij} = C_{ijkl}\epsilon_{kl}` for an isotropic material characterised
+    by the two Lame parameters :math:`\\lambda` and :math:``\\mu``.
+    Voigt notation ``{00,11,22,01,02,12}`` is used for the stress and strain tensor.
 
-    :arg epsilon: strain field
-    :arg params: Lame parameters, dictionary of the form {"lambda":lambda, "mu":mu}
+    Parameters
+    ==========
+    epsilon : numpy array
+        strain field
+    params : dict
+        Lame parameters, dictionary of the form ``{"lambda":lambda, "mu":mu}``
     """
     tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
     sigma = 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
@@ -28,12 +32,14 @@ def compute_sigma_isotropic(epsilon, params):
 def compute_sigma_anisotropic(epsilon, params):
     """Compute stress from strain for anisotropic material
 
-    Returns sigma_{ij} = C_{ijkl}*epsilon_{kl} for an anisotropic material characterised
-    by the 21 entries of the stiffness tensor.
+    Returns :math:``\\sigma_{ij} = C_{ijkl}\\epsilon_{kl}`` for an anisotropic material characterised
+    by the 21 entries of the stiffness tensor :math:``C``.
 
-    Voigt notation {00,11,22,01,02,12} is used for the stress and strain tensor.
+    Voigt notation ``{00,11,22,01,02,12}`` is used for the stress and strain tensor.
     The 21 independent entries of the stiffness tensor are given by
 
+    :math:
+    ..
         C_{0}  = C_{00,00},   C_{1}  = C_{11,11},   C_{2}  = C_{22,22},
         C_{3}  = C_{01,01},   C_{4}  = C_{02,02},   C_{5}  = C_{12,12},
         C_{6}  = C_{00,11},   C_{7}  = C_{00,22},   C_{8}  = C_{11,22},
@@ -41,10 +47,15 @@ def compute_sigma_anisotropic(epsilon, params):
         C_{12} = C_{11,01},   C_{13} = C_{11,02},   C_{14} = C_{11,12},
         C_{15} = C_{22,01},   C_{16} = C_{22,02},   C_{17} = C_{22,12},
         C_{18} = C_{01,02},   C_{19} = C_{01,12},   C_{20} = C_{02,12},
+    ..
 
-    :arg epsilon: strain field
-    :arg params: dictionary of the form {"stiffness_tensor":stiffness_tensor}
-        with vector representation of stiffness tensor C
+    Parameters
+    ==========
+    epsilon : numpy array
+        strain field :math:`\\epsilon`
+    params : dict
+        dictionary of the form ``{"stiffness_tensor":stiffness_tensor}``
+        with vector representation of stiffness tensor :math:`C`
     """
     stiffness_tensor = params["stiffness_tensor"]
     sigma = jnp.stack(
@@ -86,5 +97,28 @@ def compute_sigma_anisotropic(epsilon, params):
             + 2 * stiffness_tensor[19] * epsilon[3]
             + 2 * stiffness_tensor[20] * epsilon[4],
         ]
+    )
+    return sigma
+
+
+def compute_sigma_inelastic(epsilon, params):
+    """Compute stress from strain for inelastic material
+
+    Returns :math:`\\sigma_{ij} = \\sigma_{ij}(\\epsilon_{kl})` for an isotropic material.
+    Voigt notation ``{00,11,22,01,02,12}`` is used for the stress and strain tensor.
+
+    Parameters
+    ==========
+    epsilon : numpy array
+        strain field :math:`\\epsilon`
+    params : dict
+        Lame parameters :math:`\\lambda` and :math:`\\mu`, dictionary
+        of the form ``{"lambda":lambda, "mu":mu}``
+    """
+    tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
+    sigma = 2 * params["mu"] / (
+        1 + 0.1 * jnp.linalg.norm(tr_epsilon)
+    ) * epsilon + params["lambda"] * jnp.stack(
+        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
     )
     return sigma

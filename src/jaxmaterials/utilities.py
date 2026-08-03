@@ -1,3 +1,5 @@
+"""Utility functions for profiling and saving results to disk"""
+
 import numpy as np
 from contextlib import contextmanager
 import time
@@ -7,11 +9,16 @@ __all__ = ["measure_time", "save_to_vtk"]
 
 @contextmanager
 def measure_time(label, repeat=1, warmup=False):
-    """Measure the time it takes to execute a block of code
+    """Context manager for measuring the time it takes to execute a block of code
 
-    :arg label: label for the time measurement
-    :arg repeat: number of repetitions
-    :arg warmup_call: include a warmup call at the beginning which is not timed
+    Parameters
+    ==========
+    label : str
+        label for the time measurement
+    repeat : int
+        number of repetitions used for timing
+    warmup_call : logical
+        include a warmup call at the beginning which is not timed?
     """
     timings = []
 
@@ -34,11 +41,17 @@ def measure_time(label, repeat=1, warmup=False):
 def save_to_vtk(data, grid_spec, filename, location="centre"):
     """Save fields to VTK file
 
-    :arg data: dictionary of the form {"label":field} where field is an array of
-               shape (nx,ny,nz)
-    :arg grid_spec: Specification of computational grid
-    :arg filename: name of file to save to
-    :arg location: location of data within voxel. Currently only "centre" is supported
+    Parameters
+    ==========
+    data : dict
+        dictionary of the form ``{"label_1":field_1, "label_2":field_2, ...}`` where the labels
+        are strings and each ``field_i`` is an array of shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        Specification of computational grid
+    filename : str
+        name of file to save to
+    location : str
+        location of data within voxel. Currently only "centre" is supported
     """
     assert location == "centre"
     shape = next(iter(data.values())).shape

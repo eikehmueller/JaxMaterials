@@ -81,7 +81,7 @@ grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
 ```
 
 ### Forward solve
-The interface to the differential solvers for isotropic and anisotropic materials can be found in [lippmann_schwinger.py](src/jaxmaterials/solver/lippmann_schwinger.py)
+The interface to the differential solvers for isotropic and anisotropic materials can be found in `lippmann_schwinger.py`.
 
 The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean strain $\overline{\varepsilon}$ requires a call to `lippmann_schwinger_isotropic()` which can optionally use the CUDA backend. It returns the strain $\varepsilon$ and stress $\sigma$:
 
@@ -108,6 +108,7 @@ def loss_fn(mu, lmbda, epsilon_bar):
     )
     return jnp.sum(epsilon**2 + sigma**2)
 
+
 grad_fn = jax.grad(loss_fn, argnums=(0, 1, 2))
 
 g_mu, g_lmbda, g_epsilon_bar = grad_fn(mu, lmbda, epsilon_bar)
@@ -116,22 +117,22 @@ g_mu, g_lmbda, g_epsilon_bar = grad_fn(mu, lmbda, epsilon_bar)
 ## Contents
 This repository contains the following code:
 
-#### CUDA linear elasticity solver
+### CUDA linear elasticity solver
 A highly efficient [CUDA](https://developer.nvidia.com/cuda) accelerated solver of the linear elasticity equation in isotropic materials based on the Lippmann Schwinger method by [[Moulinec and Suquet, 1998. Computer Methods in Applied Mechanics and Engineering, 157(1-2), pp.69-94]](https://arxiv.org/abs/2012.08962).
 
-#### Jax linear elasticity solver
+### Jax linear elasticity solver
 A [Jax](https://docs.jax.dev/en/latest/index.html#) implementation of the same method, which allows back-propagation through the solver for later use in a ML setting. Solvers for both isotropic and anisotropic materials have been implemented.
 
 In addition to the plain Lippmann Schwinger solver, the code also supports Anderson acceleration as described in [[Wicht, Schneider and Boehlke, T., 2021. International Journal for Numerical Methods in Engineering, 122(9), pp.2287-2311]](https://onlinelibrary.wiley.com/doi/pdfdirect/10.1002/nme.6622). Since any Jax code is inherently differentiable, the solver can be used as a building block in a machine learning framework (see below).
 
-Both solvers use the same discretisation as the [AMITEX solver](https://amitexfftp.github.io/AMITEX/), which is described in [[Gelebart  2020. Comptes Rendus. Mecanique, 348(8-9), pp.693-704]](https://comptes-rendus.academie-sciences.fr/mecanique/item/CRMECA_2020__348_8-9_693_0/). For mathematical details see the [`./doc` subdirectory](./doc/).
+Both solvers use the same discretisation as the [AMITEX solver](https://amitexfftp.github.io/AMITEX/), which is described in [[Gelebart  2020. Comptes Rendus. Mecanique, 348(8-9), pp.693-704]](https://comptes-rendus.academie-sciences.fr/mecanique/item/CRMECA_2020__348_8-9_693_0/).
 
 ## Installation
 
 ### Prerequisites 
 The CUDA solver requires a working cuda installation, including the [NVidia CUDA Toolkit](https://developer.nvidia.com/cuda/toolkit) which contains the [NVidia CuFFT library](https://developer.nvidia.com/cuda/toolkit). A working C++ compiler and [CMake](https://google.github.io/googletest/) is required to compile and install the solver. To run the automated tests, the [GoogleTest](https://google.github.io/googletest/) is required.
 
-See [`pyproject.toml`](pyproject.toml) for a list of required Python packages.
+See `pyproject.toml` for a list of required Python packages.
 
 ### Instructions
 The following instructions should work on Linux machines, but will need to be adapted on Windows and Mac.
