@@ -121,8 +121,8 @@ def _lippmann_schwinger_jax(
     """Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain
     relationship
 
-    The stress-strain relationship is described by the function compute_sigma which is of the
-    form::
+    The stress-strain relationship is described by the passed function ``compute_sigma()``
+    which is of the form::
 
         def compute_sigma(epsilon, params):
             # compute stress sigma from strain epsilon given material parameters params
@@ -152,6 +152,8 @@ def _lippmann_schwinger_jax(
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
     dynamic_stopping : logical
         stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
+    verbose : int
+        verbosity level
 
     Returns
     =======
@@ -353,8 +355,8 @@ def _lippmann_schwinger_adjoint_jax(
 
     Computational routine which should not be called directly.
 
-    The stress-strain relationship is described by the function compute_sigma which is of the
-    form::
+    The stress-strain relationship is described by the function ``compute_sigma()``
+    which is of the form::
 
         def compute_sigma(epsilon, params):
             # compute stress sigma from strain epsilon given material parameters params

@@ -1,4 +1,15 @@
-"""Lippmann Schwinger solver with Anderson acceleration"""
+"""Lippmann Schwinger solver with Anderson acceleration
+
+Solvers are implemented for three different setups:
+
+1. a general, user defined stress-strain relationship of the form
+    :math:`\\sigma=\\sigma(\\epsilon)`
+2. anisotropic materials for which :math:`\\sigma=C\\epsilon` with a general spatially
+    varying symmetric elasticity tensor :math:`C=C(x)`
+3. isotropic materials for which :math:`\\sigma=C\\epsilon` with a spatially varying
+    elasticity tensor :math:`C=C(x)` where :math:`C_{ijk\\ell}(x) = \\lambda(x) \\delta_{ij}\\delta_{k\\ell} + \\mu(x) (\\delta_{ik}\\delta_{j\\ell} + \\delta_{i\\ell}\\delta_{jk})`
+
+"""
 
 import warnings
 import ctypes
@@ -9,9 +20,9 @@ from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_ani
 from jaxmaterials.solver.backend import solve
 
 __all__ = [
-    "lippmann_schwinger_isotropic",
-    "lippmann_schwinger_anisotropic",
     "lippmann_schwinger",
+    "lippmann_schwinger_anisotropic",
+    "lippmann_schwinger_isotropic",
 ]
 
 
@@ -60,19 +71,61 @@ def lippmann_schwinger(
     depth=0,
     verbose=0,
 ):
-    """Wrapper for Lippmann Schwinger iteration in generic material
+    """Wrapper for Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain relationship
 
-    Anderson acceleration can be applied for the forward solve in the JAX implementation
+    Iterates the Lippmann-Schwinger equation
 
-    :arg compute_sigma: stress-strain relationship
-    :arg params: dictionary with material parameters
-    :arg epsilon_bar: mean value of epsilon
-    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
-    :arg grid_spec: specification of computational grid
-    :arg tol: tolerance used for convergence test
-    :arg maxits: maximum number of iterations
-    :arg depth: depth for Anderson iteration; only used in JAX forward solve
-    :arg verbose: verbosity level
+    .. math::
+
+        \\epsilon = -\\Gamma^0 * \\left(\\sigma(\\epsilon)-C^0\\epsilon \\right)
+
+    where
+
+    .. math::
+
+        C^0_{ijk\\ell} = \\lambda_{ref} \\delta_{ij}\\delta_{k\\ell} + \\mu_{ref} (\\delta_{ik}\\delta_{j\\ell} + \\delta_{i\\ell}\\delta_{jk})
+
+    is the reference linear elasticity tensor expressed in terms of the Lame parameters
+    :math:`\\mu_{ref}` and :math:`\\lambda_{ref}`.
+
+    The stress-strain relationship :math:`\\sigma=\\sigma(\\epsilon)` is described by the
+    passed function ``compute_sigma()`` which is of the form::
+
+        def compute_sigma(epsilon, params):
+            # compute stress sigma from strain epsilon given material parameters params
+            return sigma
+
+    as discussed in :py:mod:`jaxmaterials.solver.hooke`. Here ``params`` are the material parameters,
+    such as the spatially varying Lame coefficients for an isotropic material.
+
+    Parameters
+    ==========
+    compute_sigma
+        function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
+    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+        material parameters which are passed on to ``compute_sigma()``
+    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    ref_params : dict
+        Lame coefficients of isotropic reference material, dictionary of the form
+        ``{"lambda":lambda_ref, "mu":mu_ref}`` where ``lambda_ref`` and ``mu_ref`` are of
+        shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    dynamic_stopping : logical
+        stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
+    verbose : int
+        verbosity level
+
+    Returns
+    =======
+    Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     assert depth >= 0
     assert maxits > 0
@@ -102,18 +155,55 @@ def lippmann_schwinger_isotropic(
     use_cuda=False,
     verbose=0,
 ):
-    """Wrapper for Lippmann Schwinger iteration in isotropic material
+    """Wrapper for Lippmann Schwinger in isotropic material
 
-    Anderson acceleration can be applied for the forward solve in the JAX implementation
+    Iterates the Lippmann-Schwinger equation
 
-    :arg params: dictionary with Lame coefficients {"lambda":lambda, "mu":mu}
-    :arg epsilon_bar: mean value of epsilon
-    :arg grid_spec: specification of computational grid
-    :arg tol: tolerance used for convergence test
-    :arg maxits: maximum number of iterations
-    :arg depth: depth for Anderson iteration; only used in JAX forward solve
-    :arg use_cuda: use cuda, requires access to compiled library liblippmannschwinger.so
-    :arg verbose: verbosity level
+    .. math::
+    
+            \\epsilon = -\\Gamma^0 * \\left(C-C^0 \\right) \\epsilon
+    
+    where
+    
+    .. math::
+
+        \\begin{aligned}
+        C_{ijk\\ell}(x) &= \\lambda(x) \\delta_{ij}\\delta_{k\\ell} + \\mu(x) (\\delta_{ik}\\delta_{j\\ell} + \\delta_{i\\ell}\\delta_{jk})\\\\
+        C^0_{ijk\\ell} &= \\lambda_{ref} \\delta_{ij}\\delta_{k\\ell} + \\mu_{ref} (\\delta_{ik}\\delta_{j\\ell} + \\delta_{i\\ell}\\delta_{jk})
+        \\end{aligned}
+
+    is the reference linear elasticity tensor expressed in terms of the Lame parameters
+    :math:`\\mu_{ref}` and :math:`\\lambda_{ref}`.
+
+    Anderson acceleration can be used for the JAX implementation but is currently not
+    supported for the CUDA version. Reference parameters required in the Lippmann Schwinger
+    iteration are automatically computed as
+    :math:`\\mu_{ref} = \\frac{1}{2}(\\max(\\mu)+\\min(\\mu))` and
+    :math:`\\lambda_{ref} = \\frac{1}{2}(\\max(\\lambda)+\\min(\\lambda))`.
+
+    Parameters
+    ==========
+    params : dict
+        dictionary ``{"lambda":lambda, "mu":mu}`` with Lame coefficients :math:`\\mu` and
+         :math:`\\lambda` which are arrays of shape ``(nx,ny,nz)``
+    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    use_cuda : logical
+        use CUDA implementation instead of JAX? Onky forward pass is implemented in this case
+    verbose : int
+        verbosity level
+
+    Returns
+    =======
+    Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
     assert params["lambda"].dtype == dtype
@@ -201,19 +291,53 @@ def lippmann_schwinger_anisotropic(
     use_cuda=False,
     verbose=0,
 ):
-    """Wrapper for Lippmann Schwinger iteration in anisotropic material
+    """Wrapper for Lippmann Schwinger in anisotropic material
 
-    Anderson acceleration can be applied for the forward solve in the JAX implementation
+    Solves the Lippmann-Schwinger equation
 
-    :arg params: material parameters, dictionary {"stiffness_tensor":stiffness_tensor}
-    :arg epsilon_bar: mean value of epsilon
-    :arg ref_params: Lame coefficients of isotropic, homogeneous reference material
-    :arg grid_spec: specification of computational grid
-    :arg tol: tolerance used for convergence test
-    :arg maxits: maximum number of iterations
-    :arg depth: depth for Anderson iteration; only used in JAX forward solve
-    :arg use_cuda: use cuda, requires access to compiled library liblippmannschwinger.so
-    :arg verbose: verbosity level
+    .. math::
+
+            \\epsilon = -\\Gamma^0 * \\left(C-C^0 \\right) \\epsilon
+
+    where :math:`C_{ijk\\ell}(x)` is the spatially varying elasticity tensor and
+
+    .. math::
+
+        C^0_{ijk\\ell} = \\lambda_{ref} \\delta_{ij}\\delta_{k\\ell} + \\mu_{ref} (\\delta_{ik}\\delta_{j\\ell} + \\delta_{i\\ell}\\delta_{jk})
+
+    is the reference linear elasticity tensor expressed in terms of the Lame parameters
+    :math:`\\mu_{ref}` and :math:`\\lambda_{ref}`.
+
+    Anderson acceleration can be used for the JAX implementation but is currently not
+    supported for the CUDA version.
+
+    Parameters
+    ==========
+    params : dict
+        dictionary ``{"stiffness_tensor": stiffness_tensor}`` with material parameter
+        :math:`C`, which is a tensor of shape ``(21,nx,ny,nz)``
+    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    ref_params : dict
+        Lame coefficients of isotropic reference material, dictionary of the form
+        ``{"lambda":lambda_ref, "mu":mu_ref}`` where ``lambda_ref`` and ``mu_ref`` are of
+        shape ``(nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    tol : float
+        absolute tolerance on normalised stress divergence to check convergence
+    maxits : int
+        maximum number of iterations
+    depth : int
+        depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
+    use_cuda : logical
+        use CUDA implementation instead of JAX? Onky forward pass is implemented in this case
+    verbose : int
+        verbosity level
+
+    Returns
+    =======
+    Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
     stiffness_tensor = params["stiffness_tensor"]
