@@ -1,4 +1,4 @@
-"""Implementation of discrete derivatives"""
+"""Implementation of discrete derivatives on structured grid"""
 
 from jax import numpy as jnp
 
@@ -6,11 +6,43 @@ __all__ = ["backward_derivative", "backward_divergence"]
 
 
 def backward_derivative(g, grid_spec, direction):
-    """Compute the backward derivative in a specified direction
+    """Discrete backward derivative of function :math:`g(x)` with :math:`x\\in\\mathbb{R}^3` 
+    in a specified direction
 
-    :arg g: function to take the derivative of. Assumed to be of shape (*,N_0,N_1,N_2)
-    :arg grid_spec: namedtuple with grid specification
-    :arg direction: direction in which to take the derivative: 0, 1 or 2
+    For ``direction=0`` the backward derivative is defined as the finite difference
+
+    .. math::
+
+        D_0g(x) = \\frac{1}{h_0} \\left(S_{1,2}g(x) - S_{1,2}g(x-e_0)\\right)
+
+    where :math:`h_0` is the grid spacing in direction 0 and :math:`S_{1,2}` denotes
+    averaging over the other two directions. More generally
+
+    .. math::
+
+        S_{i,j}g(x) = \\frac{1}{4}\\left(g(x)+g(x-e_i)+g(x-e_j)+g(x-e_i-e_j)\\right)
+
+    Similarly we have for the discrete backward derivatives in the other directions:
+
+    .. math::
+    
+        \\begin{aligned}
+            D_1g(x) &= \\frac{1}{h_1} \\left(S_{0,2}g(x) - S_{0,2}g(x-e_1)\\right)\\\\
+            D_2g(x) &= \\frac{1}{h_2} \\left(S_{0,1}g(x) - S_{0,1}g(x-e_2)\\right)
+        \\end{aligned}
+
+    Parameters
+    ==========
+    g : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        function to take the derivative of. Assumed to be of shape ``(*,nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+    direction : int
+        direction in which to take the derivative, can be ``0``, ``1`` or ``2``
+
+    Returns
+    =======
+    Tensor of shape ``(*,nx,ny,nz)`` with finite difference :math:`D_i` in direction :math:`i`
     """
     if direction == 0:
         dg = (
@@ -66,22 +98,35 @@ def backward_derivative(g, grid_spec, direction):
 
 
 def backward_divergence(sigma, grid_spec):
-    """Compute backward divergence of symmetric 3x3 tensor sigma_{ij}
+    """Compute discrete backward divergence of symmetric :math:`3\\times 3` tensor :math:`\\sigma_{ij}`
 
-    The componets of the tensor are assumed to be represented in vector form
+    The components of the tensor are assumed to be represented in vector form
     using Voigt notation:
 
-    (sigma_{00}, sigma_{11}, sigma_{22}, sigma_{12}, sigma_{02}, sigma_{01})
+    .. math::
+    
+        (\\sigma_{00}, \\sigma_{11}, \\sigma_{22}, \\sigma_{01}, \\sigma_{02}, \\sigma_{12})
 
-    Returns a tensor of shape (3,N_0,N_1,N_2) with the three components of the
-    divergence vector:
+    The resulting divergence is a vector
 
-    [ dsigma_{00}/dx_0 + dsigma_{01}/dx_1 + dsigma_{02}/dx_2 ]
-    [ dsigma_{10}/dx_0 + dsigma_{11}/dx_1 + dsigma_{12}/dx_2 ]
-    [ dsigma_{20}/dx_0 + dsigma_{21}/dx_1 + dsigma_{22}/dx_2 ]
+    .. math::
 
-    :arg sigma: tensor representation using Voigt notation
-    :arg grid_spec: namedtuple with grid specification
+        \\begin{pmatrix}
+            \\frac{d\\sigma_{00}}{dx_0} + \\frac{d\\sigma_{01}}{dx_1} + \\frac{d\\sigma_{02}}{dx_2} \\\\
+            \\frac{d\\sigma_{10}}{dx_0} + \\frac{d\\sigma_{11}}{dx_1} + \\frac{d\\sigma_{12}}{dx_2} \\
+            \\frac{d\\sigma_{20}}{dx_0} + \\frac{d\\sigma_{21}}{dx_1} + \\frac{d\\sigma_{22}}{dx_2}
+        \\end{pmatrix}
+
+    Parameters
+    ==========
+    sigma : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+        tensor to take the divergence of. Assumed to be of shape ``(6,nx,ny,nz)``
+    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        specification of computational grid
+
+    Returns
+    =======
+    Tensor of shape ``(3,nx,ny,nz)`` with the three components of the divergence vector
     """
     return jnp.stack(
         [

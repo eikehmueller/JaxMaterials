@@ -18,3 +18,5 @@ Python API reference
    jaxmaterials.solver.lippmann_schwinger.lippmann_schwinger
    jaxmaterials.solver.lippmann_schwinger.lippmann_schwinger_isotropic
    jaxmaterials.solver.lippmann_schwinger.lippmann_schwinger_anisotropic
+   jaxmaterials.solver.derivatives.backward_derivative
+   jaxmaterials.solver.derivatives.backward_divergence
