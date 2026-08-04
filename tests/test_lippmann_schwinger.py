@@ -6,7 +6,7 @@ import re
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.fourier import get_xi
-from jaxmaterials.solver.backend import (
+from jaxmaterials.solver._backend import (
     relative_divergence,
     relative_divergence_fourier,
     _lippmann_schwinger_jax,

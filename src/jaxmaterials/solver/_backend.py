@@ -197,7 +197,7 @@ def _lippmann_schwinger_jax(
 
         .. math::
 
-            e^{(i)} = \\frac{\\langle\\|\\partial \\sigma^{(i)}\\|_2\\rangle}{\\|\langle \\sigma^{(i)}\\rangle\\|_2}
+            e^{(i)} = \\frac{\\langle\\|\\partial \\sigma^{(i)}\\|_2\\rangle}{\\|\\langle \\sigma^{(i)}\\rangle\\|_2}
 
         be the current normalised divergence
 

@@ -17,7 +17,7 @@ import numpy as np
 import jax
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
-from jaxmaterials.solver.backend import solve
+from jaxmaterials.solver._backend import solve
 
 __all__ = [
     "lippmann_schwinger",
