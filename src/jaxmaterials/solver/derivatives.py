@@ -6,8 +6,7 @@ __all__ = ["backward_derivative", "backward_divergence"]
 
 
 def backward_derivative(g, grid_spec, direction):
-    """Discrete backward derivative of function :math:`g(x)` with :math:`x\\in\\mathbb{R}^3` 
-    in a specified direction
+    """Discrete backward derivative :math:`\\partial_i g` of function :math:`g(x)`
 
     For ``direction=0`` the backward derivative is defined as the finite difference
 
@@ -98,7 +97,7 @@ def backward_derivative(g, grid_spec, direction):
 
 
 def backward_divergence(sigma, grid_spec):
-    """Compute discrete backward divergence of symmetric :math:`3\\times 3` tensor :math:`\\sigma_{ij}`
+    """Discrete backward divergence :math:`\\partial_i\\sigma_{ij}` of symmetric :math:`3\\times 3` tensor-valued function :math:`\\sigma_{ij}(x)`
 
     The components of the tensor are assumed to be represented in vector form
     using Voigt notation:
