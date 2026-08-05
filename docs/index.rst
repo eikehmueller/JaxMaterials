@@ -3,14 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+==========================
 JaxMaterials documentation
 ==========================
 
+Python API reference
+====================
 .. toctree::
    :maxdepth: 6
-   :caption: Contents:
    
    api
    
-.. include:: ../Readme.md
-   :parser: myst_parser.sphinx_
+Mathematical background
+=======================
+.. include:: mathematical_background.rst

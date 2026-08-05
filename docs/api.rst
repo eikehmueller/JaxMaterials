@@ -1,5 +1,3 @@
-Python API reference
-====================
 
 .. autosummary::
    :toctree: generated

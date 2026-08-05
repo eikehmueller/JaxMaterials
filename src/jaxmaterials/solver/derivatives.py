@@ -12,7 +12,7 @@ def backward_derivative(g, grid_spec, direction):
 
     .. math::
 
-        D_0g(x) = \\frac{1}{h_0} \\left(S_{1,2}g(x) - S_{1,2}g(x-e_0)\\right)
+        D^-_0g(x) = \\frac{1}{h_0} \\left(S_{1,2}g(x) - S_{1,2}g(x-e_0)\\right)
 
     where :math:`h_0` is the grid spacing in direction 0 and :math:`S_{1,2}` denotes
     averaging over the other two directions. More generally
@@ -26,8 +26,8 @@ def backward_derivative(g, grid_spec, direction):
     .. math::
     
         \\begin{aligned}
-            D_1g(x) &= \\frac{1}{h_1} \\left(S_{0,2}g(x) - S_{0,2}g(x-e_1)\\right)\\\\
-            D_2g(x) &= \\frac{1}{h_2} \\left(S_{0,1}g(x) - S_{0,1}g(x-e_2)\\right)
+            D^-_1g(x) &= \\frac{1}{h_1} \\left(S_{0,2}g(x) - S_{0,2}g(x-e_1)\\right)\\\\
+            D^-_2g(x) &= \\frac{1}{h_2} \\left(S_{0,1}g(x) - S_{0,1}g(x-e_2)\\right)
         \\end{aligned}
 
     Parameters
@@ -41,7 +41,7 @@ def backward_derivative(g, grid_spec, direction):
 
     Returns
     =======
-    Tensor of shape ``(*,nx,ny,nz)`` with finite difference :math:`D_i` in direction :math:`i`
+    Tensor of shape ``(*,nx,ny,nz)`` with finite difference :math:`D^-_i g` in direction :math:`i`
     """
     if direction == 0:
         dg = (
