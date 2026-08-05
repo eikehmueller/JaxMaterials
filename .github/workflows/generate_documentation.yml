@@ -19,6 +19,9 @@ jobs:
           url: ${{ steps.deployment.outputs.page_url }}
         runs-on: ubuntu-latest
         steps:
+          - name: Install repo
+            run: |
+              pip install -E .
           - name: Install dependencies
             run: |
               pip install sphinx numpydoc myst_parser
