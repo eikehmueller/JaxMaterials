@@ -6,6 +6,9 @@ High-performance [JAX](https://docs.jax.dev/en/latest/index.html#)/[CUDA](https:
 
 Enables gradient-based sensitivity studies and optimisation of ML surrogate models for material simulations, by combining efficient computation with scalable ML infrastructure which can run on CPUs and GPUs.
 
+## Documentation
+Further details on the Python API and the mathematical background can be found on the [documentation page](https://eikehmueller.github.io/JaxMaterials/).
+
 ## Goals
 
 Materials with fine microstructure, such as carbon fibre composites, are expensive to simulate with classical PDE methods. Upscaling methods require a large number of simulations to infer distributions of material parameters. In addition, it is often desirable to provide
