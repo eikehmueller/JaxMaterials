@@ -813,26 +813,23 @@ An Anderson-accelerated version of :ref:`alg:lippmann_schwinger_adjoint_generic
 #. **Return** :math:`\Lambda`
 
 References
-^^^^^^^^^^
+----------
 
 .. _moulinec1998numerical:
 
-[Moulinec, Suquet (1998)]
-~~~~~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: [Moulinec, Suquet (1998)]
 
 Moulinec, Herve and Suquet, Pierre (1998): *A numerical method for computing the overall response of nonlinear composites with complex microstructure*. Computer methods in applied mechanics and engineering, volume 157, number 1-2, pages 69-94
 
 .. _voigt1928lehrbuch:
 
-[Voigt (1928)]
-~~~~~~~~~~~~~~~
+.. rubric:: [Voigt (1928)]
 
 Voigt, Woldemar (1928): *Lehrbuch der Kristallphysik (Textbook of crystal physics)*, BG Teubner, Leipzig und Berlin
 
 .. _wicht2021anderson:
 
-[Wicht et al. (2021)]
-~~~~~~~~~~~~~~~~~~~~~
+.. rubric:: [Wicht et al. (2021)]
 
 Wicht, Daniel and Schneider, Matti and Böhlke, Thomas (2021): *Anderson-accelerated polarization schemes for fast Fourier transform-based computational homogenization*, International Journal for Numerical Methods in Engineering, volume 122, number 9, pages 2287--2311, Wiley Online Library
 
