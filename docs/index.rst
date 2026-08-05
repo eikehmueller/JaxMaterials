@@ -10,10 +10,14 @@ JaxMaterials documentation
 Python API reference
 ====================
 .. toctree::
-   :maxdepth: 6
+   :maxdepth: 5
    
    api
    
 Mathematical background
 =======================
-.. include:: mathematical_background.rst
+
+.. toctree::
+   :maxdepth: 3
+
+   mathematical_background

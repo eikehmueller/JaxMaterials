@@ -338,10 +338,6 @@ The corresponding method is written down explicitly in :ref:`alg:lippmann_schwin
 #. **EndFor**
 #. **Return** :math:`\varepsilon`
 
-.. container:: algorithm
-
-   .. container:: algorithmic
-
 Stopping criterion
 ^^^^^^^^^^^^^^^^^^
 
@@ -559,7 +555,7 @@ Adjoint equation
 To express the derivatives in :eq:`eqn:func_deriv_anisotropic`, :eq:`eqn:func_deriv_isotropic` in terms of the given :math:`E(x)`, :math:`S(x)` with the adjoint method, first note that the strain field satisfies the Lippmann-Schwinger equation :eq:`eqn:lippmann_schwinger`
 
 .. math::
-   :label: eqn:lippmann_schwinger
+   :label: eqn:lippmann_schwinger_explicit
    
    \varepsilon(x) = \overline{\varepsilon} - \int_\Omega \Gamma^0(x-y) \tau(y)\;dy
 
@@ -731,7 +727,7 @@ interested in computing the derivative
 .. math:: \frac{\delta J}{\delta \theta(x)}.
 
 subject to :math:`\varepsilon(x)` satisfying the Lippmann-Schwinger
-equation in :eq:`eqn:lippmann_schwinger` with
+equation in :eq:`eqn:lippmann_schwinger_explicit` with
 
 .. math::
    :label: eqn:tau_generic
@@ -744,7 +740,6 @@ parameters :math:`\lambda^0`, :math:`\mu^0`. The residual operator in
 :eq:`eqn:residual_operator` is replaced by
 
 .. math::
-   :label: eqn:residual_operator
    
    \mathcal{A}(\varepsilon;\theta,\overline{\varepsilon}) := \varepsilon + \Gamma^0 * \left(\Sigma(\varepsilon|\theta) - \lambda^0 \operatorname{tr}(\varepsilon)-2\mu^0\varepsilon\right) - \overline{\varepsilon}
 
