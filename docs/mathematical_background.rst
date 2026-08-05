@@ -400,13 +400,7 @@ Similarly, we find
 Anderson acceleration
 ^^^^^^^^^^^^^^^^^^^^^
 
-The Lippmann-Schwinger algorithm with Anderson acceleration
-:ref:`wicht2021anderson` is shown in
-`[alg:lippmann_schwinger_anderson] <#alg:lippmann_schwinger_anderson>`__.
-It requires additional storage of :math:`2\times(d+1)` tensors for the
-state :math:`\varepsilon^{(s)}` and residuals :math:`r^{(s)}`, as well
-as a :math:`(d+1)\times (d+1)` matrix and vectors
-:math:`u,v\in\mathbb{R}^{d+1}`.
+The Lippmann-Schwinger algorithm with Anderson acceleration :ref:`wicht2021anderson` is shown in :ref:`alg:lippmann_schwinger_anderson`. It requires additional storage of :math:`2\times(d+1)` tensors for the state :math:`\varepsilon^{(s)}` and residuals :math:`r^{(s)}`, as well as a :math:`(d+1)\times (d+1)` matrix and vectors :math:`u,v\in\mathbb{R}^{d+1}`.
 
 .. _alg:lippmann_schwinger_anderson:
 
@@ -669,8 +663,8 @@ an adjoint contribution:
        \frac{\delta}{\delta \overline{\varepsilon}} \int_\Omega \Lambda(z) : \mathcal{A}(\varepsilon;C,\overline{\varepsilon})\;dz &= -\int_\Omega \Lambda(z) \;dz
        \end{aligned}
 
-Anisotropic case: derivatives with respect to :math:`C(x)`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Anisotropic case
+~~~~~~~~~~~~~~~~
 
 The tensor :math:`C` is symmetric, i.e.
 :math:`C_{ijk\ell} = C_{k\ell ij}`. This can be taken into account by
@@ -684,8 +678,8 @@ setting
 
 where :math:`S^*` is defined in :eq:`eqn:gradC`.
 
-Isotropic case: derivatives with respect to :math:`\lambda(x)` and :math:`\mu(x)`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Isotropic case
+~~~~~~~~~~~~~~
 
 In the isotropic case where
 :math:`C_{ijk\ell} = \lambda \delta_{ij}\delta_{k\ell} + \mu (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})`
@@ -710,7 +704,7 @@ and therefore
 with :math:`S^*` given in :eq:`eqn:gradC`.
 
 Generic stress-strain model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While so far we assumed that :math:`\sigma=C\varepsilon`, we now
 consider a more generic model of the form
