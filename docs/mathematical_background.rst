@@ -827,10 +827,13 @@ Voigt, Woldemar (1928): *Lehrbuch der Kristallphysik (Textbook of crystal physic
 
 Wicht, Daniel and Schneider, Matti and Böhlke, Thomas (2021): *Anderson-accelerated polarization schemes for fast Fourier transform-based computational homogenization*, International Journal for Numerical Methods in Engineering, volume 122, number 9, pages 2287--2311, Wiley Online Library
 
+Appendices
+----------
+
 .. _appendix_epsilon_star:
 
 Appendix A
-----------
+^^^^^^^^^^
 
 In the following we give explicit expressions for :math:`\widehat{\boldsymbol{\varepsilon}}^{*(A)}` and :math:`\widehat{\boldsymbol{\varepsilon}}^{*(B)}` that appear in :eq:`eqn:epsilon_star`
 
