@@ -7,7 +7,7 @@
 JaxMaterials documentation
 ==========================
 
-The source code can be found in the `JaxMaterials repository <https://github.com/eikehmueller>`.
+The source code can be found in the `JaxMaterials repository <https://github.com/eikehmueller/JaxMaterials>`__.
 
 Python API reference
 ====================
