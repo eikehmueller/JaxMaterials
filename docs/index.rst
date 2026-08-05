@@ -7,6 +7,8 @@
 JaxMaterials documentation
 ==========================
 
+The source code can be found in the `JaxMaterials repository <https://github.com/eikehmueller>`.
+
 Python API reference
 ====================
 .. toctree::
