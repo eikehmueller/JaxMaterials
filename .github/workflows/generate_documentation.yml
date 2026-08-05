@@ -2,7 +2,7 @@ name: Generate html documentation with Sphinx
 on: 
   push:
     branches:
-      -main
+      - main
 concurrency:
   group: "pages"
   cancel-in-progress: false
