@@ -21,17 +21,22 @@ def measure_time(label, repeat=1, warmup=False):
         include a warmup call at the beginning which is not timed?
     """
     timings = []
+    it = [0]
+
+    def get_iter():
+        return it[0]
 
     def run(func, *args, **kwargs):
         if warmup:
             func(*args, **kwargs)
         timings.append(time.perf_counter())
         for _ in range(repeat):
+            it[0] += 1
             result = func(*args, **kwargs)
         timings.append(time.perf_counter())
         return result
 
-    yield run
+    yield run, get_iter
 
     if timings:
         t_elapsed = (timings[1] - timings[0]) / repeat
