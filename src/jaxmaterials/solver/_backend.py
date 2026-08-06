@@ -104,7 +104,7 @@ def _lippmann_schwinger_jax(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
     )
     # Anderson matrix and vectors
-    A_anderson = jnp.eye(depth + 1, dtype=dtype)
+    A_anderson = jnp.eye(depth + 1, dtype=jnp.float64)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     sigma = compute_sigma(epsilon[0, ...], params)
     # Fourier transform sigma
@@ -172,9 +172,16 @@ def _lippmann_schwinger_jax(
             residual = jnp.roll(residual, 1, axis=0)
             residual = residual.at[0, ...].set(r)
             A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
-            dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
+            dotproduct_scaling = jnp.array(
+                [1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=jnp.float64
+            )
             A_anderson = A_anderson.at[0, :].set(
-                jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
+                jnp.einsum(
+                    "aijk,saijk,a->s",
+                    jnp.astype(r, jnp.float64),
+                    jnp.astype(residual, jnp.float64),
+                    dotproduct_scaling,
+                )
             )
             A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
             u_rhs = jnp.roll(u_rhs, 1)
@@ -337,7 +344,7 @@ def _lippmann_schwinger_adjoint_jax(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
     )
     # Anderson matrix and vectors
-    A_anderson = jnp.eye(depth + 1, dtype=dtype)
+    A_anderson = jnp.eye(depth + 1, dtype=jnp.float64)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     increment_nrm = jnp.linalg.norm(Lambda)
     if verbose > 1:
@@ -403,9 +410,16 @@ def _lippmann_schwinger_adjoint_jax(
             residual = jnp.roll(residual, 1, axis=0)
             residual = residual.at[0, ...].set(r)
             A_anderson = jnp.roll(A_anderson, (1, 1), axis=(0, 1))
-            dotproduct_scaling = jnp.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=dtype)
+            dotproduct_scaling = jnp.array(
+                [1.0, 1.0, 1.0, 2.0, 2.0, 2.0], dtype=jnp.float64
+            )
             A_anderson = A_anderson.at[0, :].set(
-                jnp.einsum("aijk,saijk,a->s", r, residual, dotproduct_scaling)
+                jnp.einsum(
+                    "aijk,saijk,a->s",
+                    jnp.astype(r, jnp.float64),
+                    jnp.astype(residual, jnp.float64),
+                    dotproduct_scaling,
+                )
             )
             A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
             u_rhs = jnp.roll(u_rhs, 1)
