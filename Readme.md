@@ -71,10 +71,11 @@ import jax
 
 from jax import numpy as jnp
 
-jax.config.update("jax_enable_x64", True)
-
 from jaxmaterials.common import GridSpec
-from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
+from jaxmaterials.solver.lippmann_schwinger import (
+    lippmann_schwinger,
+    lippmann_schwinger_isotropic,
+)
 
 nx = 32
 ny = 32
@@ -91,12 +92,46 @@ The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean str
 ```Python
 rng = np.random.default_rng(seed=47273)
 
-mu = rng.uniform(low=0.8, high=1.1, size=(nx, ny, nz))
-lmbda = rng.uniform(low=0.6, high=0.7, size=(nx, ny, nz))
-epsilon_bar = rng.normal(size=6)
+mu = rng.uniform(low=0.8, high=1.1, size=(nx, ny, nz)).astype(np.float32)
+lmbda = rng.uniform(low=0.6, high=0.7, size=(nx, ny, nz)).astype(np.float32)
+params = {"lambda": lmbda, "mu": mu}
+epsilon_bar = rng.normal(size=6).astype(np.float32)
 
 epsilon, sigma = lippmann_schwinger_isotropic(
-    mu, lmbda, epsilon_bar, grid_spec=grid_spec, use_cuda=True
+    params, epsilon_bar, grid_spec, use_cuda=True
+)
+```
+
+#### Custom stress-strain relationship
+Alternatively, the user can define a custom stress-strain relationship, for example
+
+```Python
+def compute_sigma(epsilon, params):
+    """Custom implementation of linear elasticity for an isotropic material
+
+    :arg epsilon: strain
+    :arg params: dictionary with Lame parameters {"lambda": lambda, "mu": mu}
+    """
+    tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
+    sigma = 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
+        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
+    )
+    return sigma
+```
+
+In this case, the reference Lame parameters $\mu^0$ and $\lambda^0$ need to be specified. A common choice is to set $\mu^0=\frac{1}{2}(\max\{\mu\}+\min\{\mu\})$ and $\lambda^0=\frac{1}{2}(\max\{\lambda\}+\min\{\lambda\})$:
+
+```Python
+ref_params = {
+    key: (np.min(value) + np.max(value)) / 2 for (key, value) in params.items()
+}
+```
+
+With this, stress and strain can be computed with the generic `lippmann_schwinger()` solver:
+
+```Python
+epsilon, sigma = lippmann_schwinger(
+    compute_sigma, params, epsilon_bar, ref_params, grid_spec
 )
 ```
 
@@ -115,6 +150,21 @@ def loss_fn(mu, lmbda, epsilon_bar):
 grad_fn = jax.grad(loss_fn, argnums=(0, 1, 2))
 
 g_mu, g_lmbda, g_epsilon_bar = grad_fn(mu, lmbda, epsilon_bar)
+```
+
+#### Custom stress-strain relationship
+If the user has specified a custom stress-strain relationship, the implementation is very similar, except that in the objective function `lippmann_schwinger()` is called instead of `lippmann_schwinger_isotropic()`
+
+```Python
+def loss_fn(params, epsilon_bar):
+    epsilon, sigma = lippmann_schwinger(
+        compute_sigma, params, epsilon_bar, ref_params, grid_spec
+    )
+    return jnp.sum(epsilon**2 + sigma**2)
+
+
+grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+g_params, g_epsilon_bar = grad_fn(params, epsilon_bar)
 ```
 
 ## Contents
