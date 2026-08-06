@@ -19,10 +19,6 @@ extensions = [
     "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "numpydoc",
-    "myst_parser",
-]
-myst_enable_extensions = [
-    "dollarmath",
 ]
 
 autosummary_generate = True
