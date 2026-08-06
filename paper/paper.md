@@ -1,11 +1,12 @@
 ---
-title: 'JaxMaterials: A JAX package differentiable material modelling'
+title: 'JaxMaterials: A JAX package for efficient differentiable material modelling'
 tags:
   - Python
   - JAX
   - differentiable programming
   - adjoint state method
   - material modelling
+  - composite materials
   - Lippmann Schwinger equations
 authors:
   - name: Yang Chen
@@ -40,6 +41,7 @@ bibliography: paper.bib
 
 # AI usage disclosure
 
+ Generative AI (mainly GitHub copilot) was used to generate some of the code, to identify and locate bugs and to generate informed feedback on the code and documentation. Code generation was closely supervised by limiting it to routine transformations and by breaking it into small, transparent tasks that could be easily verified. All generated code and all AI suggestions were carefully reviewed by the authors to ensure correctness. 
 # Acknowledgements
 
 # References
