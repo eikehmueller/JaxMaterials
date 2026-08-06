@@ -24,7 +24,7 @@ params = {"lambda": lmbda, "mu": mu}
 epsilon_bar = rng.normal(size=6).astype(np.float32)
 
 # forward solve
-epsilon, sigma = lippmann_schwinger_isotropic(params, epsilon_bar, grid_spec=grid_spec)
+epsilon, sigma = lippmann_schwinger_isotropic(params, epsilon_bar, grid_spec)
 
 
 # sensitivity to input parameters for simple loss function

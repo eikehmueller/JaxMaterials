@@ -45,14 +45,14 @@ ref_params = {
 
 # forward solve
 epsilon, sigma = lippmann_schwinger(
-    compute_sigma, params, epsilon_bar, ref_params, grid_spec=grid_spec
+    compute_sigma, params, epsilon_bar, ref_params, grid_spec
 )
 
 
 # sensitivity to input parameters for simple loss function
 def loss_fn(params, epsilon_bar):
     epsilon, sigma = lippmann_schwinger(
-        compute_sigma, params, epsilon_bar, ref_params, grid_spec=grid_spec
+        compute_sigma, params, epsilon_bar, ref_params, grid_spec
     )
     return jnp.sum(epsilon**2 + sigma**2)
 
