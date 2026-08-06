@@ -9,7 +9,7 @@ JaxMaterials documentation
 
 The source code can be found in the `JaxMaterials repository <https://github.com/eikehmueller/JaxMaterials>`__.
 
-Python API reference
+Reference
 ====================
 .. toctree::
    :maxdepth: 5
