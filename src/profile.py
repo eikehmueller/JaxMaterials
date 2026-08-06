@@ -3,15 +3,11 @@ import jax
 from jax import numpy as jnp
 
 from jaxmaterials.common import GridSpec
-from jaxmaterials.utilities import save_to_vtk
 from jaxmaterials.utilities import measure_time
-from jaxmaterials.solver.backend import solve_impl
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic,
     lippmann_schwinger_anisotropic,
 )
-
-from jaxmaterials.solver.backend import iteration_counter
 
 jax.config.update("jax_enable_x64", True)
 
@@ -56,6 +52,8 @@ grid_spec = GridSpec(nx, ny, nz, Lx, Ly, Lz)
 for dtype in (jnp.float32, jnp.float64):
     precision = "single precision" if dtype == jnp.float32 else "double precision"
     mu, lmbda = initialise_material(grid_spec, dtype=dtype)
+    mu_ref = 1 / 2 * (np.min(mu) + np.max(mu))
+    lmbda_ref = 1 / 2 * (np.min(lmbda) + np.max(lmbda))
     zeros = jnp.zeros(mu.shape, dtype=dtype)
     stiffness_tensor = jnp.stack(
         3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
@@ -63,38 +61,39 @@ for dtype in (jnp.float32, jnp.float64):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     with measure_time(
         f"evaluation   (isotropic, {precision})", warmup=True, repeat=repeat
-    ) as run:
+    ) as (run, it):
 
         def body():
-            with iteration_counter() as c:
-                epsilon_isotropic, sigma = lippmann_schwinger_isotropic(
-                    mu, lmbda, epsilon_bar, grid_spec
-                )
-                its = c.get()
+            epsilon_isotropic, sigma = lippmann_schwinger_isotropic(
+                {"mu": mu, "lambda": lmbda}, epsilon_bar, grid_spec, verbose=it() == 0
+            )
             epsilon_isotropic.block_until_ready()
-            return epsilon_isotropic, its
+            return epsilon_isotropic
 
-        epsilon_isotropic, its = run(body)
+        epsilon_isotropic = run(body)
     print()
-    print(f"  number of iterations = {its}")
-    print()
+
+    epsilon_isotropic, sigma = lippmann_schwinger_isotropic(
+        {"mu": mu, "lambda": lmbda}, epsilon_bar, grid_spec, verbose=1
+    )
+    epsilon_isotropic.block_until_ready()
 
     with measure_time(
         f"evaluation (anisotropic, {precision})", repeat=repeat, warmup=True
-    ) as run:
+    ) as (run, it):
 
         def body():
-            with iteration_counter() as c:
-                epsilon_anisotropic, sigma = lippmann_schwinger_anisotropic(
-                    stiffness_tensor, epsilon_bar, grid_spec
-                )
-                its = c.get()
+            epsilon_anisotropic, sigma = lippmann_schwinger_anisotropic(
+                {"stiffness_tensor": stiffness_tensor},
+                epsilon_bar,
+                {"mu": mu_ref, "lambda": lmbda_ref},
+                grid_spec,
+                verbose=it() == 0,
+            )
             epsilon_anisotropic.block_until_ready()
-            return epsilon_anisotropic, its
+            return epsilon_anisotropic
 
-        epsilon_anisotropic, its = run(body)
-    print()
-    print(f"  number of iterations = {its}")
+        epsilon_anisotropic = run(body)
     print(
         "difference = ",
         jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
@@ -104,32 +103,15 @@ for dtype in (jnp.float32, jnp.float64):
 
     with measure_time(
         f"gradient (isotropic, {precision})", repeat=repeat, warmup=True
-    ) as run:
+    ) as (run, it):
 
         def body():
             def loss_fn(mu, lmbda, epsilon_bar):
                 epsilon, sigma = lippmann_schwinger_isotropic(
-                    mu, lmbda, epsilon_bar, grid_spec
-                )
-                return jnp.sum(sigma**2)
-
-            g = jax.grad(loss_fn, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
-            g[0][0].block_until_ready()
-
-        run(body)
-    print()
-
-    with measure_time(
-        f"gradient (naive, isotropic, {precision})", repeat=repeat, warmup=True
-    ) as run:
-
-        def body():
-            def loss_fn(mu, lmbda, epsilon_bar):
-                epsilon, sigma = solve_impl(
                     {"mu": mu, "lambda": lmbda},
                     epsilon_bar,
                     grid_spec,
-                    dynamic_stopping=False,
+                    verbose=it() == 0,
                 )
                 return jnp.sum(sigma**2)
 
@@ -141,32 +123,16 @@ for dtype in (jnp.float32, jnp.float64):
 
     with measure_time(
         f"gradient (anisotropic, {precision})", repeat=repeat, warmup=True
-    ) as run:
+    ) as (run, it):
 
         def body():
             def loss_fn(stiffness_tensor, epsilon_bar):
                 epsilon, sigma = lippmann_schwinger_anisotropic(
-                    stiffness_tensor, epsilon_bar, grid_spec
-                )
-                return jnp.sum(sigma**2)
-
-            g = jax.grad(loss_fn, argnums=(0, 1))(stiffness_tensor, epsilon_bar)
-            g[0][0].block_until_ready()
-
-        run(body)
-    print()
-
-    with measure_time(
-        f"gradient (naive, anisotropic, {precision})", repeat=repeat, warmup=True
-    ) as run:
-
-        def body():
-            def loss_fn(stiffness_tensor, epsilon_bar):
-                epsilon, sigma = solve_impl(
                     {"stiffness_tensor": stiffness_tensor},
                     epsilon_bar,
+                    {"mu": mu_ref, "lambda": lmbda_ref},
                     grid_spec,
-                    dynamic_stopping=False,
+                    verbose=it() == 0,
                 )
                 return jnp.sum(sigma**2)
 
@@ -176,7 +142,7 @@ for dtype in (jnp.float32, jnp.float64):
         run(body)
     print()
 
-gpu_available = True
+gpu_available = False
 if gpu_available:
     dtype = jnp.float32
     mu, lmbda = initialise_material(grid_spec, dtype=dtype)
@@ -186,36 +152,36 @@ if gpu_available:
     )
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
 
-    with measure_time(
-        "evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True
-    ) as run:
+    with measure_time("evaluation  (isotropic, CUDA)", repeat=repeat, warmup=True) as (
+        run,
+        it,
+    ):
 
         def body():
-            with iteration_counter() as c:
-                epsilon_isotropic, sigma = lippmann_schwinger_isotropic(
-                    mu, lmbda, epsilon_bar, grid_spec, use_cuda=True
-                )
-                its = c.get()
-            return epsilon_isotropic, its
+            epsilon_isotropic, sigma = lippmann_schwinger_isotropic(
+                mu, lmbda, epsilon_bar, grid_spec, use_cuda=True, verbose=it() == 0
+            )
+            return epsilon_isotropic
 
         epsilon_isotropic, its = run(body)
-    print(f"  number of iterations = {its}")
     print()
 
     with measure_time(
         "evaluation  (anisotropic, CUDA)", repeat=repeat, warmup=True
-    ) as run:
+    ) as (run, it):
 
         def body():
-            with iteration_counter() as c:
-                epsilon_anisotropic, sigma = lippmann_schwinger_anisotropic(
-                    stiffness_tensor, epsilon_bar, grid_spec, use_cuda=True
-                )
-                its = c.get()
-            return epsilon_anisotropic, its
 
-        epsilon_anisotropic, its = run(body)
-    print(f"  number of iterations = {its}")
+            epsilon_anisotropic, sigma = lippmann_schwinger_anisotropic(
+                stiffness_tensor,
+                epsilon_bar,
+                grid_spec,
+                use_cuda=True,
+                verbose=it() == 0,
+            )
+            return epsilon_anisotropic
+
+        epsilon_anisotropic = run(body)
     print(
         "difference = ",
         jnp.linalg.norm(epsilon_anisotropic - epsilon_isotropic)
