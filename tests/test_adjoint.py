@@ -5,8 +5,13 @@ from jax import numpy as jnp
 from jax.test_util import check_vjp
 import functools
 
-from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
+from jaxmaterials.solver.hooke import (
+    compute_sigma_isotropic,
+    compute_sigma_anisotropic,
+    compute_sigma_inelastic,
+)
 from jaxmaterials.solver.lippmann_schwinger import (
+    lippmann_schwinger,
     lippmann_schwinger_isotropic,
     lippmann_schwinger_anisotropic,
 )
@@ -139,6 +144,38 @@ def test_vjp_anisotropic_finite_difference(grid_spec_small, rng, dtype, depth):
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("depth", [0, 4])
+def test_vjp_inelastic_finite_difference(grid_spec_small, rng, dtype, depth):
+    """Compare custom gradient with adjoint method to finite difference approximation"""
+    params = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    ref_params = reference_parameters(params)
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+    tol = 1.0e-6 if dtype == jnp.float32 else 1.0e-12
+
+    def loss_fn(params, epsilon_bar):
+        epsilon, sigma = lippmann_schwinger(
+            compute_sigma_inelastic,
+            params,
+            epsilon_bar,
+            ref_params,
+            grid_spec_small,
+            tol=tol,
+            depth=depth,
+            verbose=1,
+        )
+
+        return jnp.sum(sigma**2)
+
+    rtol = 1.0e-7 if dtype == jnp.float64 else 1.0e-2
+    check_vjp(
+        loss_fn,
+        functools.partial(jax.vjp, loss_fn),
+        args=(params, epsilon_bar),
+        rtol=rtol,
+    )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("depth", [0, 4])
 def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
     """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
     params = initialise_isotropic_material(grid_spec_small, rng, dtype)
@@ -240,3 +277,51 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
         for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
     )
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("depth", [0, 4])
+def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
+    """Verify that for fixed number of iteration custom gradient with adjoint method matches JAX gradient"""
+    params = initialise_isotropic_material(grid_spec_small, rng, dtype)
+    ref_params = reference_parameters(params)
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+    tol = 1.0e-20
+    maxits = 256
+
+    def loss_fn_adjoint(params, epsilon_bar):
+        epsilon, sigma = solve(
+            compute_sigma_inelastic,
+            params,
+            epsilon_bar,
+            ref_params,
+            grid_spec_small,
+            tol=tol,
+            maxits=maxits,
+            depth=depth,
+            dynamic_stopping=False,
+            verbose=1,
+        )
+        return jnp.sum(sigma**2)
+
+    def loss_fn(params, epsilon_bar):
+        epsilon, sigma = _lippmann_schwinger_jax(
+            compute_sigma_inelastic,
+            params,
+            epsilon_bar,
+            ref_params,
+            grid_spec_small,
+            tol=tol,
+            depth=depth,
+            maxits=maxits,
+            dynamic_stopping=False,
+            verbose=1,
+        )
+        return jnp.sum(sigma**2)
+
+    g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(params, epsilon_bar)
+    g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
+    rtol = 1.0e-11 if dtype == jnp.float64 else 1.0e-6
+
+    for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0]):
+        assert np.linalg.norm(x - y) / np.linalg.norm(y) < rtol

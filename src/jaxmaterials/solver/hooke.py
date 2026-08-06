@@ -133,7 +133,7 @@ def compute_sigma_inelastic(epsilon, params):
     """
     tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
     sigma = 2 * params["mu"] / (
-        1 + 0.1 * jnp.linalg.norm(tr_epsilon)
+        1 + 0.1 * jnp.linalg.norm(tr_epsilon, axis=0)
     ) * epsilon + params["lambda"] * jnp.stack(
         3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
     )
