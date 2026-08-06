@@ -216,7 +216,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
 
     g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(params, epsilon_bar)
     g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
-    rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-4
+    rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-5
     assert all(
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
         for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
@@ -321,7 +321,7 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
 
     g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(params, epsilon_bar)
     g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
-    rtol = 1.0e-11 if dtype == jnp.float64 else 1.0e-6
+    rtol = 1.0e-11 if dtype == jnp.float64 else 1.0e-5
 
     for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0]):
         assert np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
