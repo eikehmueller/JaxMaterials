@@ -1,4 +1,4 @@
-"""Methods for relating strain :math:`\\epsilon` and stress :math:`\\sigma=\\sigma(\\epsilon)`
+"""Methods for relating strain :math:`\\epsilon` and stress :math:`\\sigma=\\Sigma(\\epsilon|\\theta)`
 
 Implementation of Hooke's law for isotropic and anisotropic materials. All methods conform to the
 common interface::
@@ -8,7 +8,7 @@ common interface::
         return sigma
 
 where ``epsilon`` is the strain :math:`\\epsilon` and `params` is
-a `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_ with the parameters.
+a `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_ with the parameters :math:`\\theta`.
 """
 
 from jax import numpy as jnp

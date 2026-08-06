@@ -3,7 +3,7 @@
 Solvers are implemented for three different setups:
 
 1. a general, user defined stress-strain relationship of the form
-    :math:`\\sigma=\\sigma(\\epsilon)`
+    :math:`\\sigma=\\Sigma(\\epsilon|\\theta)`
 2. anisotropic materials for which :math:`\\sigma=C\\epsilon` with a general spatially
     varying symmetric elasticity tensor :math:`C=C(x)`
 3. isotropic materials for which :math:`\\sigma=C\\epsilon` with a spatially varying
@@ -77,7 +77,7 @@ def lippmann_schwinger(
 
     .. math::
 
-        \\epsilon = -\\Gamma^0 * \\left(\\sigma(\\epsilon)-C^0\\epsilon \\right)
+        \\epsilon = -\\Gamma^0 * \\left(\\Sigma(\\epsilon|\\theta)-C^0\\epsilon \\right)
 
     where
 
@@ -88,7 +88,7 @@ def lippmann_schwinger(
     is the reference linear elasticity tensor expressed in terms of the Lame parameters
     :math:`\\mu_{ref}` and :math:`\\lambda_{ref}`.
 
-    The stress-strain relationship :math:`\\sigma=\\sigma(\\epsilon)` is described by the
+    The stress-strain relationship :math:`\\sigma=\\Sigma(\\epsilon|\\theta)` is described by the
     passed function ``compute_sigma()`` which is of the form::
 
         def compute_sigma(epsilon, params):
@@ -101,7 +101,7 @@ def lippmann_schwinger(
     Parameters
     ==========
     compute_sigma
-        function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
+        function :math:`\\sigma=\\Sigma(\\varepsilon|\\theta)` which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
     params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
         material parameters which are passed on to ``compute_sigma()``
     epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_

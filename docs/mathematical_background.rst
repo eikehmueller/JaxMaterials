@@ -26,7 +26,7 @@ In the stress-strain relationship :math:`\sigma=C\varepsilon` the field :math:`C
 
 .. math:: C(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk}).
 
-While in the following discussion we initially focus on an isotropic material for simplicity, below we will also extend the approach to anisotropic materials and a more general stress-strain relationship :math:`\sigma=\sigma(\epsilon)` defined by the user. 
+While in the following discussion we initially focus on an isotropic material for simplicity, below we will also extend the approach to anisotropic materials and a more general stress-strain relationship :math:`\sigma=\Sigma(\epsilon|\theta)` defined by the user. 
 
 .. _sec:discretisation:
 
@@ -573,7 +573,7 @@ in the general, anisotropic case and
 
    \frac{\delta J}{\delta \overline{\varepsilon}},\qquad\frac{\delta J}{\delta \mu(x)},\qquad\frac{\delta J}{\delta \lambda(x)} 
 
-for isotropic materials. :ref:`Below <sec:generic_stress_model>` we will also consider the general case in which the stress depends on the strain as :math:`\sigma=\sigma(\varepsilon;\theta)` where :math:`\theta` are user-defined parameters and we want to compute :math:`\delta J/\delta \theta(x)`.
+for isotropic materials. :ref:`Below <sec:generic_stress_model>` we will also consider the general case in which the stress depends on the strain as :math:`\sigma=\Sigma(\varepsilon|\theta)` where :math:`\theta` are user-defined parameters and we want to compute :math:`\delta J/\delta \theta(x)`.
 
 Adjoint equation
 ^^^^^^^^^^^^^^^^
