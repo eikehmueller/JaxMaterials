@@ -23,7 +23,7 @@ Any contributions should follow the common development guidelines to ensure that
 * Stick to the AI policy
   
 ## AI policy
-You can contribute AI generated code and documentation, but any such code needs to be carefully checked. The contributor is fully responsible for any generated code. Avoid generating substantial amounts of code in one go - instead progress along well defined tasks which can be checked. AI generated code can be unnecessarily convoluted, so always try to find the simplest solution. Ensure that the use of AI does not unintentionally violate intellectual property rights, for example by copying code from publicly available repositories, discussion forums or blog posts.
+You can contribute AI generated code and documentation, but any such code needs to be carefully checked. The contributor is fully responsible for any generated code and should clearly attribute any generated code, unless it only amounts to minor changes. Avoid generating substantial amounts of code in one go - instead progress along well defined tasks which can be checked. AI generated code can be unnecessarily convoluted, so always try to find the simplest solution. Ensure that the use of AI does not unintentionally violate intellectual property rights, for example by copying code from publicly available repositories, discussion forums or blog posts.
 
 ## Suggested areas of development
 
