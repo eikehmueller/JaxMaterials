@@ -5,7 +5,7 @@ If you have problems using this code, please contact the developers and/or open 
 
 * Wider context:
     - Which problem are you solving? 
-    - How do you call the library from your code?
+    - How do you call the library from your own code?
 * Details on the environment such as Python version and installed packages 
 * Exact error messages and logs
 * What have you already tried to fix the problem?
@@ -20,6 +20,10 @@ Any contributions should follow the common development guidelines to ensure that
 * Keep the code modular
 * Adhere to existing interfaces
 * Thoroughly document both your code and the mathematics behind it
+* Stick to the AI policy
+  
+## AI policy
+You can contribute AI generated code and documentation, but any such code needs to be carefully checked. The contributor is fully responsible for any generated code. Avoid generating substantial amounts of code in one go - instead progress along well defined tasks which can be checked. AI generated code can be unnecessarily convoluted, so always try to find the simplest solution. Ensure that the use of AI does not unintentionally violate intellectual property rights, for example by copying code from publicly available repositories, discussion forums or blog posts.
 
 ## Suggested areas of development
 
@@ -31,7 +35,7 @@ Note that the JAX code is already very fast, so only do this if it is likely lea
 * Multi-GPU parallelisation
 * Detailed profiling and optimisation 
 
-### Additional problems
+### Additional applications
 
 * Extend the code to 2d
-* Add Lippmann Schwinger solvers for other equations, in particular advection reaction diffusion $-\nabla K \cdot (\nabla u) + a u + b\cdot \nabla u = f$
+* Add Lippmann Schwinger solvers for other equations, in particular advection reaction diffusion $-\nabla K \cdot (\nabla u) + a u + \nabla\cdot (b u) = f$
