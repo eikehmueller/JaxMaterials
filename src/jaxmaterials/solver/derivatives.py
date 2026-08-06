@@ -2,32 +2,35 @@
 
 from jax import numpy as jnp
 
-__all__ = ["backward_derivative", "backward_divergence"]
+__all__ = [
+    "backward_derivative",
+    "backward_divergence",
+]
 
 
 def backward_derivative(g, grid_spec, direction):
-    """Discrete backward derivative :math:`\\partial_i g` of function :math:`g(x)`
+    """Discrete backward derivative :math:`D_i^- g` of function :math:`g(x)` as described in :ref:`sec:discretisation`
 
     For ``direction=0`` the backward derivative is defined as the finite difference
 
     .. math::
 
-        D^-_0g(x) = \\frac{1}{h_0} \\left(S_{1,2}g(x) - S_{1,2}g(x-e_0)\\right)
+        D^-_0g(x) = \\frac{1}{h_0} \\left(S^-_{1,2}g(x) - S^-_{1,2}g(x-h_0 e_0)\\right)
 
-    where :math:`h_0` is the grid spacing in direction 0 and :math:`S_{1,2}` denotes
+    where :math:`h_0` is the grid spacing in direction 0 and :math:`S^-_{1,2}` denotes
     averaging over the other two directions. More generally
 
     .. math::
 
-        S_{i,j}g(x) = \\frac{1}{4}\\left(g(x)+g(x-e_i)+g(x-e_j)+g(x-e_i-e_j)\\right)
+        S^-_{i,j}g(x) = \\frac{1}{4}\\left(g(x)+g(x-h_ie_i)+g(x-h_je_j)+g(x-h_ie_i-h_je_j)\\right)
 
     Similarly we have for the discrete backward derivatives in the other directions:
 
     .. math::
     
         \\begin{aligned}
-            D^-_1g(x) &= \\frac{1}{h_1} \\left(S_{0,2}g(x) - S_{0,2}g(x-e_1)\\right)\\\\
-            D^-_2g(x) &= \\frac{1}{h_2} \\left(S_{0,1}g(x) - S_{0,1}g(x-e_2)\\right)
+            D^-_1g(x) &= \\frac{1}{h_1} \\left(S^-_{0,2}g(x) - S^-_{0,2}g(x-h_1e_1)\\right)\\\\
+            D^-_2g(x) &= \\frac{1}{h_2} \\left(S^-_{0,1}g(x) - S^-_{0,1}g(x-h_2e_2)\\right)
         \\end{aligned}
 
     Parameters
@@ -97,7 +100,7 @@ def backward_derivative(g, grid_spec, direction):
 
 
 def backward_divergence(sigma, grid_spec):
-    """Discrete backward divergence :math:`\\partial_i\\sigma_{ij}` of symmetric :math:`3\\times 3` tensor-valued function :math:`\\sigma_{ij}(x)`
+    """Discrete backward divergence :math:`D_i^-\\sigma_{ij}` of symmetric :math:`3\\times 3` tensor-valued function :math:`\\sigma_{ij}(x)`
 
     The components of the tensor are assumed to be represented in vector form
     using Voigt notation:
@@ -111,11 +114,13 @@ def backward_divergence(sigma, grid_spec):
     .. math::
 
         \\begin{pmatrix}
-            \\frac{d\\sigma_{00}}{dx_0} + \\frac{d\\sigma_{01}}{dx_1} + \\frac{d\\sigma_{02}}{dx_2} \\\\
-            \\frac{d\\sigma_{10}}{dx_0} + \\frac{d\\sigma_{11}}{dx_1} + \\frac{d\\sigma_{12}}{dx_2} \\
-            \\frac{d\\sigma_{20}}{dx_0} + \\frac{d\\sigma_{21}}{dx_1} + \\frac{d\\sigma_{22}}{dx_2}
+            D_0^-\\sigma_{00} + D_1^-\\sigma_{01} + D_2^-\\sigma_{02} \\\\
+            D_0^-\\sigma_{10} + D_1^-\\sigma_{11} + D_2^-\\sigma_{12} \\\\
+            D_0^-\\sigma_{20} + D_1^-\\sigma_{21} + D_2^-\\sigma_{22}
         \\end{pmatrix}
 
+    where the backward derivatives :math:`D_i^-` are computed as in :py:func:`backward_derivative`.
+        
     Parameters
     ==========
     sigma : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_

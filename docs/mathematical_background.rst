@@ -28,6 +28,8 @@ In the stress-strain relationship :math:`\sigma=C\varepsilon` the field :math:`C
 
 While in the following discussion we initially focus on an isotropic material for simplicity, below we will also extend the approach to anisotropic materials and a more general stress-strain relationship :math:`\sigma=\sigma(\epsilon)` defined by the user. 
 
+.. _sec:discretisation:
+
 Discretisation
 --------------
 
@@ -40,7 +42,7 @@ To discretise the equations of linear elasticity in :eq:`eqn:continuum_equations
 
    Fig 1: Staggered placement of variables on the grid.
 
-For simplicity, only the two-dimensional version is shown, but in the code we of course use the three-dimensional equivalent.
+For simplicity, only the two-dimensional version is shown, but in the code we of course use the three-dimensional equivalent. Each coordinate direction :math:`i` is subdivided into :math:`N_i` intervals resulting in gridspacings of :math:`h_i=L_i/N_i`. There are :math:`N=N_0N_1N_2` voxels, each of which has a volume of :math:`h_0h_1h_2`.
 
 The different variables are placed at the voxel centres :math:`\mathcal{C}` and voxel
 corners (vertices) :math:`\mathcal{V}` as shown in `Tab. 1 <#tab:placement>`__.
@@ -66,6 +68,7 @@ corners (vertices) :math:`\mathcal{V}` as shown in `Tab. 1 <#tab:placement>`__.
          |                        | stress divergence | :math:`\partial_i \sigma_{ij}`                                          |
          +------------------------+-------------------+-------------------------------------------------------------------------+
 
+Let :math:`e_i` be the unit vector in direction :math:`i`. 
 Define the first component of the forward gradient
 :math:`\boldsymbol{D}^+:\mathcal{V}\rightarrow \mathcal{C}` of a
 variable :math:`f\in \mathcal{V}` placed at the voxel corners as
@@ -73,26 +76,53 @@ variable :math:`f\in \mathcal{V}` placed at the voxel corners as
 .. math::
 
    \begin{aligned}
-   (D_0^+ f)_{abc} &= \frac{1}{4h_0}\Big[\left(f_{a+1,b,c}+f_{a+1,b+1,c}+f_{a+1,b,c+1}+f_{a+1,b+1,c+1}\right)\\
-   & \qquad -\;\;\left(f_{a,b,c}+f_{a,b+1,c}+f_{a,b,c+1}+f_{a,b+1,c+1} \right)\Big]
-       \end{aligned}
+   D_0^+f(x) = \frac{1}{h_0}\Big[\left( S^+_{1,2}f(x+h_0 e_0) - S^+_{1,2}f(x)\right)\Big]
+   \end{aligned}
 
-with corresponding expressions for the other two components :math:`D_1^+ f` and :math:`D_2^+ f`.
-The backward gradient
-:math:`\boldsymbol{D}^-:\mathcal{C}\rightarrow \mathcal{V}` of a
-variable :math:`g\in \mathcal{C}` placed at the voxel centres is given
-by
+where :math:`S^+_{1,2}` averages over the other two directions. More generally:
+
+.. math::
+
+   S^+_{i,j}f(x) = \frac{1}{4} \left(f(x)+f(x+h_i e_i)+f(x+h_j e_j)+f(x+h_i e_i+h_j e_j)\right)
+
+This results in the following expressions for the other two components :math:`D_1^+ f` and :math:`D_2^+ f` of :math:`\boldsymbol{D}^+ f`
 
 .. math::
 
    \begin{aligned}
-   (D_0^- g)_{abc} &= \frac{1}{4h_0}\Big[\left(g_{a,b,c}+g_{a,b-1,c}+g_{a,b,c-1}+g_{a,b-1,c-1}\right)\\
-   & \qquad -\;\;\left(g_{a-1,b,c}+g_{a-1,b-1,c}+g_{a-1,b,c-1}+g_{a-1,b-1,c-1} \right)\Big]
-       \end{aligned}
+   D_1^+ f(x) &= \frac{1}{h_1}\Big[\left( S^+_{0,2}f(x+h_1 e_1) - S^+_{0,2}f(x)\right)\Big]\\
+   D_2^+ f(x) &= \frac{1}{h_2}\Big[\left( S^+_{0,1}f(x+h_2 e_2) - S^+_{0,1}f(x)\right)\Big]
+   \end{aligned}
 
-Observe that :math:`-\boldsymbol{D}^+\cdot \boldsymbol{D}^- = -\boldsymbol{D}^-\cdot \boldsymbol{D}^+`
-is an approximation of the Laplace operator
-:math:`\Delta=\partial_j\partial_j`.
+
+The components of the backward gradient :math:`\boldsymbol{D}^-:\mathcal{C}\rightarrow \mathcal{V}` of a variable :math:`g\in \mathcal{C}` placed at the voxel centres is defined similarly:
+
+.. math::
+
+   \begin{aligned}
+   D_0^- f(x) &= \frac{1}{h_0}\Big[\left( S^-_{1,2}f(x+h_0 e_0) - S^-_{1,2}f(x)\right)\Big]\\
+   D_1^- f(x) &= \frac{1}{h_1}\Big[\left( S^-_{0,2}f(x+h_1 e_1) - S^-_{0,2}f(x)\right)\Big]\\
+   D_2^- f(x) &= \frac{1}{h_2}\Big[\left( S^-_{0,1}f(x+h_2 e_2) - S^-_{0,1}f(x)\right)\Big]
+   \end{aligned}
+
+with
+
+.. math::
+
+   S^-_{i,j}f(x) = \frac{1}{4} \left(f(x)+f(x-h_i e_i)+f(x-h_j e_j)+f(x-h_i e_i-h_j e_j)\right)
+
+   
+Observe that :math:`-\boldsymbol{D}^+\cdot \boldsymbol{D}^- = -\boldsymbol{D}^-\cdot \boldsymbol{D}^+` is an approximation of the (negative) Laplace operator :math:`-\Delta=-\partial_j\partial_j`.
+
+For simplicity will often write
+
+.. math::
+
+   f_{\boldsymbol{n}} = f_{n_0,n_1,n_2} = f((\omega+n_0) e_0,(\omega+n_1) e_1,(\omega+n_2) e_2)
+
+in the following, where the offset is :math:`\omega=0` for variables associated with vertices and :math:`\omega=\frac{1}{2}` for variables associated with voxel centres.
+
+.. _sec:fourier:
 
 Fourier expansion
 ^^^^^^^^^^^^^^^^^
@@ -337,6 +367,8 @@ The corresponding method is written down explicitly in :ref:`alg:lippmann_schwin
 #. |indent| Update :math:`\varepsilon_{k\ell} \mapsto \varepsilon_{k\ell} + r_{k\ell}`
 #. **EndFor**
 #. **Return** :math:`\varepsilon`
+
+.. _sec:stopping_criterion:
 
 Stopping criterion
 ^^^^^^^^^^^^^^^^^^

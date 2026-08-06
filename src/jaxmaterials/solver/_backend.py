@@ -9,91 +9,18 @@ from functools import partial
 
 import jax
 from jax import numpy as jnp
-from jaxmaterials.solver.derivatives import backward_divergence
 from jaxmaterials.solver.fourier import (
     get_xizero,
     get_xi,
     fourier_solve_isotropic,
 )
+from jaxmaterials.solver.divergence import (
+    relative_divergence,
+    relative_divergence_fourier,
+)
 from jaxmaterials.solver.hooke import compute_sigma_isotropic
 
-__all__ = [
-    "relative_divergence",
-    "relative_divergence_fourier",
-    "solve",
-]
-
-
-def relative_divergence(sigma, grid_spec):
-    """Relative divergence of stress :math:`\\sigma` in real space
-
-    Computes the ratio
-
-    .. math::
-
-        \\frac{\\langle\\|\\partial\\sigma\\|_2\\rangle}{\\|\\langle\\sigma\\rangle\\|_2}
-
-    used in convergence tests.
-
-    Parameters
-    ==========
-    sigma : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-        stress :math:`\\sigma`, array of shape ``(6,nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
-        specification of computational grid
-
-    Returns
-    =======
-    ratio :math:`\\langle\\|\\partial\\sigma\\|_2\\rangle/\\|\\langle\\sigma\\rangle\\|_2`
-    """
-    dsigma = backward_divergence(sigma, grid_spec)
-    dsigma_nrm = jnp.sqrt(jnp.sum(dsigma**2))
-    sigma_avg = jnp.mean(sigma, axis=[1, 2, 3])
-    sigma_avg_nrm = jnp.sqrt(
-        jnp.sum(sigma_avg[:3] ** 2) + 2 * jnp.sum(sigma_avg[3:] ** 2)
-    )
-    return dsigma_nrm / (jnp.sqrt(grid_spec.number_of_voxels) * sigma_avg_nrm)
-
-
-def relative_divergence_fourier(sigma_hat, xi):
-    """Relative divergence of stress :math:`\\sigma` in Fourier space
-
-    Computes
-
-    .. math::
-
-        \\frac{\\langle|\\xi\\cdot\\widehat{\\sigma}|_2\\rangle}{|\\widehat{\\sigma}(\\xi=0)|_2}
-
-    Parameters
-    ==========
-    sigma_hat : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-        stress :math:`\\sigma` in Fourier space, array of shape ``(6,nx,ny,nz)``
-    :arg xi : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-        Fourier vectors, array of shape ``(6,nx,ny,nz)``
-
-    Returns
-    =======
-    ratio :math:`\\langle|\\xi\\cdot\\widehat{\\sigma}|_2\\rangle/|\\widehat{\\sigma}(\\xi=0)|_2`
-    """
-    dsigma_hat = jnp.stack(
-        [
-            xi[0, ...] * sigma_hat[0, ...]
-            + xi[1, ...] * sigma_hat[3, ...]
-            + xi[2, ...] * sigma_hat[4, ...],
-            xi[0, ...] * sigma_hat[3, ...]
-            + xi[1, ...] * sigma_hat[1, ...]
-            + xi[2, ...] * sigma_hat[5, ...],
-            xi[0, ...] * sigma_hat[4, ...]
-            + xi[1, ...] * sigma_hat[5, ...]
-            + xi[2, ...] * sigma_hat[2, ...],
-        ]
-    )
-    dsigma_nrm = jnp.sqrt(jnp.sum(jnp.abs(dsigma_hat) ** 2))
-    sigma_hat_zero = jnp.real(sigma_hat[:, 0, 0, 0])
-    sigma_hat_zero_nrm = jnp.sqrt(
-        jnp.sum(sigma_hat_zero[:3] ** 2) + 2 * jnp.sum(sigma_hat_zero[3:] ** 2)
-    )
-    return dsigma_nrm / sigma_hat_zero_nrm
+__all__ = ["solve"]
 
 
 @jax.jit(

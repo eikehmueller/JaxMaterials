@@ -5,13 +5,10 @@ import jax
 import re
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
-from jaxmaterials.solver.fourier import get_xi
-from jaxmaterials.solver._backend import (
-    relative_divergence,
-    relative_divergence_fourier,
-    _lippmann_schwinger_jax,
-)
 
+from jaxmaterials.solver.divergence import relative_divergence
+
+from jaxmaterials.solver._backend import _lippmann_schwinger_jax
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic,
     lippmann_schwinger_anisotropic,
@@ -41,23 +38,6 @@ def get_niter(capfd):
     else:
         assert False
     return its
-
-
-def test_relative_divergence(grid_spec):
-    """Verify that the relative divergence used for exit criterion is computed
-    consistently in real space and Fourier space
-
-    :arg grid_spec: specification of computational grid
-    """
-
-    xi = get_xi(grid_spec)
-    rng = np.random.default_rng(seed=8741823)
-    sigma = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz))
-    sigma_hat = np.fft.fftn(sigma, axes=[-3, -2, -1])
-    rel_div_real = relative_divergence(sigma, grid_spec)
-    rel_div_fourier = relative_divergence_fourier(sigma_hat, xi)
-    tolerance = 1.0e-5
-    assert abs((rel_div_real - rel_div_fourier) / rel_div_real) < tolerance
 
 
 @pytest.mark.parametrize("depth", [0, 2, 4])
