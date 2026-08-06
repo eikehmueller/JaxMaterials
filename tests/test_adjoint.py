@@ -10,10 +10,11 @@ from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic,
     lippmann_schwinger_anisotropic,
 )
-from jaxmaterials.solver.backend import _lippmann_schwinger_adjoint_jax
-from jaxmaterials.solver.backend import _lippmann_schwinger_jax
-
-from jaxmaterials.solver.backend import solve
+from jaxmaterials.solver._backend import (
+    _lippmann_schwinger_adjoint_jax,
+    _lippmann_schwinger_jax,
+    solve,
+)
 from fixtures import (
     initialise_isotropic_material,
     reference_parameters,
