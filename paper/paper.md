@@ -50,13 +50,13 @@ The user provides the constituitive law in the form of a Python function:
 
 ```Python
 def compute_sigma(epsilon, params):
-    # Compute stress sigma from strain epsilon, given the parameters
+    # Compute stress sigma from strain epsilon, given params
     return sigma
 ```
 
 ## Example usage
 
-Consider an isotropic linear material for which $\sigma_{ij}(x) = \lambda(x) \operatorname{tr}(\varepsilon(x))\delta_{ij} + 2\mu(x)\varepsilon_{ij}(x)$. In this case $\theta = \{\mu(x),\lambda(x)\}$ and the constituitive law $\Sigma(\varepsilon|\theta)$ is implemented as the following function:
+Consider an isotropic elastic material for which $\sigma_{ij}(x) = \lambda(x) \operatorname{tr}(\varepsilon(x))\delta_{ij} + 2\mu(x)\varepsilon_{ij}(x)$. In this case $\theta = \{\mu(x),\lambda(x)\}$ and the constituitive law $\Sigma(\varepsilon|\theta)$ is implemented as the following function:
 
 ```Python
 def compute_sigma(epsilon, params):
@@ -73,7 +73,7 @@ The parameters are passed as a dictionary which constitutes a JAX pytree:
 params = {"lambda": lmbda, "mu": mu}
 ```
 
-To use this, we first import the necessary libraries
+In the code, we first import the necessary libraries
 
 ```Python
 import numpy as np
@@ -85,14 +85,14 @@ from jaxmaterials.common import GridSpec
 from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger
 ```
 
-and construct a structured grid of the domain $\Omega = [0,1]\times[0,1]\times[0,0.5]$ with $32\times32\times16$ voxels:
+and construct a structured grid of the domain $\Omega = [0,1]\times[0,1]\times[0,\frac{1}{2}]$ with $32\times32\times16$ voxels:
 
 ```Python 
 nx, ny, nz = 32, 32, 16
 grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
 ```
 
-In this example, the Lame parameters are set to random values and the mean strain is set to $\overline{\varepsilon} = (1,0,0,0,0,0)$:
+In this example, the Lame parameters $\mu(x)$, $\lambda(x)$ are set to random values and only the first component of the mean strain $\overline{\varepsilon}$ is nonzero:
 
 ```Python
 rng = np.random.default_rng(seed=47273)
@@ -110,7 +110,7 @@ ref_params = {
 }
 ```
 
-Assume that we are interested in the objective function $J = \varepsilon^2+\sigma^2$. This can be implemented as a function of $\theta$, $\overline{\varepsilon}$ by calling the differentiable Lippman Schwinger solver:
+Assume that we are interested in the objective function $J = \varepsilon^2+\sigma^2$. This can be implemented as a function of $\theta$, $\overline{\varepsilon}$ by calling the differentiable Lippmann Schwinger solver:
 
 ```Python
 def loss_fn(params, epsilon_bar):
@@ -125,6 +125,27 @@ Finally, gradients of $J$ with respect to $\theta$, $\overline{\varepsilon}$ can
 ```Python
 grad_fn = jax.grad(loss_fn, argnums=(0, 1))
 g_params, g_epsilon_bar = grad_fn(params, epsilon_bar)
+```
+
+In this particular case we can also use the bespoke function `lippmann_schwinger_isotropic()` which assumes an isotropic elastic constituitive law. This function only needs to be passed the Lame parameters `params = {"lambda": lmbda, "mu": mu}` and automatically computes $\mu^0$, $\lambda^0$:
+
+```Python
+from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
+
+
+def loss_fn(params, epsilon_bar):
+    epsilon, sigma = lippmann_schwinger_isotropic(
+        params, epsilon_bar, grid_spec=grid_spec
+    )
+    return jnp.sum(epsilon**2 + sigma**2)
+```
+
+If we are only interested in the forward solve, we can also use the slightly more efficient CUDA implementation
+
+```Python
+epsilon, sigma = lippmann_schwinger_isotropic(
+    params, epsilon_bar, grid_spec, use_cuda=True
+)
 ```
 
 # Research impact statement
