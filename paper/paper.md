@@ -46,13 +46,23 @@ Since the semial work in `@Moulinec:1998`, a well established approach has been 
 
 # Software design
 
-The user provides the constituitive law in the form of a Python function:
+## JAX implementation
+
+Since the code is based on JAX, all functions are pure and parameters are passed as state variables. The central functionality is exposed through the function `lippmann_schwinger()` whichs gets passed as a user-defined constituitive law $\Sigma(\varepsilon|\theta)$ of the form:
 
 ```Python
 def compute_sigma(epsilon, params):
     # Compute stress sigma from strain epsilon, given params
     return sigma
 ```
+
+Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable, and by design our library allows the implementation of non-trivial models such as the one in `@Chen:2019`.
+
+For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well; in both cases the constituitive law is implemented in `hooke.py` and the user only needs to pass the relevant entries of the elasticity tensor.
+
+## Low-level CUDA-C implementation
+
+In addition to the Python code, a low level CUDA-C implementation for elastic materials is also provided and it can be accessed through the same interface functions. Note that this needs to be compiled separately (with CMake). Depending on the hardware, this can be faster than the JAX code, in particular for the isotropic case. At the moment, the CUDA implementation is not differentiable, but in principle this limitation could be overcome by implementing the adjoint Lippmann Schwinger solve.
 
 ## Example usage
 
