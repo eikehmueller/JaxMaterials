@@ -265,7 +265,6 @@ Figure 2: Evolution of the effective bulk modulus of the metamaterial at various
 ## PDE Problem
 We consider the following system of equations for spatially varying strain $\varepsilon$ and stress $\sigma$:
 
-$$
 \begin{equation}
 \begin{aligned}
     \partial_j \sigma_{ij} &= 0 & \text{(Cauchy momentum equation)}\\
@@ -273,7 +272,6 @@ $$
     \varepsilon^*_{k\ell} &= \frac{1}{2}\left(\partial_k u_\ell + \partial_\ell u_k\right) & \text{(Strain-displacement relation)}
 \end{aligned}\label{eqn:continuum}
 \end{equation}
-$$
 
 The problem is solved in a rectangular domain with periodic boundary conditions for the displacement field $u(x)$ and for given average strain $\overline{\varepsilon}$.
 
