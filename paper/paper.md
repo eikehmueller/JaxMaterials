@@ -161,7 +161,104 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 ```
 
 # Research impact statement
-Yang - can you give some examples here?
+
+
+## Benchmarking against existing FFT solver
+We present some numerical comparison of JaxMaterials agains an established open-source FFT solver AMITEX [REF]. ..........
+
+### 
+
+
+## Topology optimisation
+We design periodic porous metamaterial by topology optimisation with the objective of maximising the effective bulk modulus $K$, subject to prescribed solid volume fractions $\phi=0.1$, $0.2$, $0.3$. 
+A cubic representative volume element (RVE) of dimensions $0.5\times 0.5 \times 0.5$ $mm^3$ was considered. The solid phase was assigned a Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of a very high stiffness contrast and high porosity (low solid volume fracion) poses significant convergence challenge to the basic scheme of [Moulinec-Suquet], but this has been overcome using Anderson acceleration, as discussed in [the previous section].
+
+The optimisation was performed using optimality criteria method [REF], requiring the computation of the gradient of the objective function (negative effective bulk modulus, $-K$) with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^T$ (energy-based method [REF]):
+
+$$
+\begin{aligned}
+K &= \frac{1}{9} \sum_{i,j=1}^{3} C_{iijj}
+   = \frac{1}{9} \overline{\boldsymbol{\varepsilon}}^T : \mathbb{C} : \overline{\boldsymbol{\varepsilon}}
+\qquad\text{with}\qquad
+\overline{\boldsymbol{\varepsilon}} = (1,1,1,0,0,0)^T
+\end{aligned}
+$$
+
+The sensitivity $\frac{\partial K}{\partial \rho}$ was evaluated through the chain rule $\frac{\partial K}{\partial \rho} = \frac{\partial K}{\partial \mu} \frac{\partial \mu}{\partial \rho}$, where the gradient $\frac{\partial K}{\partial \mu}$ was computed by JaxMaterials. $\mu$ is the second Lam\'e coefficient (shear modulus), which is related to the Young's modulus $E$ and Poisson's ratio $\nu$ through $\mu=\frac{E}{2(1+\nu)}$. The Young's modulus $E$ was a function of density $\rho$:
+
+$$
+E = E_0 + (E_1 - E_0) \rho^p
+$$
+where $p$ is a SIMP penalty parameter, set to 5 in all examples presented herein. With this explicit expreission of $\mu(\rho)$, the derivative of $\frac{\mu}{\rho}$ can be obtained.
+
+To mitigate numerical instabilities (checker-boarding and mesh-dependency), a sensitivity filtering [REF] was applied:
+$$
+\widetilde{\frac{\partial K}{\partial \rho}} = \frac{(\frac{\partial K}{\partial \rho}\rho) \odot \omega}{\overline{\omega} \rho}
+$$
+where $\odot$ denotes periodic convolution (the RVE is periodic). $\omega$ is the convolution kernel that was set to a $2\times 2\times 2$ array with all elements equal to 1, and $\overline{\omega}$ is the sum of all elements in the kernel.
+
+The density map $\rho$ was initialised with the target solid volume fraction $\phi$ in a spherical structure as
+
+$$
+\rho =
+\begin{cases}
+    \phi / 2, & x \in \mathcal{D}, \\
+    \phi, & \text{otherwise}.
+\end{cases}
+\qquad\text{with}\qquad
+\mathcal{D}\text{ is the sphere region}
+$$
+In all cases, the sphere diameter was set to 2/3 of the domain size. 
+
+The evolution of the optimised topology for the three prescribed volume fractions is shown in Figure 1. For visualisation purposes, only a half-cut view of each structure is displayed, revealing the internal morphology of the evolving porous architectures.
+
+<figure>
+
+<div style="display: flex; justify-content: center; gap: 10px;">
+
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/to_vf0.1_seq.gif" alt="Figure 1.a" width="400">
+  <figcaption>(a) 10% </figcaption>
+</figure>
+
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/to_vf0.2_seq.gif" alt="Figure 1.b" width="400">
+  <figcaption>(b) 20% </figcaption>
+</figure>
+
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/to_vf0.3_seq.gif" alt="Figure 1.c" width="400">
+  <figcaption>(c) 30% </figcaption>
+</figure>
+
+</div>
+
+<figcaption style="text-align: center;">
+Figure 1: Evolution of the optimised structure with constraint on different volume fractions (a-c) of the solid phase. Only half cut-off view is shown to visualise the inside structure.
+</figcaption>
+
+</figure>
+
+The convergence histories of the effective bulk modulus are presented in Figure 2 for the three volume-fraction constraints. In all cases, the optimisation process yields a monotonic increase in bulk stiffness before reaching a stable plateau, indicating successful convergence.
+
+<figure>
+<div style="display: flex; justify-content: center; gap: 10px;">
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/to_convergence.png" alt="Figure 2" width="400">
+</figure>
+</div>
+<figcaption style="text-align: center;">
+Figure 2: Evolution of the effective bulk modulus of the metamaterial at various solid volume fractions (vf).
+</figcaption>
+</figure>
+
+
+
+
+
+
+
+
 
 # Mathematics
 
