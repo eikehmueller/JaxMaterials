@@ -61,10 +61,6 @@ Internally, this calls a backend function which is equipped with custom reverse 
 
 For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well; in both cases the constituitive law is implemented in `hooke.py` and the user only needs to pass the relevant entries of the elasticity tensor.
 
-## Low-level CUDA-C implementation
-
-In addition to the Python code, a low level CUDA-C implementation for elastic materials is also provided and it can be accessed through the same interface functions. Note that this needs to be compiled separately (with CMake). Depending on the hardware, this can be faster than the JAX code, in particular for the isotropic case. At the moment, the CUDA implementation is not differentiable, but in principle this limitation could be overcome by implementing the adjoint Lippmann Schwinger solve.
-
 ## Example usage
 
 Consider an isotropic elastic material for which $\sigma_{ij}(x) = \lambda(x) \operatorname{tr}(\varepsilon(x))\delta_{ij} + 2\mu(x)\varepsilon_{ij}(x)$. In this case $\theta = \{\mu(x),\lambda(x)\}$ and the constituitive law $\Sigma(\varepsilon|\theta)$ is implemented as the following function:
@@ -160,6 +156,10 @@ epsilon, sigma = lippmann_schwinger_isotropic(
     params, epsilon_bar, grid_spec, use_cuda=True
 )
 ```
+
+## Low-level CUDA-C implementation
+
+In addition to the Python code, a low level CUDA-C implementation for elastic materials is also provided and it can be accessed through the same interface functions. Note that this needs to be compiled separately (with CMake). Depending on the hardware, this can be faster than the JAX code, in particular for the isotropic case. At the moment, the CUDA implementation is not differentiable, but in principle this limitation could be overcome by implementing the adjoint Lippmann Schwinger solve.
 
 # Research impact statement
 
