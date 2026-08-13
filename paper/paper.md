@@ -38,7 +38,7 @@ To resolve fine structure in multiscale simulations, implementations need to be 
 Usually the dimension of the objective function $J$ is much smaller than the dimension of the input parameters $\theta$ and *forward mode differentiation* with Jabobian-vector products (jax.jvp's) is very inefficient (see discussion in Section 2 of @Pundir:2025). On the other hand, using *reverse mode differentiation* (backpropagation) is not trivial due to the iterative nature of the Lippmann Schwinger solver:
 
 * In the forward pass, the states for all iterations need to be stored to allow back-propgation of gradients, which leads to significant memory overhead and might make the simulation of large problems intractable.
-* If - as in all real applications - a dynamic stopping criterion is used to terminate the iteration, JAX, cannot compute the reverse mode gradient since the trip-count of while-loops is unknown at compile time.
+* If - as in all real applications - a dynamic stopping criterion is used to terminate the iteration, JAX, cannot compute the reverse mode gradient since the trip-count of while-loops is unknown at (just-in-time-)compile time.
 
 To address these issues, we employ the adjoint state method (see e.g. @Hinze:2008, @Johnson:2012). This leads to an adjoint Lippmann Schwinger equation of a very simular structure which is solved iteratively.
 
