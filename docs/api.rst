@@ -8,6 +8,7 @@ Python API
 
    jaxmaterials
    jaxmaterials.common.GridSpec
+   jaxmaterials.common.get_grid_spec
    jaxmaterials.utilities.save_to_vtk
    jaxmaterials.utilities.measure_time
    jaxmaterials.solver.fourier.fourier_solve_anisotropic
