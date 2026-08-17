@@ -102,7 +102,7 @@ class GridSpec:
         return np.stack([X.flatten(), Y.flatten(), Z.flatten()], axis=-1)
 
 
-def get_grid_spec(Lx, Ly, Lz, /, nx=None, ny=None, nz=None, hx=None, hy=None, hz=None):
+def get_grid_spec(Lx, Ly, Lz, /, nx=None, ny=None, nz=None, dx=None, dy=None, dz=None):
     """Factory for constructing grid specification
 
     In each direction, the size of the grid can be specified either by giving the number
@@ -122,11 +122,11 @@ def get_grid_spec(Lx, Ly, Lz, /, nx=None, ny=None, nz=None, hx=None, hy=None, hz
         number of voxels :math:`n_y` in y-direction
     nz : int
         number of voxels :math:`n_z` in z-direction
-    hx : int
+    dx : int
         voxel size :math:`h_x` in x-direction
-    hy : int
+    dy : int
         voxel size :math:`h_y` in y-direction
-    hz : int
+    dz : int
         voxel size :math:`h_z` in z-direction
 
     Returns
@@ -139,8 +139,8 @@ def get_grid_spec(Lx, Ly, Lz, /, nx=None, ny=None, nz=None, hx=None, hy=None, hz
             isinstance(n, int) and (h is None)
         )
 
-    assert _valid(nx, hx) and _valid(ny, hy) and _valid(nz, hz)
-    _nx = nx if hx is None else round(Lx / hx)
-    _ny = ny if hy is None else round(Ly / hy)
-    _nz = nz if hz is None else round(Lz / hz)
+    assert _valid(nx, dx) and _valid(ny, dy) and _valid(nz, dz)
+    _nx = nx if dx is None else int(Lx / dx)
+    _ny = ny if dy is None else int(Ly / dy)
+    _nz = nz if dz is None else int(Lz / dz)
     return GridSpec(Lx, Ly, Lz, _nx, _ny, _nz)
