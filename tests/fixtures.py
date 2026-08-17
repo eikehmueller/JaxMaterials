@@ -4,7 +4,7 @@ import pytest
 import numpy as np
 import pytest
 
-from jaxmaterials.common import GridSpec
+from jaxmaterials.common import get_grid_spec
 
 
 @pytest.fixture(params=[[64, 48, 32], [57, 43, 37]], ids=["even", "odd"])
@@ -17,7 +17,7 @@ def grid_spec(request):
     # Number of grid cells in all three spatial directions
     nx, ny, nz = request.param
 
-    return GridSpec(nx, ny, nz, Lx, Ly, Lz)
+    return get_grid_spec(Lx, Ly, Lz, nx=nx, ny=ny, nz=nz)
 
 
 @pytest.fixture(params=[[8, 6, 4], [7, 5, 3]], ids=["even", "odd"])
@@ -30,7 +30,7 @@ def grid_spec_small(request):
     # Number of grid cells in all three spatial directions
     nx, ny, nz = request.param
 
-    return GridSpec(nx, ny, nz, Lx, Ly, Lz)
+    return get_grid_spec(Lx, Ly, Lz, nx=nx, ny=ny, nz=nz)
 
 
 @pytest.fixture(params=[[512, 384, 256], [453, 347, 297]], ids=["even", "odd"])
@@ -43,7 +43,7 @@ def grid_spec_highres(request):
     # Number of grid cells in all three spatial directions
     nx, ny, nz = request.param
 
-    return GridSpec(nx, ny, nz, Lx, Ly, Lz)
+    return get_grid_spec(Lx, Ly, Lz, nx=nx, ny=ny, nz=nz)
 
 
 @pytest.fixture

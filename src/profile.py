@@ -2,7 +2,7 @@ import numpy as np
 import jax
 from jax import numpy as jnp
 
-from jaxmaterials.common import GridSpec
+from jaxmaterials.common import get_grid_spec
 from jaxmaterials.utilities import measure_time
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_isotropic,
@@ -47,7 +47,7 @@ ny = 64
 nz = 48
 
 repeat = 10
-grid_spec = GridSpec(nx, ny, nz, Lx, Ly, Lz)
+grid_spec = get_grid_spec(Lx, Ly, Lz, nx=nx, ny=ny, nz=nz)
 
 for dtype in (jnp.float32, jnp.float64):
     precision = "single precision" if dtype == jnp.float32 else "double precision"
