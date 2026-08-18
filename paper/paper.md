@@ -171,10 +171,11 @@ We present some numerical comparison of JaxMaterials agains an established open-
 
 
 ## Topology optimisation
-We design periodic porous metamaterial by topology optimisation with the objective of maximising the effective bulk modulus $K$, subject to prescribed solid volume fractions $\phi=0.1$, $0.2$, $0.3$. 
-A cubic representative volume element (RVE) of dimensions $0.5\times 0.5 \times 0.5$ $mm^3$ was considered. The solid phase was assigned a Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of a very high stiffness contrast and high porosity (low solid volume fracion) poses significant convergence challenge to the basic scheme of [Moulinec-Suquet], but this has been overcome using Anderson acceleration, as discussed in [the previous section].
+Periodic porous metamaterials were designed using topology optimisation to maximise the effective bulk modulus $K$, subject to prescribed solid volume fractions $\phi=0.1$, $0.2$, $0.3$. 
+A cubic Representative Volume Element (RVE) of dimensions $0.5\times 0.5 \times 0.5$ $mm^3$ was considered. The solid phase was assigned a Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. 
+The combination of a very high stiffness contrast, high porosity, and complex pore morphology can occasionally slow the convergence of the Lippmann-Schwinger solver, often requiring >2000 iterations to reach `tol=1e-3` with Anderson acceleration (`depth=4`). Therefore, the iterative solution was terminated after 2000 iterations. However, as shown in the Results section, this did not compromise the stability of the optimisation process.
 
-The optimisation was performed using optimality criteria method [REF], requiring the computation of the gradient of the objective function (negative effective bulk modulus, $-K$) with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^T$ (energy-based method [REF]):
+The optimisation was performed using optimality criteria method [REF], requiring the computation of the gradient of the objective function (negative effective bulk modulus, $c=-K$) with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^T$ (energy-based method [REF]):
 
 $$
 \begin{aligned}
@@ -185,16 +186,66 @@ K &= \frac{1}{9} \sum_{i,j=1}^{3} C_{iijj}
 \end{aligned}
 $$
 
-The sensitivity $\frac{\partial K}{\partial \rho}$ was evaluated through the chain rule $\frac{\partial K}{\partial \rho} = \frac{\partial K}{\partial \mu} \frac{\partial \mu}{\partial \rho}$, where the gradient $\frac{\partial K}{\partial \mu}$ was computed by JaxMaterials. $\mu$ is the second Lam\'e coefficient (shear modulus), which is related to the Young's modulus $E$ and Poisson's ratio $\nu$ through $\mu=\frac{E}{2(1+\nu)}$. The Young's modulus $E$ was a function of density $\rho$:
+This computation was programmed as a differentiable function making use of the `lippmann_schwinger()` function:
+```Python 
+def compute_c(rho, mat, grid_spec):
+    # Compute reference material parameters Lambda0, Mu0
+    E = mat['E0'] + (mat['E1'] - mat['E0']) * (rho + mat['kk']) ** mat['penalty']
 
-$$
-E = E_0 + (E_1 - E_0) \rho^p
-$$
-where $p$ is a SIMP penalty parameter, set to 5 in all examples presented herein. With this explicit expreission of $\mu(\rho)$, the derivative of $\frac{\mu}{\rho}$ can be obtained.
+    lmbda = E * mat['nu'] / (1. + mat['nu']) / (1. - 2. * mat['nu'])
+    mu = E / (2.0 * (1. + mat['nu']))
 
-To mitigate numerical instabilities (checker-boarding and mesh-dependency), a sensitivity filtering [REF] was applied:
+    lmbda0 = jax.lax.stop_gradient(0.5 * (jnp.max(lmbda) + jnp.min(lmbda)))
+    mu0 = jax.lax.stop_gradient(0.5 * (jnp.max(mu) + jnp.min(mu)))
+
+    # Solve linear elastic problem via Lippmann-Schwinger FFT solver.
+    epsilon_bar = jnp.array([1.,1.,1.,0.,0.,0.])
+
+    epsilon, sigma = lippmann_schwinger(
+        compute_sigma_from_density,
+        (rho, mat),
+        epsilon_bar,
+        ref_params={"lambda": lmbda0, "mu": mu0},
+        grid_spec=grid_spec,
+        tol=1.0e-3,
+        maxits=2000,
+        verbose=1,
+        depth=4,
+    )
+
+    sigma_bar = jnp.mean(sigma, axis=[1, 2, 3])
+    energy = jnp.sum( epsilon_bar[:3]*sigma_bar[:3] +
+                      epsilon_bar[3:]*sigma_bar[3:] * 2 )
+
+    return -energy / 9
+```
+
+The local constitutive model `compute_sigma_from_density()` takes the density field $\rho$ as input:
+```Python
+def compute_sigma_from_density(epsilon, params):
+     rho, mat = params
+
+    E = mat['E0'] + (mat['E1'] - mat['E0']) * (rho + mat['kk']) ** mat['penalty']
+
+    lmbda = E * mat['nu'] / (1. + mat['nu']) / (1. - 2. * mat['nu'])
+    mu = E / (2.0 * (1. + mat['nu']))
+
+    tr_epsilon = epsilon[0] + epsilon[1] + epsilon[2]
+    sigma = jnp.zeros_like(epsilon)
+    sigma = sigma.at[:3].set((lmbda * tr_epsilon)[None, ...] + 2.0 * mu * epsilon[:3])
+    sigma = sigma.at[3:].set(2.0 * mu * epsilon[3:])
+    return sigma
+```
+
+Then the sensitivity $\frac{\partial c}{\partial \rho}$ can be readily evaluated by
+```Python
+value_grad_fn = jax.value_and_grad(compute_c, argnums=0, has_aux=False)
+c, dc = value_grad_fn(rho, mat, grid_spec)
+```
+
+To mitigate numerical instabilities (checker-boarding and mesh-dependency), a sensitivity filtering [REF] was applied to the sensitivity:
 $$
-\widetilde{\frac{\partial K}{\partial \rho}} = \frac{(\frac{\partial K}{\partial \rho}\rho) \odot \omega}{\overline{\omega} \rho}
+\widetilde{\frac{\partial c}{\partial \rho}} = \frac{(\frac{\partial c}{\partial \rho}\rho) \odot \omega}{\overline{\omega} \rho}
 $$
 where $\odot$ denotes periodic convolution (the RVE is periodic). $\omega$ is the convolution kernel that was set to a $2\times 2\times 2$ array with all elements equal to 1, and $\overline{\omega}$ is the sum of all elements in the kernel.
 
@@ -213,32 +264,14 @@ In all cases, the sphere diameter was set to 2/3 of the domain size.
 
 The evolution of the optimised topology for the three prescribed volume fractions is shown in Figure 1. For visualisation purposes, only a half-cut view of each structure is displayed, revealing the internal morphology of the evolving porous architectures.
 
-<figure>
-
-<div style="display: flex; justify-content: center; gap: 10px;">
 
 <figure style="margin: 0; text-align: center;">
-  <img src="figures/to_vf0.1_seq.gif" alt="Figure 1.a" width="400">
-  <figcaption>(a) 10% </figcaption>
-</figure>
-
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/to_vf0.2_seq.gif" alt="Figure 1.b" width="400">
-  <figcaption>(b) 20% </figcaption>
-</figure>
-
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/to_vf0.3_seq.gif" alt="Figure 1.c" width="400">
-  <figcaption>(c) 30% </figcaption>
-</figure>
-
-</div>
-
-<figcaption style="text-align: center;">
-Figure 1: Evolution of the optimised structure with constraint on different volume fractions (a-c) of the solid phase. Only half cut-off view is shown to visualise the inside structure.
+  <img src="figures/animation_seq.gif" alt="Figure 1" width="700">
+  <figcaption style="text-align: center;">
+Figure 1: Evolution of the optimised structure with constraint on different volume fractions of the solid phase: left - $\phi=10%$, middle - $\phi=20%$, right - $\phi=30%$.
 </figcaption>
-
 </figure>
+
 
 The convergence histories of the effective bulk modulus are presented in Figure 2 for the three volume-fraction constraints. In all cases, the optimisation process yields a monotonic increase in bulk stiffness before reaching a stable plateau, indicating successful convergence.
 
@@ -254,10 +287,25 @@ Figure 2: Evolution of the effective bulk modulus of the metamaterial at various
 </figure>
 
 
+## Phase-field fracture problem
+This example applies JaxMaterials to the implementation of a variational phase-field fracture model [Miehe et al. 2010]. Two thermodynamics principles combined with a regularised (smeared) representation of the crack surface, derives two coupling equation systems, representing the elasticity and phase-field subproblems, respectively:
+
+[xxxxx]
 
 
 
+Following [Chen et al. 2019] A stagerred scheme is adopted to solve the two subproblems.
 
+**Table 1. Staggered FFT scheme for solving the phase-field fracture problem**
+| Step | Procedure |
+|------|-----------|
+| **Initialization** | Given the initial strain field $\varepsilon^{0}(\mathbf{x})$, history field $\mathcal{H}^{0}(\mathbf{x})$, and phase field $d^{0}(\mathbf{x})$. |
+| **Loop** | **While** $t_{n+1} \leq T$, given $\varepsilon^{t_n}(\mathbf{x})$, $d^{t_n}(\mathbf{x})$, and $\mathcal{H}^{t_n}(\mathbf{x})$. |
+| **1** | Solve the phase-field problem (Eq. (8a) or Eq. (10)) to obtain the updated phase field: $d^{t_{n+1}}(\mathbf{x})$. |
+| **2** | Solve the mechanical problem (Eq. (8b)) using the updated phase field to obtain the strain field: $\varepsilon^{t_{n+1}}(\mathbf{x})$. |
+| **3** | Update the history field according to Eq. (9) to obtain: $\mathcal{H}^{t_{n+1}}(\mathbf{x})$. |
+| **4** | Advance the time step: $t_n \leftarrow t_{n+1}$. |
+| **Output** | Phase field $d(\mathbf{x},t)$, strain field $\varepsilon(\mathbf{x},t)$, and history field $\mathcal{H}(\mathbf{x},t)$. |
 
 
 
