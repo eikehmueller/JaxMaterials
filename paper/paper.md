@@ -266,7 +266,7 @@ The evolution of the optimised topology for the three prescribed volume fraction
 
 
 <figure style="margin: 0; text-align: center;">
-  <img src="figures/animation_seq.gif" alt="Figure 1" width="700">
+  <img src="figures/to_animation_seq.gif" alt="Figure 1" width="700">
   <figcaption style="text-align: center;">
 Figure 1: Evolution of the optimised structure with constraint on different volume fractions of the solid phase: left - $\phi=10%$, middle - $\phi=20%$, right - $\phi=30%$.
 </figcaption>
@@ -286,26 +286,151 @@ Figure 2: Evolution of the effective bulk modulus of the metamaterial at various
 </figcaption>
 </figure>
 
+The computation time was not recorded, but all three cases were completed within approximately one hour using a Nvidia RTX A6000 GPU.
 
 ## Phase-field fracture problem
-This example applies JaxMaterials to the implementation of a variational phase-field fracture model [Miehe et al. 2010]. Two thermodynamics principles combined with a regularised (smeared) representation of the crack surface, derives two coupling equation systems, representing the elasticity and phase-field subproblems, respectively:
+This example applies JaxMaterials to the implementation of a variational phase-field fracture model [Miehe et al. 2010]. Two coupled equation systems need to be solved, representing the elasticity problem:
+$$
+\begin{aligned}
+\nabla \cdot \boldsymbol{\sigma} &= 0 \\
+\boldsymbol{\sigma} &= (1-d)^2 \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_+ \mathbf{I}
++ 2\mu \boldsymbol{\varepsilon}_+\right] \\
+&\quad + \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_- \mathbf{I}
++ 2\mu \boldsymbol{\varepsilon}_-\right]
+\end{aligned}
+$$
 
-[xxxxx]
+and the phase field problem:
+$$
+\frac{g_c}{l_c} \left[ d - l_c^2 \Delta d \right] = 2(1-d) \mathcal{H}(\boldsymbol{\varepsilon})
+$$
 
+where $\boldsymbol{\varepsilon}_{+}$ and $\boldsymbol{\varepsilon}_{-}$ denote the positive and negative components of the strain tensor, respectively, obtained through spectral decomposition. where $\mathcal{H}$ denotes the history field associated with the maximum positive elastic energy density, defined as $\mathcal{H}(\mathbf{x}, t)
+:= \max_{\tau \in [0,t]} \psi^{+}\!\left(\boldsymbol{\varepsilon}(\mathbf{x}, \tau)\right).
+$.
 
-
-Following [Chen et al. 2019] A stagerred scheme is adopted to solve the two subproblems.
+Following [Chen et al. 2019], we use the FFT method for solving these two subproblems under a stagerred scheme.
 
 **Table 1. Staggered FFT scheme for solving the phase-field fracture problem**
 | Step | Procedure |
 |------|-----------|
 | **Initialization** | Given the initial strain field $\varepsilon^{0}(\mathbf{x})$, history field $\mathcal{H}^{0}(\mathbf{x})$, and phase field $d^{0}(\mathbf{x})$. |
 | **Loop** | **While** $t_{n+1} \leq T$, given $\varepsilon^{t_n}(\mathbf{x})$, $d^{t_n}(\mathbf{x})$, and $\mathcal{H}^{t_n}(\mathbf{x})$. |
-| **1** | Solve the phase-field problem (Eq. (8a) or Eq. (10)) to obtain the updated phase field: $d^{t_{n+1}}(\mathbf{x})$. |
-| **2** | Solve the mechanical problem (Eq. (8b)) using the updated phase field to obtain the strain field: $\varepsilon^{t_{n+1}}(\mathbf{x})$. |
-| **3** | Update the history field according to Eq. (9) to obtain: $\mathcal{H}^{t_{n+1}}(\mathbf{x})$. |
+| **1** | Solve the phase-field problem to obtain the updated phase field: 
+|       | $(l_c, g_c, \mathcal{H}^{t_n}) \rightarrow \text{PhaseFieldSolve} \rightarrow d^{t_{n+1}}(\mathbf{x})$|
+| **2** | Solve the mechanical problem to obtain the strain field: 
+|       | $(\lambda, \mu, d^{t_{n+1}}, \overline{\varepsilon}) \rightarrow \text{JaxMaterials} \rightarrow \varepsilon^{t_{n+1}}(\mathbf{x})$|
+| **3** | Update the history field to obtain: 
+|       | $\varepsilon^{t_{n+1}}(\mathbf{x}) \rightarrow \mathcal{H}^{t_{n+1}}(\mathbf{x})$|
 | **4** | Advance the time step: $t_n \leftarrow t_{n+1}$. |
 | **Output** | Phase field $d(\mathbf{x},t)$, strain field $\varepsilon(\mathbf{x},t)$, and history field $\mathcal{H}(\mathbf{x},t)$. |
+
+The algorithm of [Chen et al. 2019] was used to solve the phase-field problem (step 1 in the loop of Table 1), see [diffmat repo] for the numerical implementation including the adjoint method to enable automatic differentiation.
+The elasticity problem (step 2 in the loop of Table 1) can be readily solved using JaxMaterials with the local constitutive function:
+
+```Python
+def compute_sigma_damaged(epsilon, params):
+    lmbda, mu, d, k = params
+
+    eps_tensor = voigt_to_tensor(epsilon)
+
+    tr_eps = jnp.trace(eps_tensor, axis1=-2, axis2=-1)
+    tr_eps_plus = jnp.maximum(tr_eps, 0.0)
+    tr_eps_minus = jnp.minimum(tr_eps, 0.0)
+
+    # Get eigenvalues n eigenvectors
+    eigvals, eigvecs = jnp.linalg.eigh(eps_tensor)
+    eigvals_plus = jnp.maximum(eigvals, 0.0)
+    eigvals_minus = jnp.minimum(eigvals, 0.0)
+
+    # Reconstruct the positive and negative strain tensors (eps_plus / eps_minus)
+    # This uses einsum to do: V * Lambda_plus * V^T across the entire 3D grid instantly
+    eps_plus_tensor = jnp.einsum(
+        "...ia,...a,...ja->...ij", eigvecs, eigvals_plus, eigvecs
+    )
+    eps_minus_tensor = jnp.einsum(
+        "...ia,...a,...ja->...ij", eigvecs, eigvals_minus, eigvecs
+    )
+
+    # Convert back to Voigt notation for the stress equation
+    eps_plus_v = tensor_to_voigt(eps_plus_tensor)
+    eps_minus_v = tensor_to_voigt(eps_minus_tensor)
+
+    # Calculate pure tension stress and pure compression stress
+    sigma_plus = 2.0 * mu * eps_plus_v
+    sigma_minus = 2.0 * mu * eps_minus_v
+    vol = vol = lmbda * tr_eps_plus
+    sigma_plus = sigma_plus.at[0].add(vol)
+    sigma_plus = sigma_plus.at[1].add(vol)
+    sigma_plus = sigma_plus.at[2].add(vol)
+
+    vol = lmbda * tr_eps_minus
+    sigma_minus = 2.0 * mu * eps_minus_v
+    sigma_minus = sigma_minus.at[0].add(vol)
+    sigma_minus = sigma_minus.at[1].add(vol)
+    sigma_minus = sigma_minus.at[2].add(vol)
+
+    # Apply damage degradation (g_d) ONLY to the tension (positive) stress
+    return ((1.0 - d[None, ...]) ** 2 + k) * sigma_plus + sigma_minus
+```
+
+
+
+<figure>
+<div style="display: flex; justify-content: center; gap: 10px;">
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/pfm_forwardrun.png" alt="Figure 3" width="500">
+</figure>
+</div>
+<figcaption style="text-align: center;">
+Figure 3: Phase-field fracture simulation result of a particle reinforced composite.
+</figcaption>
+</figure>
+
+
+
+## Inverse problem: material parameter identification
+In this example, we use JaxMaterial to implement a material parameter identification workflow, as shonw in Figure 4. 
+
+
+<figure>
+<div style="display: flex; justify-content: center; gap: 10px;">
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/inv_elas_workflow.png" alt="Figure 4" width="500">
+</figure>
+</div>
+<figcaption style="text-align: center;">
+Figure 4: Overall workflow of the material identification workflow using JaxMaterials.
+</figcaption>
+</figure>
+
+Consider an particle reinforced composite material. The elastic properties of the particles and matrix ($u=(E^{particle},E^{matrix},\nu^{particle},\nu^{matrix})$) are unknown. After some mechanical tests, we obtain the stress responses of the composite for given strain loading conditions (pair of $(\overline{\varepsilon}^{exp}, \overline{\sigma}^{exp},)$). The inverse problem seeks the constituent properties using the macroscopic measurements. This can be solved using the Newton-Raphson method, trying to minimise the residual vector $r(u)=\overline{\sigma}^{sim}(u)-\overline{\sigma}^{exp}$. 
+The Jacobian $J=\frac{\delta r}{\delta u}$ is needed in the Newton-Raphson method, and the differentiablity by Jaxmaterials can provide this readily using the following code:
+
+```Python
+# forward simulation: u -> sigma_bar
+forward_fn = lambda p: forward_sigma_vector(p, grid, matID, eps_probes)
+# residual function: sigma_bar - sigma_target
+residual_fn = lambda p: forward_fn(p) - sigma_target
+# jacobian function by jax
+jac = jax.jacobian(residual_fn)
+...
+# jacobian matrix evaluated at a given u
+J = jac(u)
+```
+
+Figure 5 shows the convergence history of this material identification procedure.
+
+<figure>
+<div style="display: flex; justify-content: center; gap: 10px;">
+<figure style="margin: 0; text-align: center;">
+  <img src="figures/inv_elas_result.png" alt="Figure 5" width="600">
+</figure>
+</div>
+<figcaption style="text-align: center;">
+Figure 4: Convergence history of the Newton-Raphson material identification procedure for a particle-reinforced composite.
+</figcaption>
+</figure>
 
 
 
