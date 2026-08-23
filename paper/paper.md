@@ -179,14 +179,15 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 
 In addition to the Python code, a low level CUDA-C implementation for elastic materials is also provided and it can be accessed through the same interface functions. Note that this needs to be compiled separately (with CMake). Depending on the hardware, this can be faster than the JAX code, in particular for the isotropic case. At the moment, the CUDA implementation is not differentiable, but in principle this limitation could be overcome by implementing the adjoint Lippmann Schwinger solve.
 
-# Research impact statement
+# Research impact statement 
+[Perhaps it's better to change the title to something like "Demonstration", as the expectation for "research impact statement" could be citing some published work that used this package.]
 
 This section presents selected applications of JaxMaterials to demonstrate how its differentiable FFT solver can be integrated into materials research workflows.
 
 ## Topology optimisation
 We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions $\phi=0.1, 0.2, 0.3$. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. 
 
-The optimisation was performed using optimality criteria method [REF], requiring the computation of the gradient of the objective function (negative effective bulk modulus, $c=-K$) with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^T$ (energy-based method [REF]):
+The optimisation was performed using optimality criteria method (@bendsoe2004topology), requiring the computation of the gradient of the objective function (negative effective bulk modulus, $c=-K$) with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^T$ (energy-based method (@chen2022fft)):
 
 $$
 \begin{aligned}
@@ -272,13 +273,9 @@ Figure 1: Evolution of the optimised porous structures at solid volume fractions
 
 Figure 2 presents the corresponding convergence histories. For all three volume fractions, the effective bulk modulus increases towards a stable plateau, demonstrating that the JaxMaterials forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
 
-<figure>
-<div style="display: flex; justify-content: center; gap: 10px;">
 <figure style="margin: 0; text-align: center;">
   <img src="figures/to_convergence.png" alt="Figure 2" width="400">
-</figure>
-</div>
-<figcaption style="text-align: center;">
+  <figcaption style="text-align: center;">
 Figure 2: Evolution of the effective bulk modulus during topology optimisation at different solid volume fractions.
 </figcaption>
 </figure>
@@ -403,29 +400,19 @@ This separation between the constitutive model and the equilibrium solver is cen
 
 Figure 3 shows the simulated fracture pattern in a particle-reinforced composite. The complete staggered simulation took 2.6 hours on an NVIDIA RTX A6000 GPU. Further reductions in runtime may be possible by introducing an acceleration scheme, such as Anderson acceleration, for the phase-field iterations.
 
-<figure>
-<div style="display: flex; justify-content: center; gap: 10px;">
 <figure style="margin: 0; text-align: center;">
-  <img src="figures/pfm_forwardrun.png" alt="Figure 3" width="500">
-</figure>
-</div>
-<figcaption style="text-align: center;">
+  <img src="figures/pfm_forwardrun.png" alt="Figure 3" width="600">
+  <figcaption style="text-align: center;">
 Figure 3: Phase-field fracture simulation of a particle-reinforced composite. JaxMaterials solves the nonlinear mechanical equilibrium problem at each staggered iteration.
 </figcaption>
 </figure>
 
-
-
 ## Inverse problem: material parameter identification
 This example demonstrates the use of JaxMaterials for gradient-based identification of constituent material properties from macroscopic measurements. The workflow is summarised in Figure 4.
 
-<figure>
-<div style="display: flex; justify-content: center; gap: 10px;">
 <figure style="margin: 0; text-align: center;">
   <img src="figures/inv_elas_workflow.png" alt="Figure 4" width="500">
-</figure>
-</div>
-<figcaption style="text-align: center;">
+  <figcaption style="text-align: center;">
 Figure 4: JaxMaterials-based workflow for identifying constituent properties from macroscopic stress-strain measurements.
 </figcaption>
 </figure>
@@ -486,13 +473,9 @@ Figure 5 shows the convergence history. All four constituent properties converge
 
 During one or more Jacobian evaluations, the adjoint Lippmann-Schwinger solver reached the prescribed limit of 2,000 iterations before satisfying its convergence tolerance. The resulting sensitivities were therefore based on truncated adjoint solutions. Nevertheless, they remained sufficiently accurate for the Newton iterations to converge in this example. This observation also highlights the importance of monitoring both forward and adjoint residuals when applying the method to strongly heterogeneous materials.
 
-<figure>
-<div style="display: flex; justify-content: center; gap: 10px;">
 <figure style="margin: 0; text-align: center;">
-  <img src="figures/inv_elas_result.png" alt="Figure 5" width="600">
-</figure>
-</div>
-<figcaption style="text-align: center;">
+  <img src="figures/inv_elas_convergence.png" alt="Figure 5" width="500">
+  <figcaption style="text-align: center;">
 Figure 5: Convergence of the identified particle and matrix properties during the Newton-Raphson iterations.
 </figcaption>
 </figure>
