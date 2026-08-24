@@ -283,9 +283,10 @@ With this, the objective function $J$ can be computed for a given $\rho(x)$ by s
 ```Python 
 def objective_fn(rho, mat, grid_spec):
     # Compute reference material parameters
+    params = lame_parameters(rho, mat)
     ref_params = {
         key: jax.lax.stop_gradient(0.5 * (jnp.max(value) + jnp.min(value)))
-        for key, value in lame_parameters(rho, mat).items()
+        for key, value in params.items()
     }
 
     # Solve linear elastic problem via Lippmann-Schwinger FFT solver.
