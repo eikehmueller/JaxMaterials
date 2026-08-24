@@ -243,28 +243,25 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 )
 ```
 
-
 # Demonstration of research impact 
-This section presents selected applications of JaxMaterials to demonstrate how its differentiable FFT solver can be integrated into materials research workflows.
+The following selected applications of JaxMaterials demonstrate how the differentiable FFT solver can be integrated into materials research workflows.
 
 ## Topology optimisation
-We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions $\phi=0.1, 0.2, 0.3$. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. 
+We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions.
 
-The optimisation was performed using optimality criteria method (@bendsoe2004topology), requiring the computation of the gradient of the objective function (negative effective bulk modulus, $c=-K$) with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^T$ (energy-based method (@chen2022fft)):
+The optimisation was performed using optimality criteria method (@bendsoe2004topology), requiring the computation of the gradient of the objective function $J=-K$ with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$; this is the energy-based method in (@chen2022fft):
 
 $$
 \begin{aligned}
-K &= \frac{1}{9} \sum_{i,j=1}^{3} C_{iijj}
-   = \frac{1}{9} \overline{\boldsymbol{\varepsilon}}^T : \overline{\boldsymbol{\sigma}}
-\qquad\text{with}\qquad
-\overline{\boldsymbol{\varepsilon}} = (1,1,1,0,0,0)^T
+K &= \frac{1}{9} \sum_{i,j=1}^{3} C^{\text{(eff)}}_{iijj}
+   = \frac{1}{9} \overline{\varepsilon}^\top :\overline{\sigma}\qquad\text{with}\quad \overline{\sigma} = \frac{1}{|\Omega|}\int_\Omega \sigma(x)\;dx
 \end{aligned}
 $$
 
-The complete objective was implemented as a differentiable JAX function. Within this function, JaxMaterials' `lippmann_schwinger()` routine solves the periodic equilibrium problem and returns the local strain and stress fields:
+The value of $J$ is computed by calling the `lippmann_schwinger()` routine to compute the  local strain and stress fields:
 
 ```Python 
-def compute_c(rho, mat, grid_spec):
+def loss_fn(rho, mat, grid_spec):
     # Compute reference material parameters Lambda0, Mu0
     E = mat["E0"] + (mat["E1"] - mat["E0"]) * (rho + mat["kk"]) ** mat["penalty"]
 
@@ -324,7 +321,7 @@ c, dc = value_grad_fn(rho, mat, grid_spec)
 
 JaxMaterials therefore encapsulates both the forward equilibrium solution and its adjoint sensitivity calculation. The optimisation code does not need to differentiate explicitly through the solver iterations or implement a separate adjoint solver.
 
-The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
+Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
 
 Figure 1 shows the evolution of the optimised topologies.
 
