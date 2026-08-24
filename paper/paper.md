@@ -50,8 +50,6 @@ Accurate simulation of heterogeneous materials is computationally demanding due 
 
 Forward simulation alone is increasingly insufficient. Material parameters are notoriously difficult to measure directly and must be inferred from experimental data. In addition, physics-based simulations are now frequently combined with machine-learning models in applications such as inverse modelling (@wang2025differentiable), uncertainty quantification (@akhare2024probabilistic), and scientific machine learning (@Pestourie:2023). These workflows require efficient computation of sensitivities with respect to model parameters, making differentiable PDE solvers an essential component (@shen2023differentiable).
 
-Our code uses the adjoint state method (see e.g. @Hinze:2008; @Johnson:2012) to implement a differential solver in the JAX framework (@Bradbury:2018).
-
 ## State of the field
 Since the seminal work of @Moulinec:1998, FFT-based Lippmann-Schwinger solvers have become a standard approach for computing stress and strain fields in heterogeneous materials. The approach is particularly attractive for simulations on regular grids and on modern parallel hardware (@chen2019analysis). 
 Lippmann-Schwinger solvers form the basis of mature software packages such as AMITEX (@Gelebart:2020), which provides highly optimised CPU implementations for large-scale material simulations. More recently, GPU-accelerated computing has emerged as an important direction for accelerating large-scale simulation of materials with fine microstructures **REFERENCE**.
@@ -83,7 +81,7 @@ The problem is solved in a cuboid domain with periodic boundary conditions for t
 The problem-dependent constituitive law $\sigma = \Sigma(\varepsilon|\theta)$ depends on the parameters $\theta$. Special cases are:
 
 * General linear materials with $\sigma_{ij} = \sum_{k\ell}C_{ijk\ell} \varepsilon_{k\ell}$ where $C=C(x)=:\theta$ is the spatially varying elasticity tensor
-* Isotropic linear materials for which $C_{ijk\ell}(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$. Alternatively, the combination $(E,\nu)$ of the Youngs modulus $E$ and Poisson ratio $\nu$
+* Isotropic linear materials for which $C_{ijk\ell}(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$.
 
 ## Lippmann Schwinger iteration
 
@@ -245,65 +243,34 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 ```
 
 # Demonstration of research impact 
-The following selected applications of JaxMaterials demonstrate how the differentiable FFT solver can be integrated into materials research workflows.
+Three selected applications demonstrate how the differentiable FFT solver in JaxMaterials can be integrated into materials research workflows.
 
 ## Topology optimisation
-We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method (@bendsoe2004topology) requires the computation of the gradient of the objective function $J=-K$ with respect to the spatially varying density $\rho$. The effective bulk modulus $K$ was computed with the energy-based method in (@Chen:2022) which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
+We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method (@Bendsoe:2004) requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$. The effective bulk modulus $K$ was computed with the energy-based method in (@Chen:2022) which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
 
 $$
 \begin{aligned}
 K &= \frac{1}{9} \sum_{i,j=1}^{3} C^{\text{(eff)}}_{iijj}
    = \frac{1}{9} \overline{\varepsilon}^\top :\overline{\sigma}\qquad\text{with}\quad \overline{\sigma} = \frac{1}{|\Omega|}\int_\Omega \sigma(x)\;dx
 \end{aligned}
+\label{eqn:bulk_modulus}
 $$
 
-The value of $J$ is computed by calling the `lippmann_schwinger()` routine to compute the  local strain and stress fields:
+One realisation of the material is characterised by a tuple consisting of the density $\rho(x)\in[0,1]$ and a dictionary `mat` of real-valued numbers which include the Poisson ratio $\nu$ and the parameters $E_0$, $E_1$, $\rho_0$, $p$ of the SIMP model which parametrises Young's modulus $E(x)=E_0+(E_1-E_0)(\rho(x)+\rho_0)^p$ as a function of $\rho(x)$. The Lame parameters $\lambda(x)$, $\mu(x)$ are then obtained from $E(x),\nu$ in the following helper function:
 
-```Python 
-def loss_fn(rho, mat, grid_spec):
-    # Compute reference material parameters Lambda0, Mu0
+```Python
+def lame_coefficients(rho, mat):
     E = mat["E0"] + (mat["E1"] - mat["E0"]) * (rho + mat["kk"]) ** mat["penalty"]
-
     lmbda = E * mat["nu"] / (1.0 + mat["nu"]) / (1.0 - 2.0 * mat["nu"])
     mu = E / (2.0 * (1.0 + mat["nu"]))
-
-    lmbda0 = jax.lax.stop_gradient(0.5 * (jnp.max(lmbda) + jnp.min(lmbda)))
-    mu0 = jax.lax.stop_gradient(0.5 * (jnp.max(mu) + jnp.min(mu)))
-
-    # Solve linear elastic problem via Lippmann-Schwinger FFT solver.
-    epsilon_bar = jnp.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
-
-    epsilon, sigma = lippmann_schwinger(
-        compute_sigma_from_density,
-        (rho, mat),
-        epsilon_bar,
-        ref_params={"lambda": lmbda0, "mu": mu0},
-        grid_spec=grid_spec,
-        tol=1.0e-3,
-        maxits=2000,
-        verbose=1,
-        depth=4,
-    )
-
-    sigma_bar = jnp.mean(sigma, axis=[1, 2, 3])
-    energy = jnp.sum(
-        epsilon_bar[:3] * sigma_bar[:3] + epsilon_bar[3:] * sigma_bar[3:] * 2
-    )
-
-    return -energy / 9
+    return {"lambda": lmbda, "mu": mu}
 ```
 
-This example illustrates the modular constitutive-law interface in JaxMaterials. The spatial density $\rho$ and material properties are passed to `lippmann_schwinger()` as constitutive parameters, while the user-defined function `compute_sigma_from_density()` maps the local strain and density fields to the local stress:
+This allows the implementation stress-strain relationship as the user-defined function `compute_sigma_from_density()`, which maps the local strain $\varepsilon(x)$ and all material parameters (collected in `params`) to the local stress $\sigma(x)$ by assuming linear isotropic behaviour:
 
 ```Python
 def compute_sigma_from_density(epsilon, params):
-     rho, mat = params
-
-    E = mat['E0'] + (mat['E1'] - mat['E0']) * (rho + mat['kk']) ** mat['penalty']
-
-    lmbda = E * mat['nu'] / (1. + mat['nu']) / (1. - 2. * mat['nu'])
-    mu = E / (2.0 * (1. + mat['nu']))
-
+    lmbda, mu = lame_parameters(*params)
     tr_epsilon = epsilon[0] + epsilon[1] + epsilon[2]
     sigma = jnp.zeros_like(epsilon)
     sigma = sigma.at[:3].set((lmbda * tr_epsilon)[None, ...] + 2.0 * mu * epsilon[:3])
@@ -311,16 +278,48 @@ def compute_sigma_from_density(epsilon, params):
     return sigma
 ```
 
-Because `lippmann_schwinger()` provides a custom reverse-mode derivative based on the adjoint-state method, the objective gradient with respect to every voxel in $\rho$ can be evaluated directly using the standard JAX interface:
+With this, the objective function $J$ can be computed for a given $\rho(x)$ by solving (\autoref{eqn:pde_problem}) for $\sigma$ and averaging over the domain to obtain $\overline{\sigma}$ which is used in the computation of $K$ in (\autoref{eqn:bulk_modulus}). 
 
-```Python
-value_grad_fn = jax.value_and_grad(compute_c, argnums=0, has_aux=False)
-c, dc = value_grad_fn(rho, mat, grid_spec)
+```Python 
+def objective_fn(rho, mat, grid_spec):
+    # Compute reference material parameters
+    ref_params = {
+        key: jax.lax.stop_gradient(0.5 * (jnp.max(value) + jnp.min(value)))
+        for key, value in lame_parameters(rho, mat).items()
+    }
+
+    # Solve linear elastic problem via Lippmann-Schwinger FFT solver.
+    epsilon_bar = jnp.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
+    epsilon, sigma = lippmann_schwinger(
+        compute_sigma_from_density,
+        (rho, mat),
+        epsilon_bar,
+        ref_params=ref_params,
+        grid_spec=grid_spec,
+        tol=1.0e-3,
+        maxits=2000,
+        verbose=1,
+        depth=4,
+    )
+
+    # average strain bar(sigma)
+    sigma_bar = jnp.mean(sigma, axis=[1, 2, 3])
+
+    bulk_modulus = jnp.sum(
+        epsilon_bar[:3] * sigma_bar[:3] + epsilon_bar[3:] * sigma_bar[3:] * 2
+    )
+
+    return -bulk_modulus / 9
 ```
 
-JaxMaterials therefore encapsulates both the forward equilibrium solution and its adjoint sensitivity calculation. The optimisation code does not need to differentiate explicitly through the solver iterations or implement a separate adjoint solver.
+Because `lippmann_schwinger()` provides a custom reverse-mode derivative based on the adjoint-state method, the function `objective_fn()` is reverse mode differentiable with respect to the density $\rho(x)$. The gradient $\delta J/\delta \rho(x)$ for every voxel can be computed directly using the standard JAX interface:
 
-Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
+```Python
+value_grad_fn = jax.value_and_grad(objective_fn, argnums=0, has_aux=False)
+J, dJ = value_grad_fn(rho, mat, grid_spec)
+```
+
+Numerical experiments were carried out for three different solid volume fractions. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
 
 Figure 1 shows the evolution of the optimised topologies.
 
