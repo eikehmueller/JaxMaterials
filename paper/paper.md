@@ -71,7 +71,7 @@ We consider the following system of equations for spatially varying strain $\var
 
 $$
 \begin{aligned}
-    \partial_j \sigma_{ij} &= 0 & \text{(Cauchy momentum equation)}\\
+    \sum_j \partial_j \sigma_{ij} &= 0 & \text{(Cauchy momentum equation)}\\
     \sigma_{ij} &= \Sigma_{ij}(\varepsilon|\theta)\qquad\text{with $\varepsilon_{k\ell} = \varepsilon^*_{k\ell} + \overline{\varepsilon}_{k\ell}$} & \text{(Constituitive law)}\\
     \varepsilon^*_{k\ell} &= \frac{1}{2}\left(\partial_k u_\ell + \partial_\ell u_k\right) & \text{(Strain-displacement relation)}
 \end{aligned}
@@ -81,8 +81,8 @@ The problem is solved in a cuboid domain with periodic boundary conditions for t
 
 The problem-dependent constituitive law $\sigma = \Sigma(\varepsilon|\theta)$ depends on the parameters $\theta$. Special cases are:
 
-* Linear anisotropic materials with $\sigma = C \varepsilon$ where $C=C(x)=:\theta$ is the spatially varying elasticity tensor
-* Linear isotropic materials for which $C(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$.
+* General linear materials with $\sigma_{ij} = \sum_{k\ell}C_{ijk\ell} \varepsilon_{k\ell}$ where $C=C(x)=:\theta$ is the spatially varying elasticity tensor
+* Isotropic linear materials for which $C_{ijk\ell}(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$.
 
 ## Lippmann Schwinger iteration
 
@@ -92,7 +92,7 @@ $$
 \varepsilon + \Gamma^0 * (\Sigma(\varepsilon|\theta) - C^0 \varepsilon)= \overline{\varepsilon}
 $$
 
-Here, $C^0$ is the homogenous isotropic elasticity tensor described by the two reference Lame parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of @Moulinec:1998). 
+In this equation $*$ denotes convolution and $C^0$ is the homogenous isotropic elasticity tensor described by the two reference Lame parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of @Moulinec:1998). 
 
 As discussed in @Moulinec:1998, the self-consistent equation in (\autoref{eqn:lippmann_schwinger}) is solved by exploiting the fact that $\Gamma^0$ is diagonal in Fourier space and by applying the Lippmann Schwinger iteration
 
@@ -102,7 +102,7 @@ $$
 
 Here $\mathcal{F}$ and $\mathcal{F}^{-1}$ denote the forward and inverse Fourier transform respectively. 
 
-To improve the robustness, we adopted the rotated discretisation scheme of (@willot2015fourier), and implemented Anderson acceleration (@Wicht:2021). For linear stress-strain relations, Anderson acceleration is equivalent to a preconditioned GMRES iteration (@Walker:2011) and has significantly improved the convergence of the basic scheme (@Moulinec:1998) in studies using the open-source code AMITEX (@chen2019analysis, @Gelebart:2020).
+To improve robustness we adopted the rotated discretisation scheme of (@willot2015fourier) which is also used in AMITEX (@Gelebart:2020). As in (@chen2019analysis), Anderson acceleration (@Wicht:2021) is used to reduce the number of iterations. For linear stress-strain relations, this is equivalent to a preconditioned GMRES iteration (@Walker:2011).
 
 ## Reverse-mode differentiation with the adjoint method
 
@@ -114,13 +114,13 @@ $$
 
 subject to the condition that strain $\varepsilon=\varepsilon(\theta,\overline{\varepsilon})$ and stress $\sigma=\sigma(\theta,\overline{\varepsilon})$ satisfy the equations in (\autoref{eqn:continuum}) for given $\overline{\varepsilon}$ and material parameters $\theta$.
 
-Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivites can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. As reverse mode-differentiation is not available for while-loops, we employ the adjoint state method @Hinze:2008, @Johnson:2012. This leads to an adjoint Lippmann Schwinger equation of a very simular structure as (\autoref{eqn:lippmann_schwinger}) which is solved iteratively, also with Anderson acceleration.
+Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivites can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. However, reverse mode-differentiation is not available for while-loops since the number of iterations is unknown at (just-in-time) compile time. To address this, we employ the adjoint state method @Hinze:2008, @Johnson:2012. This leads to an adjoint Lippmann Schwinger equation of a very simular structure as (\autoref{eqn:lippmann_schwinger}):
 
 $$
 \Lambda + (\Gamma^0*\Lambda)\frac{\delta \Sigma}{\delta \varepsilon} - \lambda^0 \operatorname{tr}(\Gamma^0*\Lambda)\mathbb{I} - 2\mu^0 (\Gamma^0*\Lambda) = -\left(\frac{\delta J}{\delta \varepsilon}+\frac{\delta J}{\delta \sigma}\frac{\delta \Sigma}{\delta \varepsilon}\right)
 $$
 
-From $\Lambda$ the derivatives of the objective function with respect to the parameters $\theta$ and the average strain $\overline{\varepsilon}$ can be computed as
+The adjoint equation is solved iteratively with Anderson acceleration. From the adjoint state $\Lambda$ the derivatives of the objective function $J$ with respect to the parameters $\theta$ and the average strain $\overline{\varepsilon}$ can be computed as
 
 $$
 \frac{\delta J}{\delta\theta} = \left(\frac{\delta J}{\delta\sigma} + \Gamma^0*\Lambda\right): \frac{\delta\Sigma}{\delta \theta},\qquad
@@ -139,9 +139,9 @@ def compute_sigma(epsilon, params):
     return sigma
 ```
 
-Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable, and by design our library allows the implementation of non-trivial models such as the one in @Chen:2019.
+Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable. By design our library allows the implementation of non-trivial models such as the one in @Chen:2019. Other examples are given below.
 
-For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well; in both cases the constituitive law is implemented in `hooke.py` and the user only needs to pass the relevant entries of the elasticity tensor.
+For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well. In this case the user only needs to pass the Lame coefficients $\lambda(x)$, $\mu$ or the idependent entries of the (symmetric) elasticity tensor.
 
 ## Example usage
 
@@ -231,7 +231,11 @@ def loss_fn(params, epsilon_bar):
     return jnp.sum(epsilon**2 + sigma**2)
 ```
 
-If we are only interested in the forward solve, we can also use the slightly more efficient CUDA implementation
+## Low-level CUDA-C implementation
+
+In addition to the Python code, a low level CUDA-C implementation for elastic materials is also provided and it can be accessed through the same interface functions. Note that this needs to be compiled separately (with CMake). Depending on the hardware, this can be faster than the JAX code, in particular for the isotropic case. At the moment, the CUDA implementation is not differentiable, but in principle this limitation could be overcome by implementing the adjoint Lippmann Schwinger solve in CUDA.
+
+If we are only interested in the forward solve for the isotropic material discussed above, we can also use the efficient CUDA implementation by simply passing the `use_cuda=True` keyword to isotropic Lippmann-Schwinger solver:
 
 ```Python
 epsilon, sigma = lippmann_schwinger_isotropic(
@@ -239,9 +243,6 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 )
 ```
 
-## Low-level CUDA-C implementation
-
-In addition to the Python code, a low level CUDA-C implementation for elastic materials is also provided and it can be accessed through the same interface functions. Note that this needs to be compiled separately (with CMake). Depending on the hardware, this can be faster than the JAX code, in particular for the isotropic case. At the moment, the CUDA implementation is not differentiable, but in principle this limitation could be overcome by implementing the adjoint Lippmann Schwinger solve.
 
 # Research impact statement 
 [Perhaps it's better to change the title to something like "Demonstration", as the expectation for "research impact statement" could be citing some published work that used this package.]
