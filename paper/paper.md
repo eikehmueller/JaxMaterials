@@ -244,9 +244,7 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 ```
 
 
-# Research impact statement 
-[Perhaps it's better to change the title to something like "Demonstration", as the expectation for "research impact statement" could be citing some published work that used this package.]
-
+# Demonstration of research impact 
 This section presents selected applications of JaxMaterials to demonstrate how its differentiable FFT solver can be integrated into materials research workflows.
 
 ## Topology optimisation
