@@ -75,6 +75,7 @@ $$
     \sigma_{ij} &= \Sigma_{ij}(\varepsilon|\theta)\qquad\text{with $\varepsilon_{k\ell} = \varepsilon^*_{k\ell} + \overline{\varepsilon}_{k\ell}$} & \text{(Constituitive law)}\\
     \varepsilon^*_{k\ell} &= \frac{1}{2}\left(\partial_k u_\ell + \partial_\ell u_k\right) & \text{(Strain-displacement relation)}
 \end{aligned}
+\label{eqn:pde_problem}
 $$
 
 The problem is solved in a cuboid domain with periodic boundary conditions for the displacement field $u(x)$ and for given average strain $\overline{\varepsilon}$.
@@ -82,7 +83,7 @@ The problem is solved in a cuboid domain with periodic boundary conditions for t
 The problem-dependent constituitive law $\sigma = \Sigma(\varepsilon|\theta)$ depends on the parameters $\theta$. Special cases are:
 
 * General linear materials with $\sigma_{ij} = \sum_{k\ell}C_{ijk\ell} \varepsilon_{k\ell}$ where $C=C(x)=:\theta$ is the spatially varying elasticity tensor
-* Isotropic linear materials for which $C_{ijk\ell}(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$.
+* Isotropic linear materials for which $C_{ijk\ell}(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$. Alternatively, the combination $(E,\nu)$ of the Youngs modulus $E$ and Poisson ratio $\nu$
 
 ## Lippmann Schwinger iteration
 
@@ -247,9 +248,7 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 The following selected applications of JaxMaterials demonstrate how the differentiable FFT solver can be integrated into materials research workflows.
 
 ## Topology optimisation
-We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions.
-
-The optimisation was performed using optimality criteria method (@bendsoe2004topology), requiring the computation of the gradient of the objective function $J=-K$ with respect to the density map $\rho$. The effective bulk modulus $K$ was computed from one homogenisation simulation subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$; this is the energy-based method in (@chen2022fft):
+We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method (@bendsoe2004topology) requires the computation of the gradient of the objective function $J=-K$ with respect to the spatially varying density $\rho$. The effective bulk modulus $K$ was computed with the energy-based method in (@Chen:2022) which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
 
 $$
 \begin{aligned}
