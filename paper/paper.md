@@ -369,7 +369,7 @@ $$
 \label{eqn:Sigma_phase_field}
 $$
 
-Observe that while the constituitive equation is of the form $\Sigma(\varepsilon|\theta)$ as in (\autoref{eqn:pde_problem}), the relationship between stress and strain is significantly is no longer linear and more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
+Observe that while the constituitive equation is of the form $\Sigma(\varepsilon|\theta)$ required in (\autoref{eqn:pde_problem}), the relationship between stress and strain is is no longer linear and significantly more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
 
 Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde_problem}) with $\Sigma(\varepsilon|\theta)$ defined by (\autoref{eqn:Sigma_phase_field}) and the phase-field equation in (\autoref{eqn:phase_field_damage}) are solved sequentially using the staggered scheme summarised in Table 1.
 
