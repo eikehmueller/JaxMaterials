@@ -343,7 +343,7 @@ Figure 2: Evolution of the effective bulk modulus during topology optimisation a
 All three cases were completed within approximately one hour using a Nvidia RTX A6000 GPU.
 
 ## Phase-field fracture problem
- To demonstrate that JaxMaterials is readily embedded in a coupled multiphysics workflow, we consider the variational phase-field fracture model of @Miehe:2010. This setup couples a nonlinear mechanical equilibrium problem of the form (\autoref{eqn:pde_problem}) to the evolution of a scalar, spatially varying damage field $d(x)\in[0,1]$ where $d=0$ denotes intact material and $d=1$ corresponds to fully damaged material. 
+ To demonstrate that JaxMaterials is readily embedded in a non-trivial multiphysics workflow, we consider the variational phase-field fracture model of @Miehe:2010. This setup couples a nonlinear mechanical equilibrium problem of the form (\autoref{eqn:pde_problem}) to the evolution of a scalar, spatially varying damage field $d(x)\in[0,1]$ where $d=0$ denotes intact material and $d=1$ corresponds to fully damaged material. 
 
 The phase field subproblem is
 $$
