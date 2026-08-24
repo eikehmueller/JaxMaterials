@@ -246,7 +246,7 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 Three selected applications demonstrate how the differentiable FFT solver in JaxMaterials can be integrated into materials research workflows.
 
 ## Topology optimisation
-We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method (@Bendsoe:2004) requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$. The effective bulk modulus $K$ was computed with the energy-based method in (@Chen:2022) which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
+We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method (@Bendsoe:2004) requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in (@Chen:2022) which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
 
 $$
 \begin{aligned}
@@ -322,7 +322,7 @@ J, dJ = value_grad_fn(rho, mat, grid_spec)
 
 Numerical experiments were carried out for three different solid volume fractions. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
 
-Figure 1 shows the evolution of the optimised topologies.
+Figure 1 shows the evolution of the topologies described by $\rho(x)$, where each step of the outer optimisation requires the computation of the gradients $\delta K/\delta \rho(x)$ as described above.
 
 <figure style="margin: 0; text-align: center;">
   <img src="figures/to_animation_seq.gif" alt="Figure 1" width="700">
@@ -331,7 +331,7 @@ Figure 1: Evolution of the optimised porous structures at solid volume fractions
 </figcaption>
 </figure>
 
-Figure 2 presents the corresponding convergence histories. For all three volume fractions, the effective bulk modulus increases towards a stable plateau, demonstrating that the JaxMaterials forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
+The corresponding convergence histories Figure 2 demonstrate that for all three volume fractions the effective bulk modulus converges towards a stable plateau. This confirms that JaxMaterials forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
 
 <figure style="margin: 0; text-align: center;">
   <img src="figures/to_convergence.png" alt="Figure 2" width="400">
@@ -340,42 +340,38 @@ Figure 2: Evolution of the effective bulk modulus during topology optimisation a
 </figcaption>
 </figure>
 
-The computation time was not recorded, but all three cases were completed within approximately one hour using a Nvidia RTX A6000 GPU.
+All three cases were completed within approximately one hour using a Nvidia RTX A6000 GPU.
 
 ## Phase-field fracture problem
-This example demonstrates how JaxMaterials can be embedded in a coupled multiphysics workflow. We consider the variational phase-field fracture model of [Miehe et al. 2010], which couples a nonlinear mechanical equilibrium problem to the evolution of a scalar damage field.
-
-The mechanical subproblem is governed by
-
-$$
-\nabla \cdot \boldsymbol{\sigma} = 0
-$$
-
-with the tension-compression split
-
-$$
-\begin{aligned}
-\boldsymbol{\sigma} &= (1-d)^2 \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_+ \mathbf{I}
-+ 2\mu \boldsymbol{\varepsilon}_+\right] \\
-&\quad + \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_- \mathbf{I}
-+ 2\mu \boldsymbol{\varepsilon}_-\right]
-\end{aligned}
-$$
-
-Here, a complex function of $\Sigma(\varepsilon|\theta)$ is involved. $d\in[0,1]$ is the phase field, where $d=0$ denotes intact material and $d=1$ denotes fully damaged material. The parameer $k<<1$ provides a small residual stiffness in fully damagd regions. The tensors $\boldsymbol{\varepsilon}_=$ and  $\boldsymbol{\varepsilon}_-$ are the positive and negative parts of the strain tensor obtained by spectral decomposition. The operators $\langle\cdot\rangle_+$ and $\langle\cdot\rangle_-$ denote the positive and negative scalar parts, respectively.
+ To demonstrate that JaxMaterials is readily embedded in a coupled multiphysics workflow, we consider the variational phase-field fracture model of @Miehe:2010. This setup couples a nonlinear mechanical equilibrium problem of the form (\autoref{eqn:pde_problem}) to the evolution of a scalar, spatially varying damage field $d(x)\in[0,1]$ where $d=0$ denotes intact material and $d=1$ corresponds to fully damaged material. 
 
 The phase field subproblem is
 $$
-\frac{g_c}{l_c} \left[ d - l_c^2 \Delta d \right] = 2(1-d) \mathcal{H}(\boldsymbol{\varepsilon})
+\frac{g_c}{l_c} \left[ d - l_c^2 \Delta d \right] = 2(1-d) \mathcal{H}(\varepsilon)\label{eqn:phase_field_damage}
 $$
 
-where $g_c$ is the critical energy release rate, $l_c$ controls the regularised fracture length scale, and $\mathcal{H}$ is the history field that stores the maximum tensile elastic energy attained at each material point and enforces irreversible damage evolution.
+where $g_c$ is the critical energy release rate, $l_c$ controls the regularised fracture length scale, and $\mathcal{H}$ is the strain-dependent history field that stores the maximum tensile elastic energy attained at each material point and enforces irreversible damage evolution.
 
 $$\mathcal{H}(\mathbf{x}, t)
-:= \max_{\tau \in [0,t]} \psi^{+}\!\left(\boldsymbol{\varepsilon}(\mathbf{x}, \tau)\right).
+:= \max_{\tau \in [0,t]} \psi^{+}\!\left(\varepsilon(\mathbf{x}, \tau)\right).
 $$
 
-Following [Chen et al. 2019], the mechanical and phase-field equations are solved sequentially using the staggered scheme summarised in Table 1.
+By projecting onto the positive and negative eigenmodes, the strain tensor $\varepsilon = \varepsilon_++ \varepsilon_-$ is split into a tensile mode $\varepsilon_+$ and a compressive part $\varepsilon_-$. 
+
+Since only the tensile component of the strain strain is sensitive to damage, the stress-strain relationship can be modelled as
+
+$$
+\sigma = (1-d)^2 \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_+ \mathbf{I}
++ 2\mu \varepsilon_+\right] 
+ + \left[\lambda \langle \operatorname{tr}(\varepsilon) \rangle_- \mathbf{I}
++ 2\mu \boldsymbol{\varepsilon}_-\right]
+\qquad\text{with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$}
+\label{eqn:Sigma_phase_field}
+$$
+
+Observe that while the constituitive equation is of the form $\Sigma(\varepsilon|\theta)$ as in (\autoref{eqn:pde_problem}), the relationship between stress and strain is significantly is no longer linear and more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
+
+Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde_problem}) with $\Sigma(\varepsilon|\theta)$ defined by (\autoref{eqn:Sigma_phase_field}) and the phase-field equation in (\autoref{eqn:phase_field_damage}) are solved sequentially using the staggered scheme summarised in Table 1.
 
 **Table 1. Staggered FFT scheme for solving the phase-field fracture problem**
 | Step | Procedure |
