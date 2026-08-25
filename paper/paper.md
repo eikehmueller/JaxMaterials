@@ -393,48 +393,21 @@ JaxMaterials is used in Step 2 to solve the nonlinear mechanical equilibrium pro
 
 ```Python
 def compute_sigma_damaged(epsilon, params):
-    lmbda, mu, d, k = params
-
+    lmbda, mu, d_phase, k_stab = params
     eps_tensor = voigt_to_tensor(epsilon)
-
     tr_eps = jnp.trace(eps_tensor, axis1=-2, axis2=-1)
-    tr_eps_plus = jnp.maximum(tr_eps, 0.0)
-    tr_eps_minus = jnp.minimum(tr_eps, 0.0)
-
-    # Get eigenvalues n eigenvectors
-    eigvals, eigvecs = jnp.linalg.eigh(eps_tensor)
-    eigvals_plus = jnp.maximum(eigvals, 0.0)
-    eigvals_minus = jnp.minimum(eigvals, 0.0)
-
-    # Reconstruct the positive and negative strain tensors (eps_plus / eps_minus)
-    # This uses einsum to do: V * Lambda_plus * V^T across the entire 3D grid instantly
-    eps_plus_tensor = jnp.einsum(
-        "...ia,...a,...ja->...ij", eigvecs, eigvals_plus, eigvecs
-    )
-    eps_minus_tensor = jnp.einsum(
-        "...ia,...a,...ja->...ij", eigvecs, eigvals_minus, eigvecs
-    )
-
-    # Convert back to Voigt notation for the stress equation
-    eps_plus_v = tensor_to_voigt(eps_plus_tensor)
-    eps_minus_v = tensor_to_voigt(eps_minus_tensor)
-
-    # Calculate pure tension stress and pure compression stress
-    sigma_plus = 2.0 * mu * eps_plus_v
-    sigma_minus = 2.0 * mu * eps_minus_v
-    vol = vol = lmbda * tr_eps_plus
-    sigma_plus = sigma_plus.at[0].add(vol)
-    sigma_plus = sigma_plus.at[1].add(vol)
-    sigma_plus = sigma_plus.at[2].add(vol)
-
-    vol = lmbda * tr_eps_minus
-    sigma_minus = 2.0 * mu * eps_minus_v
-    sigma_minus = sigma_minus.at[0].add(vol)
-    sigma_minus = sigma_minus.at[1].add(vol)
-    sigma_minus = sigma_minus.at[2].add(vol)
-
-    # Apply damage degradation (g_d) ONLY to the tension (positive) stress
-    return ((1.0 - d[None, ...]) ** 2 + k) * sigma_plus + sigma_minus
+    sigma = {}
+    for sign, op in (("+", jnp.maximum), ("-", jnp.minimum)):
+        tr_eps_signed = op(tr_eps, 0.0)
+        eigvals, eigvecs = jnp.linalg.eigh(eps_tensor)
+        eigvals_signed = op(eigvals, 0.0)
+        eps_signed_tensor = jnp.einsum(
+            "...ia,...a,...ja->...ij", eigvecs, eigvals_signed, eigvecs
+        )
+        eps_signed_v = tensor_to_voigt(eps_signed_tensor)
+        sigma[sign] = 2.0 * mu * eps_signed_v
+        sigma[sign] = sigma[sign].at[:3].add(lmbda * tr_eps_signed)
+    return ((1.0 - d_phase[None, ...]) ** 2 + k_stab) * sigma["+"] + sigma["-"]
 ```
 
 This constitutive function performs the spectral tension-compression split locally at every grid point. Only the tensile stress contribution is degraded by the phase field, thereby preventing fracture growth under compression. Because the function is written entirely using differentiable JAX operations, it can be passed directly to JaxMaterials without modifying the underlying FFT solver.
