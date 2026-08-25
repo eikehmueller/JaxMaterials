@@ -26,7 +26,7 @@ bibliography: paper.bib
 ---
 
 # Summary
-Many applications in Scientific Computing require not only the fast solution of a forward problem $\theta\rightarrow u \rightarrow J$, which relates some input parameters $\theta$ to the solution $u=u(\theta)$ of a partial differential equations (PDE) and ultimately an objective function $J=J(u(\theta))$, but also the computation of sensitivites $\delta J/\delta \theta$. Recently, powerful frameworks such as JAX [@Bradbury:2018] have become available to address this challenge while allowing the user to express the problem at a high abstraction level. We introduce an differentiable JAX-based package for solving an important system of coupled PDEs that arises in continuum mechanics. This allows the efficient modelling of problems which are described by the stationary Cauchy equation together with a user-defined constituitive law that relates microscopic stress $\sigma$ and strain $\varepsilon$. The user interacts with the library by defining a custom function `compute_sigma(epsilon,param)` which describes this constituitive law that can depend on arbitrary parameters $\theta$ encoded in `params`. The code is inherently differentiable and uses the adjoint state method [@Hinze:2008] to propagate gradients through the iterative Lippmann Schwinger solver introduced in [@Moulinec:1998]; Anderson acceleration [@Wicht:2021] to improve computational efficiency is also supported. We demonstrate the application of our code to three practical problems that are relevant to the engineering communitiy.
+Many applications in Scientific Computing require not only the fast solution of a forward problem $\theta\rightarrow u \rightarrow J$, which relates some input parameters $\theta$ to the solution $u=u(\theta)$ of a partial differential equations (PDE) and ultimately an objective function $J=J(u(\theta))$, but also the computation of sensitivities $\delta J/\delta \theta$. Recently, powerful frameworks such as JAX [@Bradbury:2018] have become available to address this challenge while allowing the user to express the problem at a high abstraction level. We introduce a differentiable JAX-based package for solving an important system of coupled PDEs that arises in continuum mechanics. This allows the efficient modelling of problems which are described by the stationary Cauchy equation together with a user-defined constitutive law that relates microscopic stress $\sigma$ and strain $\varepsilon$. The user interacts with the library by defining a custom function `compute_sigma(epsilon,param)` which describes this constitutive law that can depend on arbitrary parameters $\theta$ encoded in `params`. The code is inherently differentiable and uses the adjoint state method [@Hinze:2008] to propagate gradients through the iterative Lippmann Schwinger solver introduced in [@Moulinec:1998]; Anderson acceleration [@Wicht:2021] to improve computational efficiency is also supported. We demonstrate the application of our code to three practical problems that are relevant to the engineering community.
 
 # Statement of need
 
@@ -78,21 +78,21 @@ $$
 
 The problem is solved in a cuboid domain with periodic boundary conditions for the displacement field $u(x)$ and for given average strain $\overline{\varepsilon}$.
 
-The problem-dependent constituitive law $\sigma = \Sigma(\varepsilon|\theta)$ depends on the parameters $\theta$. Special cases are:
+The problem-dependent constitutive law $\sigma = \Sigma(\varepsilon|\theta)$ depends on the parameters $\theta$. Special cases are:
 
 * General linear materials with $\sigma_{ij}(x) = \sum_{k\ell}C_{ijk\ell}(x) \varepsilon_{k\ell}(x)$ where $C(x)=:\theta$ is the spatially varying elasticity tensor
 * Isotropic linear materials for which $C_{ijk\ell}(x) = \lambda(x) \delta_{ij}\delta_{k\ell} + \mu(x) (\delta_{ik}\delta_{j\ell} + \delta_{i\ell}\delta_{jk})$. In this case $\theta$ encapsulates the two scalar-valued Lame parameters $\{\mu(x),\lambda(x)\}=:\theta$.
 
 ## Lippmann Schwinger iteration
 
-The problem in (\autoref{eqn:continuum}) can be written in the form 
+The problem in (\autoref{eqn:pde_problem}) can be written in the form 
 
 $$
 \varepsilon + \Gamma^0 * (\Sigma(\varepsilon|\theta) - C^0 \varepsilon)= \overline{\varepsilon}.
 \label{eqn:lippmann_schwinger}
 $$
 
-In this equation $*$ denotes convolution and $C^0$ is the homogenous isotropic elasticity tensor described by the two reference Lame parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of [@Moulinec:1998]). 
+In this equation $*$ denotes convolution and $C^0$ is the homogeneous isotropic elasticity tensor described by the two reference Lame parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of [@Moulinec:1998]). 
 
 As discussed in [@Moulinec:1998], the self-consistent equation in (\autoref{eqn:lippmann_schwinger}) is solved by exploiting the fact that $\Gamma^0$ is diagonal in Fourier space and by applying the Lippmann Schwinger iteration
 
@@ -102,7 +102,7 @@ $$
 
 Here $\mathcal{F}$ and $\mathcal{F}^{-1}$ denote the forward and inverse Fourier transform respectively. 
 
-To improve robustness we adopted the rotated discretisation scheme of [@Willot:2015] which is also used in AMITEX [@Gelebart:2020]. As in (@chen2019analysis), Anderson acceleration [@Wicht:2021] is used to reduce the number of iterations. For linear stress-strain relations, this is equivalent to a preconditioned GMRES iteration [@Walker:2011], but it can also be used for non-linear constituitive laws.
+To improve robustness we adopted the rotated discretisation scheme of [@Willot:2015] which is also used in AMITEX [@Gelebart:2020]. As in [@chen2019analysis], Anderson acceleration [@Wicht:2021] is used to reduce the number of iterations. For linear stress-strain relations, this is equivalent to a preconditioned GMRES iteration [@Walker:2011], but it can also be used for non-linear constitutive laws.
 
 ## Reverse-mode differentiation with the adjoint method
 
@@ -112,9 +112,9 @@ $$
 \frac{\delta J}{\delta \theta},\quad \frac{\delta J}{\delta \overline{\varepsilon}}
 $$
 
-subject to the condition that strain $\varepsilon=\varepsilon(\theta,\overline{\varepsilon})$ and stress $\sigma=\sigma(\theta,\overline{\varepsilon})$ satisfy the equations in (\autoref{eqn:continuum}) for given $\overline{\varepsilon}$ and material parameters $\theta$.
+subject to the condition that strain $\varepsilon=\varepsilon(\theta,\overline{\varepsilon})$ and stress $\sigma=\sigma(\theta,\overline{\varepsilon})$ satisfy the equations in (\autoref{eqn:pde_problem}) for given $\overline{\varepsilon}$ and material parameters $\theta$.
 
-Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivites can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. However, reverse mode-differentiation is not available for while-loops since the number of iterations is unknown at (just-in-time) compile time. To address this, we employ the adjoint state method [@Hinze:2008; @Johnson:2012]. This leads to an adjoint Lippmann Schwinger equation of a very simular structure as (\autoref{eqn:lippmann_schwinger}):
+Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivities can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. However, reverse mode-differentiation is not available for while-loops since the number of iterations is unknown at (just-in-time) compile time. To address this, we employ the adjoint state method [@Hinze:2008; @Johnson:2012]. This leads to an adjoint Lippmann Schwinger equation of a very similar structure as (\autoref{eqn:lippmann_schwinger}):
 
 $$
 \Lambda + (\Gamma^0*\Lambda)\frac{\delta \Sigma}{\delta \varepsilon} - \lambda^0 \operatorname{tr}(\Gamma^0*\Lambda)\mathbb{I} - 2\mu^0 (\Gamma^0*\Lambda) = -\left(\frac{\delta J}{\delta \varepsilon}+\frac{\delta J}{\delta \sigma}\frac{\delta \Sigma}{\delta \varepsilon}\right).\label{eqn:lippmann_schwinger_adjoint}
@@ -131,7 +131,7 @@ $$
 
 ## JAX implementation
 
-Since the code is based on JAX, all functions are pure and parameters are passed as state variables. The central functionality is exposed through the function `lippmann_schwinger()` whichs gets passed as a user-defined constituitive law $\Sigma(\varepsilon|\theta)$ of the form:
+Since the code is based on JAX, all functions are pure and parameters are passed as state variables. The central functionality is exposed through the function `lippmann_schwinger()` which gets passed as a user-defined constitutive law $\Sigma(\varepsilon|\theta)$ of the form:
 
 ```Python
 def compute_sigma(epsilon, params):
@@ -141,11 +141,11 @@ def compute_sigma(epsilon, params):
 
 Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable. By design our library allows the implementation of non-trivial models such as the one in [@Chen:2019]. Other examples are given below.
 
-For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well. In this case the user only needs to pass the Lame coefficients $\lambda(x)$, $\mu(x)$ or the idependent entries of the (symmetric) elasticity tensor $C(x)$.
+For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well. In this case the user only needs to pass the Lame coefficients $\lambda(x)$, $\mu(x)$ or the independent entries of the (symmetric) elasticity tensor $C(x)$.
 
 ## Example usage
 
-Consider an isotropic elastic material for which $\sigma_{ij}(x) = \lambda(x) \operatorname{tr}(\varepsilon(x))\delta_{ij} + 2\mu(x)\varepsilon_{ij}(x)$.  In this case $\theta = \{\mu(x),\lambda(x)\}$ and the constituitive law $\Sigma(\varepsilon|\theta)$ is implemented as the following function:
+Consider an isotropic elastic material for which $\sigma_{ij}(x) = \lambda(x) \operatorname{tr}(\varepsilon(x))\delta_{ij} + 2\mu(x)\varepsilon_{ij}(x)$.  In this case $\theta = \{\mu(x),\lambda(x)\}$ and the constitutive law $\Sigma(\varepsilon|\theta)$ is implemented as the following function:
 
 ```Python
 def compute_sigma(epsilon, params):
@@ -199,7 +199,7 @@ ref_params = {
 }
 ```
 
-Assume that we are interested in the objective function $J = \varepsilon^2+\sigma^2$. This can be implemented as a function of $\theta$, $\overline{\varepsilon}$ by calling the differentiable Lippmann Schwinger solver inside the function wich implements $J$:
+Assume that we are interested in the objective function $J = \varepsilon^2+\sigma^2$. This can be implemented as a function of $\theta$, $\overline{\varepsilon}$ by calling the differentiable Lippmann Schwinger solver inside the function which implements $J$:
 
 ```Python
 def loss_fn(params, epsilon_bar):
@@ -218,7 +218,7 @@ g_params, g_epsilon_bar = grad_fn(params, epsilon_bar)
 
 ### Special case: isotropic elastic material
 
-In this particular case we can also use the bespoke function `lippmann_schwinger_isotropic()` which assumes an isotropic elastic constituitive law. This function only needs to be passed the Lame parameters $\lambda(x)$, $\mu(x)$ as `params = {"lambda": lmbda, "mu": mu}` and automatically computes $\mu^0$, $\lambda^0$:
+In this particular case we can also use the bespoke function `lippmann_schwinger_isotropic()` which assumes an isotropic elastic constitutive law. This function only needs to be passed the Lame parameters $\lambda(x)$, $\mu(x)$ as `params = {"lambda": lmbda, "mu": mu}` and automatically computes $\mu^0$, $\lambda^0$:
 
 ```Python
 from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
@@ -247,7 +247,7 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 Three selected applications demonstrate how the differentiable FFT solver in JaxMaterials can be integrated into materials research workflows.
 
 ## Topology optimisation
-We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method [@Bendsoe:2004] requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in [@Chen:2022] which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\varepsilon}= (1,1,1,0,0,0)^\top$ to obtain the micorscopic stress $\sigma(x)$ which is averaged to the macroscopic stress $\overline{\sigma}$:
+We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method [@Bendsoe:2004] requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in [@Chen:2022] which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\varepsilon}= (1,1,1,0,0,0)^\top$ to obtain the microscopic stress $\sigma(x)$ which is averaged to the macroscopic stress $\overline{\sigma}$:
 
 $$
 \begin{aligned}
@@ -308,13 +308,13 @@ J, dJ = value_grad_fn(rho, mat, grid_spec)
 
 ### Results
 
-Numerical experiments were carried out for three different solid volume fractions $\phi=|\Omega|^{-1}\int_\Omega \rho(x)\;dx$. Each design is represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase has Young's modulus of $E_1=1 GPa$ and a Poisson's ratio of $\nu=0.3$, while the void phase is approximated bys a much softer material with Young's modulus of $E_0=10^{-6} GPa$. The combination of high porosity, complex pore morphology, and a stiffness contrast of $E_0/E_1=10^6$ makes the solution of the fundamental equations in (\autoref{eqn:pde_problem}) numerically challenging.
+Numerical experiments were carried out for three different solid volume fractions $\phi=|\Omega|^{-1}\int_\Omega \rho(x)\;dx$. Each design is represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase has Young's modulus of $E_1=1 GPa$ and a Poisson's ratio of $\nu=0.3$, while the void phase is approximated by a much softer material with Young's modulus of $E_0=10^{-6} GPa$. The combination of high porosity, complex pore morphology, and a stiffness contrast of $E_0/E_1=10^6$ makes the solution of the fundamental equations in (\autoref{eqn:pde_problem}) numerically challenging.
 
 \autoref{fig:topology_evolution} shows the evolution of the topologies described by $\rho(x)$, where each step of the outer optimisation requires the computation of the gradients $\delta J/\delta \rho(x)$ as described above.
 
 ![Evolution of the optimised porous structures at solid volume fractions of 10% (left), 20% (middle), and 30% (right).\label{fig:topology_evolution}](figures/to_animation_png.png){width=80%}
 
-The corresponding convergence histories in \autoref{fig:topology_convergence} confirm that for all three volume fractions $\phi$ the effective bulk modulus converges towards a stable plateau. This demonstrates that JaxMaterial's forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
+The corresponding convergence histories in \autoref{fig:topology_convergence} confirm that for all three volume fractions $\phi$ the effective bulk modulus converges towards a stable plateau. This demonstrates that JaxMaterials' forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
 
 ![Evolution of the effective bulk modulus during topology optimisation at different solid volume fractions.\label{fig:topology_convergence}](figures/to_convergence.png){width=80%}
 
@@ -338,7 +338,7 @@ $$
 By projecting onto the positive and negative eigenmodes, the strain tensor $\varepsilon = \varepsilon_++ \varepsilon_-$ is split into a tensile mode $\varepsilon_+$ and a compressive part $\varepsilon_-$. 
 
 
-Since fractures do not grow under compression only the tensile component of the strain strain is sensitive to damage and the stress-strain relationship can be modelled as
+Since fractures do not grow under compression only the tensile component of the strain is sensitive to damage and the stress-strain relationship can be modelled as
 
 $$
 \sigma = \left((1-d)^2+k_{\text{stab}}\right) \left[\lambda \langle \operatorname{tr}(\varepsilon) \rangle_+ \mathbb{I}
@@ -348,7 +348,7 @@ $$
 \label{eqn:Sigma_phase_field}
 $$
 
-with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$. The small stabilisation parameter $k_{\text{stab}}\ll 1$ prevents $\sigma$ from becoming degenerate as $d\rightarrow 1$. Observe that while the constituitive law is of the form $\Sigma(\varepsilon|\theta)$ required in (\autoref{eqn:pde_problem}), the relationship between stress and strain is is no longer linear and significantly more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
+with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$. The small stabilisation parameter $k_{\text{stab}}\ll 1$ prevents $\sigma$ from becoming degenerate as $d\rightarrow 1$. Observe that while the constitutive law is of the form $\Sigma(\varepsilon|\theta)$ required in (\autoref{eqn:pde_problem}), the relationship between stress and strain is is no longer linear and significantly more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
 
 Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde_problem}) with $\Sigma(\varepsilon|\theta)$ defined by (\autoref{eqn:Sigma_phase_field}) and the phase-field equation in (\autoref{eqn:phase_field_damage}) are solved sequentially. For this, a staggered scheme alternates between the following three steps to obtain time-dependent strain $\varepsilon(x,t_n)$, history $\mathcal{H}(x,t_n)$ and phase field $d(x,t_n)$:
 
@@ -356,13 +356,13 @@ Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde
 * **Step 2:** Given $d(x,t_{n+1})$, use JaxMaterials to solve (\autoref{eqn:pde_problem}) and obtain the updated strain field $\varepsilon(x,t_{n+1})$.
 * **Step 3:** Given $\varepsilon(x,t_{n+1})$, compute the updated history field $\mathcal{H}(x,t_{n+1})$ according to (\autoref{eqn:history_field}).
 
-In the computation of $\varepsilon(x,t_{n+1})$ in Step 2 the constituitive law $\Sigma(\varepsilon|\theta)$ depends on the following three parameters:
+In the computation of $\varepsilon(x,t_{n+1})$ in Step 2 the constitutive law $\Sigma(\varepsilon|\theta)$ depends on the following three parameters:
 
 1. the phase field $d$
 2. the constant Lame parameters $\mu,\lambda\in \mathbb{R}$ in (\autoref{eqn:Sigma_phase_field})
 3. the stabilisation parameter $k_{\text{stab}}$
    
-The constituitive law is described by the following user-defined function, which gets passed the parameters $\theta:=\{\lambda,\mu,d,k_{\text{stab}}\}$ through the variable `params`:
+The constitutive law is described by the following user-defined function, which gets passed the parameters $\theta:=\{\lambda,\mu,d,k_{\text{stab}}\}$ through the variable `params`:
 
 ```Python
 def compute_sigma_damaged(epsilon, params):
@@ -402,7 +402,7 @@ $$
 u=(E^{\text{particle}},E^{\text{matrix}},\nu^{\text{particle}},\nu^{\text{matrix}})\in\mathbb{R}^4.
 $$
 
-The goal of the inverse problem is then to infer the material parameters $u$ from a measured stress $\overline{\sigma}^{\text{exp}}$ for prescribed strain $\overline{\varepsilon}^{\text{exp}}$, assuming that the microscopic stress $\sigma$ solves the material equations in (\autoref{eqn:pde_problem}) with constituitive law $\sigma=\Sigma(\varepsilon|u)$. For this, the residual 
+The goal of the inverse problem is then to infer the material parameters $u$ from a measured stress $\overline{\sigma}^{\text{exp}}$ for prescribed strain $\overline{\varepsilon}^{\text{exp}}$, assuming that the microscopic stress $\sigma$ solves the material equations in (\autoref{eqn:pde_problem}) with constitutive law $\sigma=\Sigma(\varepsilon|u)$. For this, the residual 
 
 $$
 r(u) = \frac{1}{|\Omega|}\int_{\Omega}\sigma(\overline{\varepsilon}^{\text{exp}},u)\;dx-\overline{\sigma}^{\text{exp}}
@@ -418,7 +418,7 @@ $$
 
 with the method of normal equations.
 
-To compute the Jacobian matrix $J=J(u)$ for a given parameter vector $u$, JaxMaterials solves the heterogeneous elasticity problem for the prescribed strain state $\overline{\varepsilon}^{\text{exp}}$ and parameters $u$. The macroscopic stress $\overline{\sigma}^{\text{sim}}$ is obtained by averaging the local stress $\sigma(\overline{\varepsilon}^{\text{exp}},u)$. Since all these operations are differentiable, the residual $r=r(u)$ and its Jacobian $J$ are readily obtained in JAX. For this, define a differentiable function `forward_solve()` which gets passed the material properties $u$ and average strain $\overline{\varepsilon}^{\text{exp}}$. This function constructs the spatially varying Lame parameters $\lambda(x)$, $\mu(x)$ from the topology and the material parameters in $u$ and calls `lippmann_schwinger_isotropic()` to compute the stress $\sigma$, which is averaged and returned. The follewing JAX code then computes the Jacobian, which is subsequently used in the outer Newton-Raphson iteration (\autoref{eqn:newton_raphson}):
+To compute the Jacobian matrix $J=J(u)$ for a given parameter vector $u$, JaxMaterials solves the heterogeneous elasticity problem for the prescribed strain state $\overline{\varepsilon}^{\text{exp}}$ and parameters $u$. The macroscopic stress $\overline{\sigma}^{\text{sim}}$ is obtained by averaging the local stress $\sigma(\overline{\varepsilon}^{\text{exp}},u)$. Since all these operations are differentiable, the residual $r=r(u)$ and its Jacobian $J$ are readily obtained in JAX. For this, define a differentiable function `forward_solve()` which gets passed the material properties $u$ and average strain $\overline{\varepsilon}^{\text{exp}}$. This function constructs the spatially varying Lame parameters $\lambda(x)$, $\mu(x)$ from the topology and the material parameters in $u$ and calls `lippmann_schwinger_isotropic()` to compute the stress $\sigma$, which is averaged and returned. The following JAX code then computes the Jacobian, which is subsequently used in the outer Newton-Raphson iteration (\autoref{eqn:newton_raphson}):
 
 ```Python
 residual_fn = lambda u: forward_solve(u, epsilon_bar_exp, ...) - sigma_exp
@@ -441,12 +441,12 @@ The workflow is summarised in \autoref{fig:inv_elas_workflow}.
 
 # AI usage disclosure
 
- Generative AI (mainly GitHub copilot) was used to generate some of the code, to identify and locate bugs and to generate informed feedback on the code and documentation. Code generation was closely supervised by limiting it to routine transformations and by breaking it into small, transparent tasks the correctness implementation of which could be easily verified. All generated code and all AI suggestions were carefully reviewed by the authors to ensure correctness. 
+ Generative AI (mainly GitHub copilot) was used to generate some of the code, to identify and locate bugs and to generate informed feedback on the code and documentation. Code generation was closely supervised by limiting it to routine transformations and by breaking it into small, transparent tasks the correctness implementation of which could be easily verified. All generated code and all AI suggestions were carefully reviewed by the authors to ensure correctness. GenAI was used for final spell checking of the manuscript.
 
 # Outlook and future work
 There are several ways in which this work can be extended.
 
-First of all, the code could be parallelised across multiple GPUs to enable large scale simulations. Further extending the CUDA code to also support reverse mode differentiation can improve performance. However, since JAX just-in-time compilation produces highly efficient code, it is less clear whether the required effort will justify this. So far, we have only considered the staggered discretisation also used in [@Gelebart:2020] and employed periodic boundary conditions. It would in principle also be possible to extend the code to other discretisations and boundary conditions (see [@Gelebart:2024]). Here we concentrated on the tensor-valued equations which are solved for microscopic stress and strain; the solution of these equations is often the computational bottleneck of simulations. However, the same approach could be applied to scalar valued equations of the form $\nabla \cdot E=f$ with $E=E(\phi|\theta)$. For example, the constituitive law $E=-K \nabla \phi$ would describe a heat flux problem with thermal conductivity $K$. We welcome suggestions for other possible extensions from users with specific applications.
+First of all, the code could be parallelised across multiple GPUs to enable large scale simulations. Further extending the CUDA code to also support reverse mode differentiation can improve performance. However, since JAX just-in-time compilation produces highly efficient code, it is less clear whether the required effort will justify this. So far, we have only considered the staggered discretisation also used in [@Gelebart:2020] and employed periodic boundary conditions. It would in principle also be possible to extend the code to other discretisations and boundary conditions (see [@Gelebart:2024]). Here we concentrated on the tensor-valued equations which are solved for microscopic stress and strain; the solution of these equations is often the computational bottleneck of simulations. However, the same approach could be applied to scalar valued equations of the form $\nabla \cdot E=f$ with $E=E(\phi|\theta)$. For example, the constitutive law $E=-K \nabla \phi$ would describe a heat flux problem with thermal conductivity $K$. We welcome suggestions for other possible extensions from users with specific applications.
 
 The examples presented in this work use JaxMaterials for classical workflows in mechanical engineering and material design. Another very important application is to embed the differentiable solver in Scientific Machine Learning approaches. For example, in  [@Pestourie:2023] the authors solve a low-fidelity surrogate PDE, where the input parameters are learned from the high-fidelity input fields through a neural network. Our code can be naturally embedded in larger JAX-based ML workflows to implement the approach in [@Pestourie:2023] for problems in material modelling.
 
