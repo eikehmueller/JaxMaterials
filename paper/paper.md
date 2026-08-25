@@ -282,34 +282,19 @@ With this, the objective function $J$ can be computed for a given $\rho(x)$ by s
 
 ```Python 
 def objective_fn(rho, mat, grid_spec):
-    # Compute reference material parameters
     params = lame_parameters(rho, mat)
     ref_params = {
         key: jax.lax.stop_gradient(0.5 * (jnp.max(value) + jnp.min(value)))
         for key, value in params.items()
     }
-
-    # Solve linear elastic problem via Lippmann-Schwinger FFT solver.
     epsilon_bar = jnp.array([1.0, 1.0, 1.0, 0.0, 0.0, 0.0])
     epsilon, sigma = lippmann_schwinger(
-        compute_sigma_from_density,
-        (rho, mat),
-        epsilon_bar,
-        ref_params=ref_params,
-        grid_spec=grid_spec,
-        tol=1.0e-3,
-        maxits=2000,
-        verbose=1,
-        depth=4,
+        compute_sigma_from_density, (rho, mat), epsilon_bar, ...
     )
-
-    # average strain bar(sigma)
     sigma_bar = jnp.mean(sigma, axis=[1, 2, 3])
-
     bulk_modulus = jnp.sum(
         epsilon_bar[:3] * sigma_bar[:3] + epsilon_bar[3:] * sigma_bar[3:] * 2
     )
-
     return -bulk_modulus / 9
 ```
 
