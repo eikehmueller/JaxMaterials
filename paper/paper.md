@@ -322,23 +322,13 @@ J, dJ = value_grad_fn(rho, mat, grid_spec)
 
 Numerical experiments were carried out for three different solid volume fractions. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
 
-Figure 1 shows the evolution of the topologies described by $\rho(x)$, where each step of the outer optimisation requires the computation of the gradients $\delta K/\delta \rho(x)$ as described above.
+Figure \autoref{fig:topology_evolution} shows the evolution of the topologies described by $\rho(x)$, where each step of the outer optimisation requires the computation of the gradients $\delta K/\delta \rho(x)$ as described above.
 
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/to_animation_seq.gif" alt="Figure 1" width="700">
-  <figcaption style="text-align: center;">
-Figure 1: Evolution of the optimised porous structures at solid volume fractions of 10% (left), 20% (middle), and 30% (right).
-</figcaption>
-</figure>
+![Evolution of the optimised porous structures at solid volume fractions of 10% (left), 20% (middle), and 30% (right).\label{fig:topology_evolution}](figures/to_animation_png.png){width=80%}
 
-The corresponding convergence histories Figure 2 demonstrate that for all three volume fractions the effective bulk modulus converges towards a stable plateau. This confirms that JaxMaterials forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
+The corresponding convergence histories in Figure \autoref{fig:topology_convergence} demonstrate that for all three volume fractions the effective bulk modulus converges towards a stable plateau. This confirms that JaxMaterials forward and adjoint solutions provide sufficiently stable sensitivities for gradient-based topology optimisation.
 
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/to_convergence.png" alt="Figure 2" width="400">
-  <figcaption style="text-align: center;">
-Figure 2: Evolution of the effective bulk modulus during topology optimisation at different solid volume fractions.
-</figcaption>
-</figure>
+![Evolution of the effective bulk modulus during topology optimisation at different solid volume fractions.\label{fig:topology_convergence}](figures/to_convergence.png){width=80%}
 
 All three cases were completed within approximately one hour using a Nvidia RTX A6000 GPU.
 
@@ -427,24 +417,14 @@ epsilon, sigma = lippmann_schwinger(
 ```
 This separation between the constitutive model and the equilibrium solver is central to JaxMaterials. The phase field, material parameters, and residual stiffness are treated as constitutive inputs, while `lippmann_schwinger()` handles equilibrium, nonlinear iteration, FFT operations, and differentiation. The same solver can therefore be used with different fracture formulations by replacing only the local constitutive function.
 
-Figure 3 shows the simulated fracture pattern in a particle-reinforced composite. The complete staggered simulation took 2.6 hours on an NVIDIA RTX A6000 GPU. Further reductions in runtime may be possible by introducing an acceleration scheme, such as Anderson acceleration, for the phase-field iterations.
+Figure \autoref{fig:pfm_forwardrun} shows the simulated fracture pattern in a particle-reinforced composite. The complete staggered simulation took 2.6 hours on an NVIDIA RTX A6000 GPU. Further reductions in runtime may be possible by introducing an acceleration scheme, such as Anderson acceleration, for the phase-field iterations.
 
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/pfm_forwardrun.png" alt="Figure 3" width="600">
-  <figcaption style="text-align: center;">
-Figure 3: Phase-field fracture simulation of a particle-reinforced composite. JaxMaterials solves the nonlinear mechanical equilibrium problem at each staggered iteration.
-</figcaption>
-</figure>
+![Phase-field fracture simulation of a particle-reinforced composite. JaxMaterials solves the nonlinear mechanical equilibrium problem at each staggered iteration.\label{fig:pfm_forwardrun}](figures/pfm_forwardrun.png){width=80%}
 
 ## Inverse problem: material parameter identification
-This example demonstrates the use of JaxMaterials for gradient-based identification of constituent material properties from macroscopic measurements. The workflow is summarised in Figure 4.
+This example demonstrates the use of JaxMaterials for gradient-based identification of constituent material properties from macroscopic measurements. The workflow is summarised in Figure \autoref{fig:inv_elas_workflow}.
 
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/inv_elas_workflow.png" alt="Figure 4" width="500">
-  <figcaption style="text-align: center;">
-Figure 4: JaxMaterials-based workflow for identifying constituent properties from macroscopic stress-strain measurements.
-</figcaption>
-</figure>
+![JaxMaterials-based workflow for identifying constituent properties from macroscopic stress-strain measurements.\label{fig:inv_elas_workflow}](figures/inv_elas_workflow.png){width=80%}
 
 We consider a particle-reinforced composite whose particle and matrix properties are unknown. The parameter vector is
 
@@ -498,16 +478,11 @@ J = jacobian_fn(u)
 
 This implementation separates the inverse algorithm from the mechanics solver. The identification routine only defines the residual and calls `jax.jacobian`. JaxMaterials handles the forward equilibrium simulations and the corresponding adjoint problems. No problem-specific sensitivity equations need to be derived or implemented by the user.
 
-Figure 5 shows the convergence history. All four constituent properties converged to their target values within four Newton iterations, demonstrating that the sensitivities supplied by JaxMaterials can support efficient parameter identification from macroscopic data.
+Figure \autoref{fig:inv_elas_convergence} shows the convergence history. All four constituent properties converged to their target values within four Newton iterations, demonstrating that the sensitivities supplied by JaxMaterials can support efficient parameter identification from macroscopic data.
 
-During one or more Jacobian evaluations, the adjoint Lippmann-Schwinger solver reached the prescribed limit of 2,000 iterations before satisfying its convergence tolerance. The resulting sensitivities were therefore based on truncated adjoint solutions. Nevertheless, they remained sufficiently accurate for the Newton iterations to converge in this example. This observation also highlights the importance of monitoring both forward and adjoint residuals when applying the method to strongly heterogeneous materials.
+During one or more Jacobian evaluations, the adjoint Lippmann-Schwinger solver reached the prescribed limit of $2,000$ iterations before satisfying its convergence tolerance. The resulting sensitivities were therefore based on truncated adjoint solutions. Nevertheless, they remained sufficiently accurate for the Newton iterations to converge in this example. This observation also highlights the importance of monitoring both forward and adjoint residuals when applying the method to strongly heterogeneous materials.
 
-<figure style="margin: 0; text-align: center;">
-  <img src="figures/inv_elas_convergence.png" alt="Figure 5" width="500">
-  <figcaption style="text-align: center;">
-Figure 5: Convergence of the identified particle and matrix properties during the Newton-Raphson iterations.
-</figcaption>
-</figure>
+![Convergence of the identified particle and matrix properties during the Newton-Raphson iterations.\label{fig:inv_elas_convergence}](figures/inv_elas_convergence.png){width=80%}
 
 # AI usage disclosure
 
