@@ -320,7 +320,9 @@ value_grad_fn = jax.value_and_grad(objective_fn, argnums=0, has_aux=False)
 J, dJ = value_grad_fn(rho, mat, grid_spec)
 ```
 
-Numerical experiments were carried out for three different solid volume fractions. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging. Some forward and adjoint solves required more than 2,000 iterations to satisfy the tolerance of $10^{-3}$, even with Anderson acceleration of depth four. We therefore limited each solve to 2,000 iterations. Despite this limit, the objective and sensitivity calculations remained sufficiently stable for the optimisation to converge.
+### Results
+
+Numerical experiments were carried out for three different solid volume fractions. Each design was represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase had Young's modulus of $E_1=1$ GPa and a Poisson's ratio of 0.3, while the void phase was approximated bys a much softer material with Young's modulus of $E_0=10^{-6}$ GPa. The combination of high porosity, complex pore morphology, and a stiffness contrast of $10^6$ makes these equilibrium problems numerically challenging.
 
 \autoref{fig:topology_evolution} shows the evolution of the topologies described by $\rho(x)$, where each step of the outer optimisation requires the computation of the gradients $\delta J/\delta \rho(x)$ as described above.
 
@@ -344,46 +346,41 @@ where $g_c$ is the critical energy release rate, $l_c$ controls the regularised 
 
 $$\mathcal{H}(\mathbf{x}, t)
 := \max_{\tau \in [0,t]} \psi^{+}\!\left(\varepsilon(\mathbf{x}, \tau)\right).
+\label{eqn:history_field}
 $$
 
 By projecting onto the positive and negative eigenmodes, the strain tensor $\varepsilon = \varepsilon_++ \varepsilon_-$ is split into a tensile mode $\varepsilon_+$ and a compressive part $\varepsilon_-$. 
 
-Since only the tensile component of the strain strain is sensitive to damage, the stress-strain relationship can be modelled as
+
+Since fractures do not grow under compression only the tensile component of the strain strain is sensitive to damage and the stress-strain relationship can be modelled as
 
 $$
-\sigma = (1-d)^2 \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_+ \mathbf{I}
+\sigma = \left((1-d)^2+k_{\text{stab}}\right) \left[\lambda \langle \operatorname{tr}(\boldsymbol{\varepsilon}) \rangle_+ \mathbf{I}
 + 2\mu \varepsilon_+\right] 
  + \left[\lambda \langle \operatorname{tr}(\varepsilon) \rangle_- \mathbf{I}
 + 2\mu \boldsymbol{\varepsilon}_-\right]
-\qquad\text{with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$}
 \label{eqn:Sigma_phase_field}
 $$
 
-Observe that while the constituitive equation is of the form $\Sigma(\varepsilon|\theta)$ required in (\autoref{eqn:pde_problem}), the relationship between stress and strain is is no longer linear and significantly more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
+with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$. The small stabilisation parameter $k_{\text{stab}}\ll 1$ prevents $\sigma$ from becoming degenerate as $d\rightarrow 1$. Observe that while the constituitive law is of the form $\Sigma(\varepsilon|\theta)$ required in (\autoref{eqn:pde_problem}), the relationship between stress and strain is is no longer linear and significantly more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
 
-Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde_problem}) with $\Sigma(\varepsilon|\theta)$ defined by (\autoref{eqn:Sigma_phase_field}) and the phase-field equation in (\autoref{eqn:phase_field_damage}) are solved sequentially using the staggered scheme summarised in Table 1.
+Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde_problem}) with $\Sigma(\varepsilon|\theta)$ defined by (\autoref{eqn:Sigma_phase_field}) and the phase-field equation in (\autoref{eqn:phase_field_damage}) are solved sequentially. For this, a staggered scheme alternates between the following three steps to obtain time-dependent strain $\varepsilon(\boldsymbol{x},t_n)$, history $\mathcal{H}(\boldsymbol{x},t_n)$ and phase field $d(\vec{x},t_n)$:
 
-**Table 1. Staggered FFT scheme for solving the phase-field fracture problem**
-| Step | Procedure |
-|------|-----------|
-| **Initialization** | Given the initial strain field $\varepsilon^{0}(\mathbf{x})$, history field $\mathcal{H}^{0}(\mathbf{x})$, and phase field $d^{0}(\mathbf{x})$. |
-| **Loop** | **While** $t_{n+1} \leq T$, given $\varepsilon^{t_n}(\mathbf{x})$, $d^{t_n}(\mathbf{x})$, and $\mathcal{H}^{t_n}(\mathbf{x})$. |
-| **1** | Solve the phase-field problem to obtain the updated phase field: 
-|       | $(l_c, g_c, \mathcal{H}^{t_n}) \rightarrow \text{PhaseFieldSolve} \rightarrow d^{t_{n+1}}(\mathbf{x})$|
-| **2** | Solve the mechanical problem to obtain the strain field: 
-|       | $(\lambda, \mu, d^{t_{n+1}}, \overline{\varepsilon}) \rightarrow \text{JaxMaterials} \rightarrow \varepsilon^{t_{n+1}}(\mathbf{x})$|
-| **3** | Update the history field to obtain: 
-|       | $\varepsilon^{t_{n+1}}(\mathbf{x}) \rightarrow \mathcal{H}^{t_{n+1}}(\mathbf{x})$|
-| **4** | Advance the time step: $t_n \leftarrow t_{n+1}$. |
-| **Output** | Phase field $d(\mathbf{x},t)$, strain field $\varepsilon(\mathbf{x},t)$, and history field $\mathcal{H}(\mathbf{x},t)$. |
+1. Given the history field $\mathcal{H}({\boldsymbol{x},t_n})$, solve \autoref{eqn:phase_field_damage} with the FFT algorithm described in @Chen:2019 to obtain the updated phase field $d(\boldsymbol{x},t_{n+1})$.
+2. Given $d(\boldsymbol{x},t_{n+1})$, use JaxMaterials to solve (\autoref{eqn:pde_problem}) and obtain the updated strain field $\varepsilon(\boldsymbol{x},t_{n+1})$
+3. Given $\varepsilon(\boldsymbol{x},t_{n+1})$, compute the updated history field $\mathcal{H}(\boldsymbol{x},t_{n+1})$ according to (\autoref{eqn:history_field}) 
 
-The phase-field equation in Step 1 was solved using the FFT algorithm of [Chen et al. 2019]. Its numerical implementation, including an adjoint method for automatic differentiation, is available in [diffmat repo].
+In the computation of $\varepsilon(\boldsymbol{x},t_{n+1})$, the constituitive law $\Sigma(\varepsilon|\theta)$ depends on the following three parameters:
 
-JaxMaterials is used in Step 2 to solve the nonlinear mechanical equilibrium problem. At every staggered iteration, the updated phase field $d{t_{n+1}}$​ is passed to `lippmann_schwinger()` as a constitutive parameter. The local damaged-material response is supplied through the following user-defined function:
+1. The phase field $d$
+2. The constant Lame parameters $\mu,\lambda\in \mathbb{R}$ in \autoref{eqn:Sigma_phase_field}
+3. A small stabilisation parameter $k_{\text{stab}}$
+   
+The constituitive law is described by the following user-defined function, which gets passed the parameters $\theta:=(\lambda,\mu,d,k_{\text{stab}})$ through the variable `params`:
 
 ```Python
 def compute_sigma_damaged(epsilon, params):
-    lmbda, mu, d_phase, k_stab = params
+    lmbda, mu, d, k_stab = params
     eps_tensor = voigt_to_tensor(epsilon)
     tr_eps = jnp.trace(eps_tensor, axis1=-2, axis2=-1)
     sigma = {}
@@ -397,27 +394,18 @@ def compute_sigma_damaged(epsilon, params):
         eps_signed_v = tensor_to_voigt(eps_signed_tensor)
         sigma[sign] = 2.0 * mu * eps_signed_v
         sigma[sign] = sigma[sign].at[:3].add(lmbda * tr_eps_signed)
-    return ((1.0 - d_phase[None, ...]) ** 2 + k_stab) * sigma["+"] + sigma["-"]
+    return ((1.0 - d[None, ...]) ** 2 + k_stab) * sigma["+"] + sigma["-"]
 ```
 
-This constitutive function performs the spectral tension-compression split locally at every grid point. Only the tensile stress contribution is degraded by the phase field, thereby preventing fracture growth under compression. Because the function is written entirely using differentiable JAX operations, it can be passed directly to JaxMaterials without modifying the underlying FFT solver.
-
-The mechanical subproblem can then be expressed schematically as
+The small helper functions `tensor_to_voigt()` and `voigt_to_tensor()` convert between the $3\times 3$ representation of a symmetric matrix $A$ with components $A_{ij}$ and its Voigt representation @Voigt:1928 as a vector of the form $(A_{00}, A_{11}, A_{22}, A_{01}, A_{02}, A_{12})^\top$. Since the function `compute_sigma_damaged()` is written entirely using differentiable JAX operations, it can be passed to JaxMaterials:
 
 ```Python
-epsilon, sigma = lippmann_schwinger(
-    compute_sigma_damaged,
-    (lmbda, mu, d, k),
-    epsilon_bar,
-    ref_params=ref_params,
-    grid_spec=grid_spec,
-    tol=tol,
-    maxits=maxits,
-)
+epsilon, sigma = lippmann_schwinger(compute_sigma_damaged, (lmbda, mu, d, k_stab), ...)
 ```
-This separation between the constitutive model and the equilibrium solver is central to JaxMaterials. The phase field, material parameters, and residual stiffness are treated as constitutive inputs, while `lippmann_schwinger()` handles equilibrium, nonlinear iteration, FFT operations, and differentiation. The same solver can therefore be used with different fracture formulations by replacing only the local constitutive function.
 
-\autoref{fig:pfm_forwardrun} shows the simulated fracture pattern in a particle-reinforced composite. The complete staggered simulation took 2.6 hours on an NVIDIA RTX A6000 GPU. Further reductions in runtime may be possible by introducing an acceleration scheme, such as Anderson acceleration, for the phase-field iterations.
+### Results
+
+\autoref{fig:pfm_forwardrun} shows the simulated fracture pattern in a particle-reinforced composite. The complete staggered simulation took 2.6 hours on an NVIDIA RTX A6000 GPU.
 
 ![Phase-field fracture simulation of a particle-reinforced composite. JaxMaterials solves the nonlinear mechanical equilibrium problem at each staggered iteration.\label{fig:pfm_forwardrun}](figures/pfm_forwardrun.png){width=80%}
 
