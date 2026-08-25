@@ -26,7 +26,7 @@ bibliography: paper.bib
 ---
 
 # Summary
-Many applications in Scientific Computing require not only the fast solution of a forward problem $\theta\rightarrow u \rightarrow J$, which relates some input parameters $\theta$ to the solution $u=u(\theta)$ of a partial differential equations (PDE) and ultimately an objective function $J=J(u(\theta))$, but also the computation of sensitivites $\delta J/\delta \theta$. Recently, powerful frameworks such as JAX @Bradbury:2018 have become available to address this challenge while allowing the user to express the problem at a high abstraction level. We introduce an differentiable JAX-based package for solving an important system of coupled PDEs that arises in continuum mechanics. This allows the efficient modelling of problems which are described by the stationary Cauchy equation together with a user-defined constituitive law that relates stress $\sigma$ and strain $\varepsilon$. The user interacts with the library by defining a custom function `compute_sigma(epsilon,param)` which describes this constituitive law that can depend on arbitrary parameters $\theta$ encoded in `params`. The code is inherently differentiable and uses the adjoint state method @Hinze:2008 to propagate gradients through the iterative Lippmann Schwinger solver introduced in @Moulinec:1998; Anderson acceleration @Wicht:2021 to improve computational efficiency is also supported. We demonstrate the application of our code to several practical problems that are relevant to the engineering communitiy.
+Many applications in Scientific Computing require not only the fast solution of a forward problem $\theta\rightarrow u \rightarrow J$, which relates some input parameters $\theta$ to the solution $u=u(\theta)$ of a partial differential equations (PDE) and ultimately an objective function $J=J(u(\theta))$, but also the computation of sensitivites $\delta J/\delta \theta$. Recently, powerful frameworks such as JAX [@Bradbury:2018] have become available to address this challenge while allowing the user to express the problem at a high abstraction level. We introduce an differentiable JAX-based package for solving an important system of coupled PDEs that arises in continuum mechanics. This allows the efficient modelling of problems which are described by the stationary Cauchy equation together with a user-defined constituitive law that relates stress $\sigma$ and strain $\varepsilon$. The user interacts with the library by defining a custom function `compute_sigma(epsilon,param)` which describes this constituitive law that can depend on arbitrary parameters $\theta$ encoded in `params`. The code is inherently differentiable and uses the adjoint state method [@Hinze:2008] to propagate gradients through the iterative Lippmann Schwinger solver introduced in [@Moulinec:1998]; Anderson acceleration [@Wicht:2021] to improve computational efficiency is also supported. We demonstrate the application of our code to several practical problems that are relevant to the engineering communitiy.
 
 # Statement of need
 
@@ -48,18 +48,18 @@ with material parameters $\theta$. For example, in linear elasticity, $\theta$ c
 
 Accurate simulation of heterogeneous materials is computationally demanding due to the large separation of spatial scales. The resolution of fine microstructural features requires discretisation on fine computational grids, while strong material contrast, anisotropy and nonlinear constitutive behaviour can make the numerical solution challenging.
 
-Forward simulation alone is increasingly insufficient. Material parameters are notoriously difficult to measure directly and must be inferred from experimental data. In addition, physics-based simulations are now frequently combined with machine-learning models in applications such as inverse modelling (@wang2025differentiable), uncertainty quantification (@akhare2024probabilistic), and scientific machine learning (@Pestourie:2023). These workflows require efficient computation of sensitivities with respect to model parameters, making differentiable PDE solvers an essential component (@shen2023differentiable).
+Forward simulation alone is increasingly insufficient. Material parameters are notoriously difficult to measure directly and must be inferred from experimental data. In addition, physics-based simulations are now frequently combined with machine-learning models in applications such as inverse modelling [@Wang:2025], uncertainty quantification [@Akhare:2024], and scientific machine learning [@Pestourie:2023]. These workflows require efficient computation of sensitivities with respect to model parameters, making differentiable PDE solvers an essential component [@Shen:2023].
 
 ## State of the field
-Since the seminal work of @Moulinec:1998, FFT-based Lippmann-Schwinger solvers have become a standard approach for computing stress and strain fields in heterogeneous materials. The approach is particularly attractive for simulations on regular grids and on modern parallel hardware (@chen2019analysis). 
-Lippmann-Schwinger solvers form the basis of mature software packages such as AMITEX (@Gelebart:2020), which provides highly optimised CPU implementations for large-scale material simulations. More recently, GPU-accelerated computing has emerged as an important direction for accelerating large-scale simulation of materials with fine microstructures **REFERENCE**.
+Since the seminal work of [@Moulinec:1998], FFT-based Lippmann-Schwinger solvers have become a standard approach for computing stress and strain fields in heterogeneous materials. The approach is particularly attractive for simulations on regular grids and on modern parallel hardware [@chen2019analysis]. 
+Lippmann-Schwinger solvers form the basis of mature software packages such as AMITEX [@Gelebart:2020], which provides highly optimised CPU implementations for large-scale material simulations. More recently, GPU-accelerated computing has emerged as an important direction for accelerating large-scale simulation of materials with fine microstructures **REFERENCE**.
 
-Advances in differentiable programming have sparked growing interest in differentiable materials simulations. Frameworks such as JAX (@Bradbury:2018) and PyTorch (@Paszke:2019) provide automatic differentiation capabilities together with execution on CPUs and GPUs, enabling the integration of PDE solvers into optimisation and machine-learning workflows. In the work of @Pundir:2025, a JAX-based framework is proposed. Users can specify constitutive relations and derivatives are generated automatically by JAX. Efficiency is achieved through just-in-time (JIT) compilation. In a related study, the authors of @Pundir:2026 use automatic differentiation to derive governing equations from energy functionals and solve them using the finite element method. Similarly, @Bluhdorn:2022 presents a C++ framework that combines automatic differentiation with GPU acceleration.
+Advances in differentiable programming have sparked growing interest in differentiable materials simulations. Frameworks such as JAX [@Bradbury:2018] and PyTorch [@Paszke:2019] provide automatic differentiation capabilities together with execution on CPUs and GPUs, enabling the integration of PDE solvers into optimisation and machine-learning workflows. In the work of [@Pundir:2025], a JAX-based framework is proposed. Users can specify constitutive relations and derivatives are generated automatically by JAX. Efficiency is achieved through just-in-time (JIT) compilation. In a related study, the authors of [@Pundir:2026] use automatic differentiation to derive governing equations from energy functionals and solve them using the finite element method. Similarly, [@Bluhdorn:2022] presents a C++ framework that combines automatic differentiation with GPU acceleration.
 
-Despite these advances, existing differentiable implementations face important limitations. Directly applying JAX's automatic differentiation to iterative solvers is often computationally unfeasible: Forward-mode differentiation based on Jacobian-vector products (called JVPs in JAX) becomes expensive when the number of input parameters greatly exceeds the number of objective quantities, as is common in real applications. Reverse-mode differentiation is usually more efficient, but backpropagating through iterative solvers presents two challenges. First, all intermediate states must be stored during the forward pass, resulting in substantial memory costs. Second, practical solvers rely on dynamic stopping criteria, whereas efficient reverse-mode differentiation in JAX requires knowledge of the number of iterations at (just-in-time) compile time.  The adjoint-state method addresses these challenges, and it has become widely adopted in finite element frameworks, for example through the pyadjoint library (@Mitusch:2019), which is integrated with Firedrake (@Farrell:2013; @Rathgeber:2016). The resulting toolchain has recently been applied to materials modelling (@Farsi:2025). However, most differentiable PDE frameworks are built on finite element discretisations which, although highly flexible, are generally less computationally efficient than FFT-based methods for microstructure simulations on structured grids. Existing differentiable FFT implementations, such as @Pundir:2025, leverage automatic differentiation but are not primarily designed for memory-efficient reverse-mode differentiation of iterative solvers for large-scale problems.
+Despite these advances, existing differentiable implementations face important limitations. Directly applying JAX's automatic differentiation to iterative solvers is often computationally unfeasible: Forward-mode differentiation based on Jacobian-vector products (called JVPs in JAX) becomes expensive when the number of input parameters greatly exceeds the number of objective quantities, as is common in real applications. Reverse-mode differentiation is usually more efficient, but backpropagating through iterative solvers presents two challenges. First, all intermediate states must be stored during the forward pass, resulting in substantial memory costs. Second, practical solvers rely on dynamic stopping criteria, whereas efficient reverse-mode differentiation in JAX requires knowledge of the number of iterations at (just-in-time) compile time.  The adjoint-state method addresses these challenges, and it has become widely adopted in finite element frameworks, for example through the pyadjoint library [@Mitusch:2019], which is integrated with Firedrake [@Farrell:2013; @Rathgeber:2016]. The resulting toolchain has recently been applied to materials modelling [@Farsi:2025]. However, most differentiable PDE frameworks are built on finite element discretisations which, although highly flexible, are generally less computationally efficient than FFT-based methods for microstructure simulations on structured grids. Existing differentiable FFT implementations, such as [@Pundir:2025], leverage automatic differentiation but are not primarily designed for memory-efficient reverse-mode differentiation of iterative solvers for large-scale problems.
 
 ## Main achievements
-Our work combines the computational efficiency of FFT-based Lippmann-Schwinger solvers (@Moulinec:1998; @Schneider:2021) with the flexibility of differentiable programming in JAX. Users can define arbitrary constitutive laws $\sigma=\Sigma(\varepsilon|\theta)$ through a simple Python interface while benefiting from JIT compilation and GPU acceleration. The adjoint-state method allows memory-efficient reverse-mode differentiation and support for dynamical stopping criteria in the iterative solver. To our knowledge, this is the first open-source framework that combines a modular constitutive-law interface, efficient adjoint-based differentiation, and FFT-based computational homogenisation within a unified JAX ecosystem. The resulting software can be used for inverse parameter identification, uncertainty quantification, and machine-learning-assisted materials modelling.
+Our work combines the computational efficiency of FFT-based Lippmann-Schwinger solvers [@Moulinec:1998; @Schneider:2021] with the flexibility of differentiable programming in JAX. Users can define arbitrary constitutive laws $\sigma=\Sigma(\varepsilon|\theta)$ through a simple Python interface while benefiting from JIT compilation and GPU acceleration. The adjoint-state method allows memory-efficient reverse-mode differentiation and support for dynamical stopping criteria in the iterative solver. To our knowledge, this is the first open-source framework that combines a modular constitutive-law interface, efficient adjoint-based differentiation, and FFT-based computational homogenisation within a unified JAX ecosystem. The resulting software can be used for inverse parameter identification, uncertainty quantification, and machine-learning-assisted materials modelling.
 
 # Mathematical background
 To motivate the design of the software we briefly review the relevant mathematical details.
@@ -91,9 +91,9 @@ $$
 \varepsilon + \Gamma^0 * (\Sigma(\varepsilon|\theta) - C^0 \varepsilon)= \overline{\varepsilon}
 $$
 
-In this equation $*$ denotes convolution and $C^0$ is the homogenous isotropic elasticity tensor described by the two reference Lame parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of @Moulinec:1998). 
+In this equation $*$ denotes convolution and $C^0$ is the homogenous isotropic elasticity tensor described by the two reference Lame parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of [@Moulinec:1998]). 
 
-As discussed in @Moulinec:1998, the self-consistent equation in (\autoref{eqn:lippmann_schwinger}) is solved by exploiting the fact that $\Gamma^0$ is diagonal in Fourier space and by applying the Lippmann Schwinger iteration
+As discussed in [@Moulinec:1998], the self-consistent equation in (\autoref{eqn:lippmann_schwinger}) is solved by exploiting the fact that $\Gamma^0$ is diagonal in Fourier space and by applying the Lippmann Schwinger iteration
 
 $$
 \varepsilon^{(s+1)} = \overline{\varepsilon} - \mathcal{F}^{-1} \circ\widehat{\Gamma}^0 \circ\mathcal{F}\tau^{(s)} \qquad\text{with $\tau^{(s)} = (\Sigma(\varepsilon^{(s)}|\theta) - C^0\varepsilon^{(s)})$ and $\varepsilon^{(0)} = \overline{\varepsilon}$}
@@ -101,7 +101,7 @@ $$
 
 Here $\mathcal{F}$ and $\mathcal{F}^{-1}$ denote the forward and inverse Fourier transform respectively. 
 
-To improve robustness we adopted the rotated discretisation scheme of (@willot2015fourier) which is also used in AMITEX (@Gelebart:2020). As in (@chen2019analysis), Anderson acceleration (@Wicht:2021) is used to reduce the number of iterations. For linear stress-strain relations, this is equivalent to a preconditioned GMRES iteration (@Walker:2011).
+To improve robustness we adopted the rotated discretisation scheme of [@Willot:2015] which is also used in AMITEX [@Gelebart:2020]. As in (@chen2019analysis), Anderson acceleration [@Wicht:2021] is used to reduce the number of iterations. For linear stress-strain relations, this is equivalent to a preconditioned GMRES iteration [@Walker:2011].
 
 ## Reverse-mode differentiation with the adjoint method
 
@@ -113,7 +113,7 @@ $$
 
 subject to the condition that strain $\varepsilon=\varepsilon(\theta,\overline{\varepsilon})$ and stress $\sigma=\sigma(\theta,\overline{\varepsilon})$ satisfy the equations in (\autoref{eqn:continuum}) for given $\overline{\varepsilon}$ and material parameters $\theta$.
 
-Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivites can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. However, reverse mode-differentiation is not available for while-loops since the number of iterations is unknown at (just-in-time) compile time. To address this, we employ the adjoint state method @Hinze:2008, @Johnson:2012. This leads to an adjoint Lippmann Schwinger equation of a very simular structure as (\autoref{eqn:lippmann_schwinger}):
+Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivites can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. However, reverse mode-differentiation is not available for while-loops since the number of iterations is unknown at (just-in-time) compile time. To address this, we employ the adjoint state method [@Hinze:2008, @Johnson:2012]. This leads to an adjoint Lippmann Schwinger equation of a very simular structure as (\autoref{eqn:lippmann_schwinger}):
 
 $$
 \Lambda + (\Gamma^0*\Lambda)\frac{\delta \Sigma}{\delta \varepsilon} - \lambda^0 \operatorname{tr}(\Gamma^0*\Lambda)\mathbb{I} - 2\mu^0 (\Gamma^0*\Lambda) = -\left(\frac{\delta J}{\delta \varepsilon}+\frac{\delta J}{\delta \sigma}\frac{\delta \Sigma}{\delta \varepsilon}\right)
@@ -138,7 +138,7 @@ def compute_sigma(epsilon, params):
     return sigma
 ```
 
-Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable. By design our library allows the implementation of non-trivial models such as the one in @Chen:2019. Other examples are given below.
+Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable. By design our library allows the implementation of non-trivial models such as the one in [@Chen:2019]. Other examples are given below.
 
 For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well. In this case the user only needs to pass the Lame coefficients $\lambda(x)$, $\mu$ or the idependent entries of the (symmetric) elasticity tensor.
 
@@ -190,7 +190,7 @@ epsilon_bar = np.array([1,0,0,0,0,0]),dtype=np.float32)
 params = {"lambda": lmbda, "mu": mu}
 ```
 
-As in @Moulinec:1998 the reference Lame parameters are obtained by averaging the largest and smallest values across the domain $\mu^0=[\mu]$, $\lambda^0=[\lambda]$ with $[f] := \frac{1}{2}\left(\min_{x\in\Omega}\{f(x)\} + \max_{x\in\Omega}\{f(x)\}\right)$:
+As in [@Moulinec:1998] the reference Lame parameters are obtained by averaging the largest and smallest values across the domain $\mu^0=[\mu]$, $\lambda^0=[\lambda]$ with $[f] := \frac{1}{2}\left(\min_{x\in\Omega}\{f(x)\} + \max_{x\in\Omega}\{f(x)\}\right)$:
 
 ```Python
 ref_params = {
@@ -246,7 +246,7 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 Three selected applications demonstrate how the differentiable FFT solver in JaxMaterials can be integrated into materials research workflows.
 
 ## Topology optimisation
-We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method (@Bendsoe:2004) requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in (@Chen:2022) which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
+We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method [@Bendsoe:2004] requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in [@Chen:2022] which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\boldsymbol{\varepsilon}}= (1,1,1,0,0,0)^\top$:
 
 $$
 \begin{aligned}
@@ -335,7 +335,7 @@ The corresponding convergence histories in \autoref{fig:topology_convergence} de
 All three cases were completed within approximately one hour using a Nvidia RTX A6000 GPU.
 
 ## Phase-field fracture problem
- To demonstrate that JaxMaterials is readily embedded in a non-trivial multiphysics workflow, we consider the variational phase-field fracture model of @Miehe:2010. This setup couples a nonlinear mechanical equilibrium problem of the form (\autoref{eqn:pde_problem}) to the evolution of a scalar, spatially varying damage field $d(x)\in[0,1]$ where $d=0$ denotes intact material and $d=1$ corresponds to fully damaged material. 
+ To demonstrate that JaxMaterials is readily embedded in a non-trivial multiphysics workflow, we consider the variational phase-field fracture model of [@Miehe:2010]. This setup couples a nonlinear mechanical equilibrium problem of the form (\autoref{eqn:pde_problem}) to the evolution of a scalar, spatially varying damage field $d(x)\in[0,1]$ where $d=0$ denotes intact material and $d=1$ corresponds to fully damaged material. 
 
 The phase field subproblem is
 $$
@@ -366,14 +366,14 @@ with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$. The small stabilisati
 
 Following [Chen et al. 2019], the coupled mechanical equations (\autoref{eqn:pde_problem}) with $\Sigma(\varepsilon|\theta)$ defined by (\autoref{eqn:Sigma_phase_field}) and the phase-field equation in (\autoref{eqn:phase_field_damage}) are solved sequentially. For this, a staggered scheme alternates between the following three steps to obtain time-dependent strain $\varepsilon(\boldsymbol{x},t_n)$, history $\mathcal{H}(\boldsymbol{x},t_n)$ and phase field $d(\vec{x},t_n)$:
 
-1. Given the history field $\mathcal{H}({\boldsymbol{x},t_n})$, solve \autoref{eqn:phase_field_damage} with the FFT algorithm described in @Chen:2019 to obtain the updated phase field $d(\boldsymbol{x},t_{n+1})$.
+1. Given the history field $\mathcal{H}({\boldsymbol{x},t_n})$, solve (\autoref{eqn:phase_field_damage}) with the FFT algorithm described in [@Chen:2019] to obtain the updated phase field $d(\boldsymbol{x},t_{n+1})$.
 2. Given $d(\boldsymbol{x},t_{n+1})$, use JaxMaterials to solve (\autoref{eqn:pde_problem}) and obtain the updated strain field $\varepsilon(\boldsymbol{x},t_{n+1})$
 3. Given $\varepsilon(\boldsymbol{x},t_{n+1})$, compute the updated history field $\mathcal{H}(\boldsymbol{x},t_{n+1})$ according to (\autoref{eqn:history_field}) 
 
 In the computation of $\varepsilon(\boldsymbol{x},t_{n+1})$, the constituitive law $\Sigma(\varepsilon|\theta)$ depends on the following three parameters:
 
 1. The phase field $d$
-2. The constant Lame parameters $\mu,\lambda\in \mathbb{R}$ in \autoref{eqn:Sigma_phase_field}
+2. The constant Lame parameters $\mu,\lambda\in \mathbb{R}$ in (\autoref{eqn:Sigma_phase_field})
 3. A small stabilisation parameter $k_{\text{stab}}$
    
 The constituitive law is described by the following user-defined function, which gets passed the parameters $\theta:=(\lambda,\mu,d,k_{\text{stab}})$ through the variable `params`:
@@ -397,7 +397,7 @@ def compute_sigma_damaged(epsilon, params):
     return ((1.0 - d[None, ...]) ** 2 + k_stab) * sigma["+"] + sigma["-"]
 ```
 
-The small helper functions `tensor_to_voigt()` and `voigt_to_tensor()` convert between the $3\times 3$ representation of a symmetric matrix $A$ with components $A_{ij}$ and its Voigt representation @Voigt:1928 as a vector of the form $(A_{00}, A_{11}, A_{22}, A_{01}, A_{02}, A_{12})^\top$. Since the function `compute_sigma_damaged()` is written entirely using differentiable JAX operations, it can be passed to JaxMaterials:
+The small helper functions `tensor_to_voigt()` and `voigt_to_tensor()` convert between the $3\times 3$ representation of a symmetric matrix $A$ with components $A_{ij}$ and its Voigt representation [@Voigt:1928] as a vector of the form $(A_{00}, A_{11}, A_{22}, A_{01}, A_{02}, A_{12})^\top$. Since the function `compute_sigma_damaged()` is written entirely using differentiable JAX operations, it can be passed to JaxMaterials:
 
 ```Python
 epsilon, sigma = lippmann_schwinger(compute_sigma_damaged, (lmbda, mu, d, k_stab), ...)
@@ -457,7 +457,7 @@ The workflow is summarised in \autoref{fig:inv_elas_workflow}.
  Generative AI (mainly GitHub copilot) was used to generate some of the code, to identify and locate bugs and to generate informed feedback on the code and documentation. Code generation was closely supervised by limiting it to routine transformations and by breaking it into small, transparent tasks the correctness implementation of which could be easily verified. All generated code and all AI suggestions were carefully reviewed by the authors to ensure correctness. 
 
 # Outlook and future work
-Computing sensitivities with respect to the input parameters $\theta$ is also required if the equations are solved in Scientific Machine learning contexts such as in @Pestourie:2023. Our code can be naturally embedded in larger JAX-based ML workflows to address this.
+Computing sensitivities with respect to the input parameters $\theta$ is also required if the equations are solved in Scientific Machine learning contexts such as in [@Pestourie:2023]. Our code can be naturally embedded in larger JAX-based ML workflows to address this.
 
 # Acknowledgements
 
