@@ -308,7 +308,7 @@ J, dJ = value_grad_fn(rho, mat, grid_spec)
 
 ### Results
 
-Numerical experiments were carried out for three different solid volume fractions $\phi=|\Omega|^{-1}\int_\Omega \rho(x)\;dx$. Each design is represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase has Young's modulus of $E_1=1 GPa$ and a Poisson's ratio of $\nu=0.3$, while the void phase is approximated by a much softer material with Young's modulus of $E_0=10^{-6} GPa$. The combination of high porosity, complex pore morphology, and a stiffness contrast of $E_0/E_1=10^6$ makes the solution of the fundamental equations in (\autoref{eqn:pde_problem}) numerically challenging.
+Numerical experiments were carried out for three different solid volume fractions $\phi=|\Omega|^{-1}\int_\Omega \rho(x)\;dx$. Each design is represented by a cubic representative volume element (RVE) of size $0.5 \times 0.5 \times 0.5 mm^3$. The solid phase has Young's modulus of $E_1=1 GPa$ and a Poisson's ratio of $\nu=0.3$, while the void phase is approximated by a much softer material with Young's modulus of $E_0=10^{-6} GPa$. The combination of high porosity, complex pore morphology, and a stiffness contrast of $E_0/E_1=10^6$ makes the solution of the fundamental equations in (\autoref{eqn:pde_problem}) numerically challenging. Anderson acceleration effectively addresses this challenge as demonstrasted in [@chen2019analysis].
 
 \autoref{fig:topology_evolution} shows the evolution of the topologies described by $\rho(x)$, where each step of the outer optimisation requires the computation of the gradients $\delta J/\delta \rho(x)$ as described above.
 
@@ -451,5 +451,6 @@ First of all, the code could be parallelised across multiple GPUs to enable larg
 The examples presented in this work use JaxMaterials for classical workflows in mechanical engineering and material design. Another very important application is to embed the differentiable solver in Scientific Machine Learning approaches. For example, in [@Pestourie:2023] the authors solve a low-fidelity surrogate PDE, where the input parameters are learned from the high-fidelity input fields through a neural network. Our code can be naturally embedded in larger JAX-based ML workflows to implement the approach in [@Pestourie:2023] for problems in material modelling.
 
 # Acknowledgements
+We thank Xuanchen Liu for contributing to the initial setup of the phase-field fracture example during his final-year project.
 
 # References
