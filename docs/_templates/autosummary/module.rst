@@ -10,6 +10,7 @@ Classes
 
 .. autosummary::
    :toctree: generated
+   :nosignatures:
 
 {% for item in classes %}
    {{ item }}
@@ -22,6 +23,7 @@ Functions
 ---------
 
 .. autosummary::
+   :toctree: generated
    :nosignatures:
 
 {% for item in functions %}
