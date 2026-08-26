@@ -67,14 +67,14 @@ To motivate the design of the software we briefly review the relevant mathematic
 ## PDE Problem
 We consider the following system of partial differential equations for spatially varying strain $\varepsilon$ and stress $\sigma$:
 
-$$
+\begin{equation}
 \begin{aligned}
     \sum_j \partial_j \sigma_{ij} &= 0 & \text{(Cauchy momentum equation)}\\
     \sigma_{ij} &= \Sigma_{ij}(\varepsilon|\theta)\qquad\text{with $\varepsilon_{k\ell} = \varepsilon^*_{k\ell} + \overline{\varepsilon}_{k\ell}$} & \text{(Constituitive law)}\\
     \varepsilon^*_{k\ell} &= \frac{1}{2}\left(\partial_k u_\ell + \partial_\ell u_k\right) & \text{(Strain-displacement relation)}
 \end{aligned}
 \label{eqn:pde_problem}
-$$
+\end{equation}
 
 The problem is solved in a cuboid domain with periodic boundary conditions for the displacement field $u(x)$ and for given average strain $\overline{\varepsilon}$.
 
@@ -87,10 +87,10 @@ The problem-dependent constitutive law $\sigma = \Sigma(\varepsilon|\theta)$ dep
 
 The problem in (\autoref{eqn:pde_problem}) can be written in the form 
 
-$$
+\begin{equation}
 \varepsilon + \Gamma^0 * (\Sigma(\varepsilon|\theta) - C^0 \varepsilon)= \overline{\varepsilon}.
 \label{eqn:lippmann_schwinger}
-$$
+\end{equation}
 
 In this equation $*$ denotes convolution and $C^0$ is the homogeneous isotropic elasticity tensor described by the two reference Lamé parameters $\mu^0,\lambda^0\in\mathbb{R}$. The operator $\Gamma^0$ is constructed from the tensor-valued Green's function of the corresponding PDE (see appendix of [@Moulinec:1998]). 
 
@@ -116,9 +116,9 @@ subject to the condition that strain $\varepsilon=\varepsilon(\theta,\overline{\
 
 Since every step of the Lippmann Schwinger iteration consists of elementary, differential operations, in principle the sensitivities can be obtained with JAX automatic differentiation capabilities provided the constitutitive law $\sigma=\Sigma(\varepsilon|\theta)$ is differentiable. However, reverse mode-differentiation is not available for while-loops since the number of iterations is unknown at (just-in-time) compile time. To address this, we employ the adjoint state method [@Hinze:2008; @Johnson:2012]. This leads to an adjoint Lippmann Schwinger equation of a very similar structure as (\autoref{eqn:lippmann_schwinger}):
 
-$$
+\begin{equation}
 \Lambda + (\Gamma^0*\Lambda)\frac{\delta \Sigma}{\delta \varepsilon} - \lambda^0 \operatorname{tr}(\Gamma^0*\Lambda)\mathbb{I} - 2\mu^0 (\Gamma^0*\Lambda) = -\left(\frac{\delta J}{\delta \varepsilon}+\frac{\delta J}{\delta \sigma}\frac{\delta \Sigma}{\delta \varepsilon}\right).\label{eqn:lippmann_schwinger_adjoint}
-$$
+\end{equation}
 
 The adjoint equation in (\autoref{eqn:lippmann_schwinger_adjoint}) is solved iteratively with Anderson acceleration. From the adjoint state $\Lambda$ the derivatives of the objective function $J$ with respect to the parameters $\theta$ and the average strain $\overline{\varepsilon}$ can be computed as
 
@@ -249,13 +249,13 @@ Three selected applications demonstrate how the differentiable FFT solver in Jax
 ## Topology optimisation
 We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method [@Bendsoe:2004] requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in [@Chen:2022] which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\varepsilon}= (1,1,1,0,0,0)^\top$ to obtain the microscopic stress $\sigma(x)$ which is averaged to the macroscopic stress $\overline{\sigma}$:
 
-$$
+\begin{equation}
 \begin{aligned}
 K &= \frac{1}{9} \sum_{i,j=1}^{3} C^{\text{(eff)}}_{iijj}
    = \frac{1}{9} \overline{\varepsilon}^\top :\overline{\sigma}\qquad\text{with}\quad \overline{\sigma} = \frac{1}{|\Omega|}\int_\Omega \sigma(x)\;dx
 \end{aligned}
 \label{eqn:bulk_modulus}
-$$
+\end{equation}
 
 One realisation of the material is characterised by a tuple consisting of the density $\rho(x)\in[0,1]$ and a dictionary `mat` of real-valued numbers which include the Poisson ratio $\nu$ and the parameters $E_0$, $E_1$, $\rho_0$, $p$ of the SIMP model which parametrises Young's modulus $E(x)=E_0+(E_1-E_0)(\rho(x)+\rho_0)^p$ as a function of $\rho(x)$. The Lamé parameters $\lambda(x)$, $\mu(x)$ are then obtained from $E(x),\nu$ in the following helper function:
 
@@ -325,29 +325,30 @@ All three simulations were completed within approximately one hour on an Nvidia 
  To demonstrate that JaxMaterials is readily embedded in a non-trivial multiphysics workflow, we consider the variational phase-field fracture model of [@Miehe:2010]. This setup couples a nonlinear mechanical equilibrium problem of the form (\autoref{eqn:pde_problem}) to the evolution of a scalar, spatially varying damage field $d(x)\in[0,1]$. Here $d=0$ denotes intact material and $d=1$ corresponds to fully damaged material. 
 
 The phase field subproblem is
-$$
+\begin{equation}
 \frac{g_c}{l_c} \left[ d - l_c^2 \Delta d \right] = 2(1-d) \mathcal{H}(\varepsilon)\label{eqn:phase_field_damage}
-$$
+\end{equation}
 
 where $g_c$ is the critical energy release rate, $l_c$ controls the regularised fracture length scale, and $\mathcal{H}$ is the strain-dependent history field that stores the maximum tensile elastic energy attained at each material point and enforces irreversible damage evolution:
 
-$$\mathcal{H}(x, t)
+\begin{equation}
+\mathcal{H}(x, t)
 := \max_{\tau \in [0,t]} \psi^{+}\!\left(\varepsilon(x, \tau)\right).
 \label{eqn:history_field}
-$$
+\end{equation}
 
 By projecting onto the positive and negative eigenmodes, the strain tensor $\varepsilon = \varepsilon_++ \varepsilon_-$ is split into a tensile mode $\varepsilon_+$ and a compressive part $\varepsilon_-$. 
 
 
 Since fractures do not grow under compression only the tensile component of the strain is sensitive to damage and the stress-strain relationship can be modelled as
 
-$$
+\begin{equation}
 \sigma = \left((1-d)^2+k_{\text{stab}}\right) \left[\lambda \langle \operatorname{tr}(\varepsilon) \rangle_+ \mathbb{I}
 + 2\mu \varepsilon_+\right] 
  + \left[\lambda \langle \operatorname{tr}(\varepsilon) \rangle_- \mathbb{I}
 + 2\mu \varepsilon_-\right]
 \label{eqn:Sigma_phase_field}
-$$
+\end{equation}
 
 with $z_\pm = \frac{1}{2}(z\pm |z|)$ for $z\in\mathbb{R}$. The small stabilisation parameter $k_{\text{stab}}\ll 1$ prevents $\sigma$ from becoming degenerate as $d\rightarrow 1$. Observe that while the constitutive law is of the form $\Sigma(\varepsilon|\theta)$ required in (\autoref{eqn:pde_problem}), the relationship between stress and strain is no longer linear and significantly more complicated than in the previous examples: the separation of the strain into tensile and compressive components requires an eigenvalue decomposition which is a highly non-linear operation.
 
@@ -411,11 +412,11 @@ $$
 
 is minimised with the Newton-Raphson method (in the code the residuals for several different load vectors $\overline{\varepsilon}^{\text{exp}}$ are combined into a longer vector). Starting from some initial guess $u_0$, the parameters are updated according to $u_{k+1} = u_k + \Delta u_k$ where $\Delta u_k$ is obtained by solving the overdetermined system
 
-$$
+\begin{equation}
 J(u_k)\Delta u_k = - r(u_k),
 \qquad J(u_k)=\frac{\delta r}{\delta u}\Big|_{u=u_k}
 \label{eqn:newton_raphson}
-$$
+\end{equation}
 
 with the method of normal equations.
 
