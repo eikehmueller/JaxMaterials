@@ -2,7 +2,8 @@
 Python API
 ==========
 
-.. autosummary::      
+.. autosummary::
+   :generated:
 
    jaxmaterials.common
    jaxmaterials.utilities
