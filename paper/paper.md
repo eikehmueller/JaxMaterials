@@ -245,9 +245,11 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 ```
 
 # Research impact statement
+
 Three selected applications demonstrate how the differentiable FFT solver in JaxMaterials can be integrated into materials research workflows.
 
 ## Topology optimisation
+
 We used JaxMaterials to design periodic porous metamaterials that maximise the effective bulk modulus $K$ at prescribed solid volume fractions. The optimality criteria method [@Bendsoe:2004] requires the computation of the gradient $\delta J/\delta\rho(x)$ of the objective function $J=-K$ with respect to the spatially varying density $\rho$ in each step of the outer optimisation loop. The effective bulk modulus $K$ is computed with the energy-based method in [@Chen:2022] which requires solving (\autoref{eqn:pde_problem}) subject to a macroscopic strain load $\overline{\varepsilon}= (1,1,1,0,0,0)^\top$ to obtain the microscopic stress $\sigma(x)$ which is averaged to the macroscopic stress $\overline{\sigma}$:
 
 \begin{equation}
