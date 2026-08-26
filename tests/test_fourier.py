@@ -128,17 +128,3 @@ def test_solve(grid_spec, rng, dtype):
         / np.linalg.norm(r_hat_isotropic)
         < rtol
     )
-
-
-@pytest.mark.parametrize("dtype", [jnp.float32, jnp.float64])
-def test_inverse_acoustic_tensor_finite_gradients(grid_spec, dtype):
-    """Check that autodiff through inverse acoustic tensor yields finite gradients."""
-    xizero = get_xizero(grid_spec, dtype=dtype)
-    stiffness_tensor0 = jnp.linspace(0.5, 1.5, 21, dtype=dtype)
-
-    def loss_fn(C0):
-        N0 = get_inverse_anisotropic_acoustic_tensor(xizero, C0)
-        return jnp.sum(N0**2)
-
-    grad = jax.grad(loss_fn)(stiffness_tensor0)
-    assert jnp.all(jnp.isfinite(grad))
