@@ -365,7 +365,7 @@ In the computation of $\varepsilon(x,t_{n+1})$ in Step 2 the constitutive law $\
 2. the constant Lamé parameters $\mu,\lambda\in \mathbb{R}$ in (\autoref{eqn:Sigma_phase_field})
 3. the stabilisation parameter $k_{\text{stab}}$
    
-The constitutive law is described by the following user-defined function, which gets passed the parameters $\theta:=\{\lambda,\mu,d,k_{\text{stab}}\}$ through the variable `params`:
+The constitutive law is described by the following user-defined function, which gets passed the parameters $\theta:=[\lambda,\mu,d,k_{\text{stab}}]$ through the variable `params`:
 
 ```Python
 def compute_sigma_damaged(epsilon, params):
