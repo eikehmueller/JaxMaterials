@@ -13,7 +13,7 @@ Classes
    :nosignatures:
 
 {% for item in classes %}
-   {{ item }}
+   {{ item }} 
 {% endfor %}
 {% endif %}
 
@@ -25,6 +25,7 @@ Functions
 .. autosummary::
    :toctree: generated
    :nosignatures:
+
 
 {% for item in functions %}
    {{ item }}
