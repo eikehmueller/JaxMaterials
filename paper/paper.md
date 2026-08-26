@@ -128,6 +128,8 @@ $$
 
 # Software design
 
+The overarching design principle of the code is to realise a separation of concerns between the user-defined physical model encoded in the constitutive law $\Sigma(\varepsilon|\theta)$ and the algorithms which solve the resulting PDE system. The model has to conform to a generic interface which is dictated by the mathematics. Differentiability if achieved by building on the powerful JAX library, which allows the composition of the solver with other algorithms. This is demonstrated in the examples below, which show how JaxMaterials can be used as an ingredient of more sophisticated workflows.
+
 ## JAX implementation
 
 Since the code is based on JAX, all functions are pure and parameters are passed as state variables. The central functionality is exposed through the function `lippmann_schwinger()` which gets passed as a user-defined constitutive law $\Sigma(\varepsilon|\theta)$ of the form:
