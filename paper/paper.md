@@ -128,7 +128,7 @@ $$
 
 # Software design
 
-The overarching design principle of the code is to realise a separation of concerns between the user-defined physical model encoded in the constitutive law $\Sigma(\varepsilon|\theta)$ and the algorithms which solve the resulting PDE system. The approach can be interpreted as an example of Dependency Inversion [@Martin:1996]: the generic solver algorithm gets passed a function which implements an implicitly defined interface for $\Sigma(\varepsilon|\theta)$. Differentiability if achieved by building on the powerful JAX library, which allows the composition of the solver with other algorithms. This is demonstrated in the examples below, where we show how JaxMaterials can be used as an ingredient of sophisticated workflows in material modelling.
+The overarching design principle of the code is to realise a separation of concerns between the user-defined physical model encoded in the constitutive law $\Sigma(\varepsilon|\theta)$ and the algorithms which solve the resulting PDE system. The approach can be interpreted as an example of Dependency Inversion [@Martin:1996]: the generic solver algorithm gets passed a function which implements an implicitly defined interface for $\Sigma(\varepsilon|\theta)$. This approach allows the application of the code to a wide range of engineering problems. Differentiability is achieved by building on the powerful JAX library, which allows the composition of the solver with other algorithms. This is demonstrated in the examples below, where we show how JaxMaterials can be used as an ingredient of sophisticated workflows in material modelling.
 
 ## JAX implementation
 
