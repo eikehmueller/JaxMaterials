@@ -12,7 +12,7 @@ The source code can be found in the `JaxMaterials repository <https://github.com
 Reference
 ====================
 .. toctree::
-   :maxdepth: 5
+   :maxdepth: 2
    
    api
    
