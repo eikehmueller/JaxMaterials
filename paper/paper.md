@@ -30,7 +30,6 @@ Many applications in Scientific Computing require not only the fast solution of 
 
 # Statement of need
 
-## Differentiable material modelling
 Many materials encountered in engineering have a heterogeneous microstructure. Practically relevant examples include particle-/fibre- reinforced composites, polycrystalline metals, porous solids, and architecture metamaterials. Understanding how microscopic material arrangements determine macroscopic mechanical properties remains a central challenge in materials science and engineering. Numerical simulations have become indispensable for establishing these microstructure-property relationships and for guiding the design of advanced materials.
 
 The mechanical response of heterogeneous materials is commonly described by the equilibrium equation
@@ -50,7 +49,7 @@ Accurate simulation of heterogeneous materials is computationally demanding due 
 
 Forward simulation alone is increasingly insufficient. Material parameters are notoriously difficult to measure directly and must be inferred from experimental data. In addition, physics-based simulations are now frequently combined with machine-learning models in applications such as inverse modelling [@Wang:2025], uncertainty quantification [@Akhare:2024], and scientific machine learning [@Pestourie:2023]. These workflows require efficient computation of sensitivities with respect to model parameters, making differentiable PDE solvers an essential component [@Shen:2023].
 
-## State of the field
+# State of the field
 Since the seminal work of [@Moulinec:1998], FFT-based Lippmann-Schwinger solvers have become a standard approach for computing microscopic stress and strain fields in heterogeneous materials. The approach is particularly attractive for simulations on regular grids and on modern parallel hardware [@chen2019analysis]. 
 Lippmann-Schwinger solvers form the basis of mature software packages such as AMITEX [@Gelebart:2020], which provides highly optimised CPU implementations for large-scale material simulations. More recently, GPU-accelerated computing has emerged as an important direction for accelerating large-scale simulation of materials with fine microstructures [@Bluhdorn:2022; @Dutta:2025].
 
@@ -243,7 +242,7 @@ epsilon, sigma = lippmann_schwinger_isotropic(
 )
 ```
 
-# Demonstration of research impact 
+# Research impact statement
 Three selected applications demonstrate how the differentiable FFT solver in JaxMaterials can be integrated into materials research workflows.
 
 ## Topology optimisation
