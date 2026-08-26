@@ -3,7 +3,8 @@ Python API
 ==========
 
 .. autosummary::
-   :generated:
+   :toctree: generated
+   :nosignatures:
 
    jaxmaterials.common
    jaxmaterials.utilities
