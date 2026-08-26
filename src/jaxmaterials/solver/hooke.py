@@ -11,16 +11,15 @@ where ``epsilon`` is the strain :math:`\\epsilon` and `params` is
 a `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_ with the parameters :math:`\\theta`.
 """
 
+import jax
 from jax import numpy as jnp
 
-__all__ = [
-    "compute_sigma_isotropic",
-    "compute_sigma_anisotropic",
-    "compute_sigma_inelastic",
-]
+__all__ = ["compute_sigma_isotropic", "compute_sigma_anisotropic"]
 
 
-def compute_sigma_isotropic(epsilon, params):
+def compute_sigma_isotropic(
+    epsilon: jax.Array, params: dict[str, jax.Array] | dict[str, float]
+) -> jax.Array:
     """Compute stress from strain for isotropic material
 
     Returns :math:`\\sigma_{ij} = C_{ijkl}\\epsilon_{kl}` for an isotropic material characterised
@@ -29,11 +28,16 @@ def compute_sigma_isotropic(epsilon, params):
 
     Parameters
     ==========
-    epsilon : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon :
         strain field of shape ``(6,nx,ny,nz)``, using Voight notation for indexing.
-    params : dict
+    params :
         Lame parameters, dictionary of the form ``{"lambda":lambda, "mu":mu}`` where
         ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
+
+    Returns
+    =======
+    jax.Array
+        stress field :math:`\\sigma` of shape ``(6,nx,ny,nz)``, using Voight notation for indexing.
     """
     tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
     sigma = 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
@@ -42,7 +46,9 @@ def compute_sigma_isotropic(epsilon, params):
     return sigma
 
 
-def compute_sigma_anisotropic(epsilon, params):
+def compute_sigma_anisotropic(
+    epsilon: jax.Array, params: dict[str, jax.Array]
+) -> jax.Array:
     """Compute stress from strain for anisotropic material
 
     Returns :math:`\\sigma_{ij} = C_{ijkl}\\epsilon_{kl}` for an anisotropic material characterised
@@ -65,12 +71,17 @@ def compute_sigma_anisotropic(epsilon, params):
 
     Parameters
     ==========
-    epsilon : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon :
         strain field :math:`\\epsilon` of shape ``(6,nx,ny,nz)``, using Voigt notation for indexing.
-    params : dict
+    params :
         dictionary of the form ``{"stiffness_tensor":stiffness_tensor}``
         with vector representation of stiffness tensor :math:`C` which is passed as an array of
         shape ``(21,nx,ny,nz)``
+        
+    Returns
+    =======
+    jax.Array
+        stress field :math:`\\sigma` of shape ``(6,nx,ny,nz)``, using Voigt notation for indexing.
     """
     stiffness_tensor = params["stiffness_tensor"]
     sigma = jnp.stack(
@@ -112,29 +123,5 @@ def compute_sigma_anisotropic(epsilon, params):
             + 2 * stiffness_tensor[19] * epsilon[3]
             + 2 * stiffness_tensor[20] * epsilon[4],
         ]
-    )
-    return sigma
-
-
-def compute_sigma_inelastic(epsilon, params):
-    """Compute stress from strain for inelastic material
-
-    Returns :math:`\\sigma_{ij} = \\sigma_{ij}(\\epsilon_{kl})` for an isotropic material.
-    Voigt notation ``{00,11,22,01,02,12}`` is used for the stress and strain tensor.
-
-    Parameters
-    ==========
-    epsilon : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-        strain field :math:`\\epsilon`
-    params : dict
-        Lame parameters :math:`\\lambda` and :math:`\\mu`, dictionary
-        of the form ``{"lambda":lambda, "mu":mu}``, where ``lambda`` and ``mu`` are
-        of shape ``(nx,ny,nz)``
-    """
-    tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
-    sigma = 2 * params["mu"] / (
-        1 + 0.1 * jnp.linalg.norm(tr_epsilon, axis=0)
-    ) * epsilon + params["lambda"] * jnp.stack(
-        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
     )
     return sigma

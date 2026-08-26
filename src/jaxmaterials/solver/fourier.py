@@ -4,7 +4,9 @@ See discussion in Section :ref:`sec:fourier` for details.
 """
 
 import numpy as np
+import jax
 from jax import numpy as jnp
+from jaxmaterials.common import GridSpec
 
 __all__ = [
     "fourier_solve_anisotropic",
@@ -16,7 +18,7 @@ __all__ = [
 ]
 
 
-def get_xi(grid_spec, dtype=jnp.float64):
+def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> np.ndarray:
     """Construct un-normalised Fourier momentum vectors :math:`\\widetilde{\\boldsymbol{\\xi}}`
 
     Let :math:`\\boldsymbol{k} = (k_0,k_1,k_2)` with :math:`k_i = 0,1,...,N_i-1` be a three-dimensional Fourier index. The normalised momentum vector is :math:`\\xi_i = 2 \\pi k_i / N_i`, with :math:`0 \\le \\xi_i < 2\\pi`.
@@ -33,49 +35,52 @@ def get_xi(grid_spec, dtype=jnp.float64):
 
     Parameters
     ==========
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
             specification of computational grid
     
-    dtype
+    dtype :
         data type
 
     Returns
     =======
-    Tensor of shape ``(3,N_0,N_1,N_2)`` and type ``dtype`` with :math:`\\widetilde{\\boldsymbol{\\xi}}` for all Fourier modes.
+    numpy.ndarray
+        Tensor of shape ``(3,N_0,N_1,N_2)`` and type ``dtype`` with :math:`\\widetilde{\\boldsymbol{\\xi}}` for all Fourier modes.
     """
     # Normalised momentum vectors in all three spatial directions
     K = [
         2 * np.pi * np.arange(n) / n for n in (grid_spec.nx, grid_spec.ny, grid_spec.nz)
     ]
     # Grid with normalised momentum vectors
-    xi = np.meshgrid(*K, indexing="ij")
+    xi_grid = np.meshgrid(*K, indexing="ij")
     # Grid with tilde(xi)
     xi = np.stack(
         [
             2
             * grid_spec.nx
             / grid_spec.Lx
-            * np.sin(xi[0] / 2)
-            * np.cos(xi[1] / 2)
-            * np.cos(xi[2] / 2),
+            * np.sin(xi_grid[0] / 2)
+            * np.cos(xi_grid[1] / 2)
+            * np.cos(xi_grid[2] / 2),
             2
             * grid_spec.ny
             / grid_spec.Ly
-            * np.cos(xi[0] / 2)
-            * np.sin(xi[1] / 2)
-            * np.cos(xi[2] / 2),
+            * np.cos(xi_grid[0] / 2)
+            * np.sin(xi_grid[1] / 2)
+            * np.cos(xi_grid[2] / 2),
             2
             * grid_spec.nz
             / grid_spec.Lz
-            * np.cos(xi[0] / 2)
-            * np.cos(xi[1] / 2)
-            * np.sin(xi[2] / 2),
+            * np.cos(xi_grid[0] / 2)
+            * np.cos(xi_grid[1] / 2)
+            * np.sin(xi_grid[2] / 2),
         ]
     )
     return xi.astype(dtype)
 
 
-def get_xizero(grid_spec, dtype=jnp.float64):
+def get_xizero(
+    grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64
+) -> np.ndarray:
     """Construct the normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}`
 
     Computes
@@ -92,43 +97,47 @@ def get_xizero(grid_spec, dtype=jnp.float64):
 
     Parameters
     ==========
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
             specification of computational grid
     
-    dtype
+    dtype :
         data type
 
     Returns
     =======
-    Tensor of shape ``(3,N_0,N_1,N_2)`` and type ``dtype`` with :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}` for all Fourier modes.
+    numpy.ndarray
+        Tensor of shape ``(3,N_0,N_1,N_2)`` and type ``dtype`` with :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}` for all Fourier modes.
     """
     xi_tilde = get_xi(grid_spec, dtype=dtype)
     # Normalise tilde(xi) to obtain xi^0
     xi_nrm = np.linalg.norm(xi_tilde, axis=0)
-    tolerance = 1.0e-12 if dtype == jnp.float64 else 1.0e-6
+    tolerance = 1.0e-12 if np.dtype(dtype) == np.float64 else 1.0e-6
     xi_nrm[xi_nrm < tolerance] = 1  # avoid division by zero
     return (xi_tilde / xi_nrm).astype(dtype)
 
 
-def get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
+def get_anisotropic_acoustic_tensor(
+    xizero: np.ndarray, stiffness_tensor0: np.ndarray
+) -> np.ndarray:
     """Acoustic tensor :math:`K^0` for a homogeneous anisotropic reference material
 
     Assemble the :math:`3\\times3` acoustic tensor :math:`K^0` for a homogeneous isotropic reference material characterised by the stiffness tensor :math:`C^0` as described in :ref:`appendix_Gamma0_anisotropic`.
 
     Parameters
     ==========
-    xizero : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    xizero :
         Normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}` computed with :py:func:`get_xizero`
-    stiffness_tensor0 : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    stiffness_tensor0 :
         Stiffness tensor :math:`C^0`, vector with 21 components
 
     Returns
     =======
-    Acoustic tensor :math:`K^0` with shape ``(3,3,Nx,Ny,Nz)`` for all Fourier modes
+    numpy.ndarray
+        Acoustic tensor :math:`K^0` with shape ``(3,3,Nx,Ny,Nz)`` for all Fourier modes
     """
-    return jnp.stack(
+    return np.stack(
         [
-            jnp.stack(
+            np.stack(
                 [
                     stiffness_tensor0[0] * xizero[0] ** 2
                     + stiffness_tensor0[3] * xizero[1] ** 2
@@ -156,7 +165,7 @@ def get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
                     + stiffness_tensor0[20] * xizero[1] * xizero[2],
                 ]
             ),
-            jnp.stack(
+            np.stack(
                 [
                     stiffness_tensor0[3] * xizero[0] * xizero[1]
                     + stiffness_tensor0[6] * xizero[0] * xizero[1]
@@ -184,7 +193,7 @@ def get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
                     + stiffness_tensor0[20] * xizero[0] * xizero[2],
                 ]
             ),
-            jnp.stack(
+            np.stack(
                 [
                     stiffness_tensor0[4] * xizero[0] * xizero[2]
                     + stiffness_tensor0[7] * xizero[0] * xizero[2]
@@ -216,8 +225,10 @@ def get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
     )
 
 
-def get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
-    """Inverse :math:`N^0 = (K^0)^{-1}`of the acoustic tensor :math:`K^0` for homogeneous anisotropic reference material
+def get_inverse_anisotropic_acoustic_tensor(
+    xizero: np.ndarray, stiffness_tensor0: np.ndarray
+) -> np.ndarray:
+    """Inverse :math:`N^0 = (K^0)^{-1}` of the acoustic tensor :math:`K^0` for homogeneous anisotropic reference material
 
     Assemble the :math:`3\\times3` acoustic tensor :math:`K^0` for a homogeneous isotropic reference material characterised with :py:func:`get_anisotropic_acoustic_tensor` and invert it for each Fourier mode.
 
@@ -230,19 +241,22 @@ def get_inverse_anisotropic_acoustic_tensor(xizero, stiffness_tensor0):
 
     Returns
     =======
-    Inverse acoustic tensor :math:`N^0 = (K^0)^{-1}` with shape ``(3,3,Nx,Ny,Nz)`` for all Fourier modes
+    numpy.ndarray
+        Inverse acoustic tensor :math:`N^0 = (K^0)^{-1}` with shape ``(3,3,Nx,Ny,Nz)`` for all Fourier modes
     """
     K0 = get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
-    K0_transpose = jnp.transpose(K0, axes=(2, 3, 4, 0, 1))
+    K0_transpose = np.transpose(K0, axes=(2, 3, 4, 0, 1))
     xi_nrm = (xizero[0] ** 2 + xizero[1] ** 2 + xizero[2] ** 2) > 1.0e-8
     # Avoid inverting a singular zero-frequency block, which can produce NaN gradients.
-    eye3 = jnp.eye(3, dtype=K0_transpose.dtype)
-    K0_safe = jnp.where(xi_nrm[..., None, None], K0_transpose, eye3)
-    N0_transpose = jnp.linalg.inv(K0_safe)
-    return xi_nrm * jnp.transpose(N0_transpose, axes=(3, 4, 0, 1, 2))
+    eye3 = np.eye(3, dtype=K0_transpose.dtype)
+    K0_safe = np.where(xi_nrm[..., None, None], K0_transpose, eye3)
+    N0_transpose = np.linalg.inv(K0_safe)
+    return xi_nrm * np.transpose(N0_transpose, axes=(3, 4, 0, 1, 2))
 
 
-def fourier_solve_isotropic(tau_hat, xizero, ref_params):
+def fourier_solve_isotropic(
+    tau_hat: jax.Array, xizero: np.ndarray, ref_params: dict[str, float]
+) -> jax.Array:
     """Solve residual equation for homogeneous isotropic reference material in Fourier space
 
     For given :math:`\\widehat{\\tau}` compute
@@ -255,16 +269,17 @@ def fourier_solve_isotropic(tau_hat, xizero, ref_params):
 
     Parameters
     ==========
-    tau_hat : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    tau_hat :
         right hand side :math:`\\widehat{\\tau}`, tensor of shape ``(6,nx,ny,nz)``
-    xizero : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    xizero :
             Normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}` computed with :py:func:`get_xizero`
-    ref_params : dict
+    ref_params :
         Lame coefficients :math:`\\lambda^0`, :math:`\\mu^0` of isotropic reference material passed in the form ``{"lambda":lambda0, "mu":mu0}``
 
     Returns
     =======
-    Solution :math:`\\hat{\\varepsilon}_{k\\ell}`, tensor of shape ``(6,nx,ny,nz)``
+    jax.Array
+        Solution :math:`\\hat{\\varepsilon}_{k\\ell}`, tensor of shape ``(6,nx,ny,nz)``
     """
     lambda0 = ref_params["lambda"]
     mu0 = ref_params["mu"]
@@ -334,7 +349,9 @@ def fourier_solve_isotropic(tau_hat, xizero, ref_params):
     )
 
 
-def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
+def fourier_solve_anisotropic(
+    tau_hat: jax.Array, N_reference: np.ndarray, xizero: np.ndarray
+) -> jax.Array:
     """Solve residual equation for homogeneous anisotropic reference material in Fourier space
 
     For given :math:`\\widehat{\\tau}` compute
@@ -347,16 +364,17 @@ def fourier_solve_anisotropic(tau_hat, N_reference, xizero):
 
     Parameters
     ==========
-    tau_hat : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    tau_hat :
         right hand side :math:`\\widehat{\\tau}`, tensor of shape ``(6,nx,ny,nz)``
-    N_reference : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    N_reference :
         Inverse :math:`N^0 = (K^0)^{-1}` of acoustic tensor for reference material as computed with :py:func:`get_inverse_anisotropic_acoustic_tensor`
-    xizero : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-            Normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}` computed with :py:func:`get_xizero`
+    xizero :
+        Normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}` computed with :py:func:`get_xizero`
 
     Returns
     =======
-    Solution :math:`\\hat{\\varepsilon}_{k\\ell}`, tensor of shape ``(6,nx,ny,nz)``
+    jax.Array
+        Solution :math:`\\hat{\\varepsilon}_{k\\ell}`, tensor of shape ``(6,nx,ny,nz)``
     """
     Gamma0 = jnp.stack(
         [

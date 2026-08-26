@@ -1,6 +1,8 @@
 """Implementation of discrete derivatives on structured grid"""
 
+import jax
 from jax import numpy as jnp
+from jaxmaterials.common import GridSpec
 
 __all__ = [
     "backward_derivative",
@@ -8,7 +10,7 @@ __all__ = [
 ]
 
 
-def backward_derivative(g, grid_spec, direction):
+def backward_derivative(g: jax.Array, grid_spec: GridSpec, direction: int) -> jax.Array:
     """Discrete backward derivative :math:`D_i^- g` of function :math:`g(x)` as described in :ref:`sec:discretisation`
 
     For ``direction=0`` the backward derivative is defined as the finite difference
@@ -35,16 +37,17 @@ def backward_derivative(g, grid_spec, direction):
 
     Parameters
     ==========
-    g : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-        function to take the derivative of. Assumed to be of shape ``(*,nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    g :
+        (discretised) function to take the derivative of. Assumed to be of shape ``(*,nx,ny,nz)``
+    grid_spec :
         specification of computational grid
-    direction : int
+    direction :
         direction in which to take the derivative, can be ``0``, ``1`` or ``2``
 
     Returns
     =======
-    Tensor of shape ``(*,nx,ny,nz)`` with finite difference :math:`D^-_i g` in direction :math:`i`
+    jax.Array
+        Tensor of shape ``(*,nx,ny,nz)`` with finite difference :math:`D^-_i g` in direction :math:`i`
     """
     if direction == 0:
         dg = (
@@ -99,7 +102,7 @@ def backward_derivative(g, grid_spec, direction):
     return dg
 
 
-def backward_divergence(sigma, grid_spec):
+def backward_divergence(sigma: jax.Array, grid_spec: GridSpec) -> jax.Array:
     """Discrete backward divergence :math:`D_i^-\\sigma_{ij}` of symmetric :math:`3\\times 3` tensor-valued function :math:`\\sigma_{ij}(x)`
 
     The components of the tensor are assumed to be represented in vector form
@@ -123,14 +126,15 @@ def backward_divergence(sigma, grid_spec):
         
     Parameters
     ==========
-    sigma : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
-        tensor to take the divergence of. Assumed to be of shape ``(6,nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    sigma : 
+        (discretised) function to take the divergence of. Assumed to be of shape ``(6,nx,ny,nz)``
+    grid_spec :
         specification of computational grid
 
     Returns
     =======
-    Tensor of shape ``(3,nx,ny,nz)`` with the three components of the divergence vector
+    jax.Array
+        Tensor of shape ``(3,nx,ny,nz)`` with the three components of the divergence vector
     """
     return jnp.stack(
         [

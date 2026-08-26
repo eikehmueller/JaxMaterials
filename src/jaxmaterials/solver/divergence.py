@@ -3,13 +3,17 @@
 See discussion in Section :ref:`sec:stopping_criterion` on how the relative divergence is used to check whether the Lippmann Schwinger solver has converged.
 """
 
+import numpy as np
+import jax
+from jax.typing import ArrayLike
 from jax import numpy as jnp
+from jaxmaterials.common import GridSpec
 from jaxmaterials.solver.derivatives import backward_divergence
 
 __all__ = ["relative_divergence", "relative_divergence_fourier"]
 
 
-def relative_divergence(sigma, grid_spec):
+def relative_divergence(sigma: jax.Array, grid_spec: GridSpec) -> jax.Array:
     """Relative divergence of stress :math:`\\sigma` in real space
 
     Computes the ratio
@@ -22,14 +26,15 @@ def relative_divergence(sigma, grid_spec):
 
     Parameters
     ==========
-    sigma : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    sigma :
         stress :math:`\\sigma`, array of shape ``(6,nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
         specification of computational grid
 
     Returns
     =======
-    ratio :math:`R(\\sigma)`
+    float :
+        ratio :math:`R(\\sigma)`
     """
     dsigma = backward_divergence(sigma, grid_spec)
     dsigma_nrm = jnp.sqrt(jnp.sum(dsigma**2))
@@ -40,7 +45,7 @@ def relative_divergence(sigma, grid_spec):
     return dsigma_nrm / (jnp.sqrt(grid_spec.number_of_voxels) * sigma_avg_nrm)
 
 
-def relative_divergence_fourier(sigma_hat, xi):
+def relative_divergence_fourier(sigma_hat: jax.Array, xi: np.ndarray) -> jax.Array:
     """Relative divergence of stress :math:`\\sigma` in Fourier space
 
     Computes the ratio
@@ -53,14 +58,15 @@ def relative_divergence_fourier(sigma_hat, xi):
 
     Parameters
     ==========
-    sigma_hat : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    sigma_hat :
         stress :math:`\\sigma` in Fourier space, array of shape ``(6,nx,ny,nz)``
-    :arg xi : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    :arg xi :
         Fourier vectors, array of shape ``(6,nx,ny,nz)``
 
     Returns
     =======
-    ratio :math:`\\widehat{R}(\\widehat{\\sigma})`
+    float
+        ratio :math:`\\widehat{R}(\\widehat{\\sigma})`
     """
     dsigma_hat = jnp.stack(
         [
