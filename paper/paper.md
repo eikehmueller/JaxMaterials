@@ -264,7 +264,7 @@ def lame_coefficients(rho, mat):
     E = mat["E0"] + (mat["E1"] - mat["E0"]) * (rho + mat["kk"]) ** mat["penalty"]
     lmbda = E * mat["nu"] / (1.0 + mat["nu"]) / (1.0 - 2.0 * mat["nu"])
     mu = E / (2.0 * (1.0 + mat["nu"]))
-    return {"lambda": lmbda, "mu": mu}
+    return lmbda, mu
 ```
 
 This allows the implementation stress-strain relationship as the user-defined function `compute_sigma_from_density()`, which maps the local strain $\varepsilon(x)$ and all material parameters (collected in `params`) to the local stress $\sigma(x)$ by assuming linear isotropic behaviour:
@@ -283,7 +283,8 @@ With this, the objective function $J$ can be computed for a given $\rho(x)$ by s
 
 ```Python 
 def objective_fn(rho, mat, grid_spec):
-    params = lame_coefficients(rho, mat)
+    lmbda, mu = lame_coefficients(rho, mat)
+    params = {"lambda": lmbda, "mu": mu}
     ref_params = {
         key: jax.lax.stop_gradient(0.5 * (jnp.max(value) + jnp.min(value)))
         for key, value in params.items()
