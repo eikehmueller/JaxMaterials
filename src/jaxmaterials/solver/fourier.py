@@ -7,6 +7,7 @@ import numpy as np
 import jax
 from jax import numpy as jnp
 from jaxmaterials.common import GridSpec
+from typing import cast
 
 __all__ = [
     "fourier_solve_anisotropic",
@@ -113,7 +114,7 @@ def get_xizero(
     xi_nrm = np.linalg.norm(xi_tilde, axis=0)
     tolerance = 1.0e-12 if np.dtype(dtype) == np.float64 else 1.0e-6
     xi_nrm[xi_nrm < tolerance] = 1  # avoid division by zero
-    return (xi_tilde / xi_nrm).astype(dtype)
+    return cast(np.ndarray, (xi_tilde / xi_nrm).astype(dtype))
 
 
 def get_anisotropic_acoustic_tensor(
@@ -251,7 +252,7 @@ def get_inverse_anisotropic_acoustic_tensor(
     eye3 = np.eye(3, dtype=K0_transpose.dtype)
     K0_safe = np.where(xi_nrm[..., None, None], K0_transpose, eye3)
     N0_transpose = np.linalg.inv(K0_safe)
-    return xi_nrm * np.transpose(N0_transpose, axes=(3, 4, 0, 1, 2))
+    return cast(np.ndarray, xi_nrm * np.transpose(N0_transpose, axes=(3, 4, 0, 1, 2)))
 
 
 def fourier_solve_isotropic(
@@ -342,7 +343,7 @@ def fourier_solve_isotropic(
         )
     )
     epsilon_hat_B = Xi * Xi_dot_tau
-    return (
+    return jnp.asarray(
         1
         / mu0
         * (-epsilon_hat_A + (lambda0 + mu0) / (lambda0 + 2 * mu0) * epsilon_hat_B)

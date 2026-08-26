@@ -132,7 +132,7 @@ def _lippmann_schwinger_jax(
             int,
             jax.Array,
         ],
-    ):
+    ) -> jax.Array:
         """Check exit condition
 
         Let
@@ -153,7 +153,7 @@ def _lippmann_schwinger_jax(
 
         Returns
         =======
-        bool
+        jax.Array
             ``True`` if :math:`e^{(i)} < \\max\\{atol, rtol\\cdot e^{(0)}\\}` or :math:`its > maxits`
         """
         its, rel_error = state[-2:]
@@ -389,8 +389,8 @@ def _lippmann_schwinger_adjoint_jax(
         )
 
     def exit_condition(
-        state: tuple[jax.Array, jax.Array, jax.Array, jax.Array, float, int],
-    ):
+        state: tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int],
+    ) -> jax.Array:
         """Check exit condition
 
         This method checks whether the relative change
@@ -404,11 +404,12 @@ def _lippmann_schwinger_adjoint_jax(
 
         Returns
         =======
-        bool :
+        jax.Array
             ``True`` if :math:`\\|\\Lambda^{(i)}-\\Lambda^{(i-1)}\\|_2 < \\max\\{atol, rtol\\cdot \\|\\Lambda^{(i)}\\|_2\\}` or :math:`its > maxits`
         """
         Lambda = state[0]
-        increment_nrm, its = state[-2:]
+        increment_nrm = state[4]
+        its = state[5]
         nrm = jnp.linalg.norm(Lambda[0, ...])
         if verbose > 1:
             jax.debug.print(
@@ -422,8 +423,8 @@ def _lippmann_schwinger_adjoint_jax(
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
 
     def loop_body(
-        state: tuple[jax.Array, jax.Array, jax.Array, jax.Array, float, int],
-    ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, float, int]:
+        state: tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int],
+    ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int]:
         """Update state according to update rule
 
         Parameters

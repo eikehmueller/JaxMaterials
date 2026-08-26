@@ -32,10 +32,10 @@ def measure_time(
     timings = []
     it = [0]
 
-    def get_iter():
+    def get_iter() -> int:
         return it[0]
 
-    def run(func, *args, **kwargs):
+    def run(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         if warmup:
             func(*args, **kwargs)
         timings.append(time.perf_counter())
@@ -53,7 +53,10 @@ def measure_time(
 
 
 def save_to_vtk(
-    data: dict, grid_spec: GridSpec, filename: str, location: str = "centre"
+    data: dict[str, np.ndarray],
+    grid_spec: GridSpec,
+    filename: str,
+    location: str = "centre",
 ) -> None:
     """Save fields to VTK file
 

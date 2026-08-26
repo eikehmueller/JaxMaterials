@@ -54,7 +54,7 @@ def _load_cuda_library() -> ctypes.CDLL:
         ) from exc
 
 
-def _resolve_cuda_symbol(lib, names) -> Any:
+def _resolve_cuda_symbol(lib: ctypes.CDLL, names: list[str]) -> Any:
     """Resolve the first available symbol from a list of candidate names.
 
     Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
