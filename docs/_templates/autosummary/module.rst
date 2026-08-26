@@ -22,19 +22,11 @@ Functions
 ---------
 
 .. autosummary::
+   :toctree: generated
    :nosignatures:
 
 {% for item in functions %}
    {{ item }}
 {% endfor %}
-
-.. autosummary::
-   :toctree: generated
-   :hidden:
-
-{% for item in functions %}
-   {{ item }}
-{% endfor %}
-
 
 {% endif %}
