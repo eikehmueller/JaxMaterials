@@ -4,7 +4,7 @@ Python API
 
 .. autosummary::
    :toctree: generated
-   :nosignatures:
+   :recursive:
 
    jaxmaterials.common
    jaxmaterials.utilities

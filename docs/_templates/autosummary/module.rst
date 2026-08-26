@@ -22,7 +22,6 @@ Functions
 ---------
 
 .. autosummary::
-   :toctree: generated
    :nosignatures:
 
 {% for item in functions %}
