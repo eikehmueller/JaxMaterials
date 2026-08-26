@@ -12,24 +12,32 @@ class GridSpec:
     and :math:`n_z` respectively.
     """
 
-    def __init__(self, Lx, Ly, Lz, nx, ny, nz):
+    def __init__(
+        self, Lx: float, Ly: float, Lz: float, nx: int, ny: int, nz: int
+    ) -> None:
         """Initialise instance
 
         Parameters
-        ----------
-        Lx : float
+        ==========
+        Lx :
             domain size :math:`L_x` in x-direction
-        Ly : float
+        Ly :
             domain size :math:`L_y` in y-direction
-        Lz : float
+        Lz :
             domain size :math:`L_z` in z-direction
-        nx : int
+        nx :
             number of voxels :math:`n_x` in x-direction
-        ny : int
+        ny :
             number of voxels :math:`n_y` in y-direction
-        nz : int
+        nz :
             number of voxels :math:`n_z` in z-direction
         """
+        assert nx > 0
+        assert ny > 0
+        assert nz > 0
+        assert Lx > 0
+        assert Ly > 0
+        assert Lz > 0
         self._nx = nx
         self._ny = ny
         self._nz = nz
@@ -38,62 +46,62 @@ class GridSpec:
         self._Lz = Lz
 
     @property
-    def number_of_voxels(self):
+    def number_of_voxels(self) -> int:
         """Total number of voxels :math:`N = n_x\\cdot n_y \\cdot n_z`"""
         return self._nx * self._ny * self._nz
 
     @property
-    def Lx(self):
+    def Lx(self) -> float:
         """Size of grid in x-direction"""
         return self._Lx
 
     @property
-    def Ly(self):
+    def Ly(self) -> float:
         """Size of grid in y-direction"""
         return self._Ly
 
     @property
-    def Lz(self):
+    def Lz(self) -> float:
         """Size of grid in z-direction"""
         return self._Lz
 
     @property
-    def nx(self):
+    def nx(self) -> int:
         """Number of voxels in x-direction"""
         return self._nx
 
     @property
-    def ny(self):
+    def ny(self) -> int:
         """Number of voxels in y-direction"""
         return self._ny
 
     @property
-    def nz(self):
+    def nz(self) -> int:
         """Number of voxels in z-direction"""
         return self._nz
 
     @property
-    def dx(self):
+    def dx(self) -> float:
         """Extent :math:`h_x` of voxels in x-direction"""
         return self._Lx / self._nx
 
     @property
-    def dy(self):
+    def dy(self) -> float:
         """Extent :math:`h_y` of voxels in y-direction"""
         return self._Ly / self._ny
 
     @property
-    def dz(self):
+    def dz(self) -> float:
         """Extent :math:`h_z` of voxels in z-direction"""
         return self._Lz / self._nz
 
     @property
-    def grid_spacings(self):
+    def grid_spacings(self) -> tuple[float, float, float]:
         """Tuple of grid spacings :math:`(h_x,h_y,h_z)` with :math:`h_i=L_i/n_i`"""
         return (self.dx, self.dy, self.dz)
 
     @property
-    def voxel_centers(self):
+    def voxel_centers(self) -> np.ndarray:
         """Array with voxel centres"""
         x = np.linspace(self.dx / 2, self._Lx - self.dx / 2, self._nx)
         y = np.linspace(self.dy / 2, self._Ly - self.dy / 2, self._ny)
@@ -102,45 +110,61 @@ class GridSpec:
         return np.stack([X.flatten(), Y.flatten(), Z.flatten()], axis=-1)
 
 
-def get_grid_spec(Lx, Ly, Lz, /, nx=None, ny=None, nz=None, dx=None, dy=None, dz=None):
+def get_grid_spec(
+    Lx: float,
+    Ly: float,
+    Lz: float,
+    /,
+    nx: int = 0,
+    ny: int = 0,
+    nz: int = 0,
+    dx: float = 0,
+    dy: float = 0,
+    dz: float = 0,
+) -> GridSpec:
     """Factory for constructing grid specification
 
     In each direction, the size of the grid can be specified either by giving the number
     of voxels or the size of the voxels in this direction.
 
+    Example::
+
+        get_grid_spec(0.9, 0.7, 0.4, nx=8, ny=16, nz=8)
+        get_grid_spec(0.9, 0.7, 0.4, dx=0.1, dy=0.2, dz=0.05)
+        get_grid_spec(0.9, 0.7, 0.4, nx=8, dy=0.2, dz=0.05)
+
     Parameters
     ==========
-    Lx : float
+    Lx :
         domain size :math:`L_x` in x-direction
-    Ly : float
+    Ly :
         domain size :math:`L_y` in x-direction
-    Lz : float
+    Lz :
         domain size :math:`L_z` in z-direction
-    nx : int
+    nx :
         number of voxels :math:`n_x` in x-direction
-    ny : int
+    ny :
         number of voxels :math:`n_y` in y-direction
-    nz : int
+    nz :
         number of voxels :math:`n_z` in z-direction
-    dx : int
+    dx :
         voxel size :math:`h_x` in x-direction
-    dy : int
+    dy :
         voxel size :math:`h_y` in y-direction
-    dz : int
+    dz :
         voxel size :math:`h_z` in z-direction
 
     Returns
     =======
-    Instance of :py:class:`jaxmaterials.common.GridSpec`
+    GridSpec :
+        Specification of computational grid
     """
 
-    def _valid(n, h):
-        return ((n is None) and isinstance(h, float)) or (
-            isinstance(n, int) and (h is None)
-        )
+    def _valid(n: int, h: float) -> bool:
+        return ((n == 0) and isinstance(h, float)) or (isinstance(n, int) and (h == 0))
 
     assert _valid(nx, dx) and _valid(ny, dy) and _valid(nz, dz)
-    _nx = nx if dx is None else int(Lx / dx)
-    _ny = ny if dy is None else int(Ly / dy)
-    _nz = nz if dz is None else int(Lz / dz)
+    _nx = nx if dx == 0 else int(Lx / dx)
+    _ny = ny if dy == 0 else int(Ly / dy)
+    _nz = nz if dz == 0 else int(Lz / dz)
     return GridSpec(Lx, Ly, Lz, _nx, _ny, _nz)

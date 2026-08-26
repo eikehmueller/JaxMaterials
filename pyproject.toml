@@ -7,7 +7,7 @@ name = "jaxmaterials"
 version = "1.0"
 dependencies = [
   "numpy",
-  "jax",
+  "jax"
 ]
 requires-python = ">=3.12"
 authors = [

@@ -5,22 +5,25 @@ The methods should not be called directly; use the interface routines in
 :py:mod:`jaxmaterials.solver.lippmann_schwinger` instead.
 """
 
+from collections.abc import Callable
+from typing import Any, TypeAlias
 from functools import partial
-
 import jax
 from jax import numpy as jnp
+from jaxmaterials.common import GridSpec
 from jaxmaterials.solver.fourier import (
     get_xizero,
     get_xi,
     fourier_solve_isotropic,
 )
 from jaxmaterials.solver.divergence import (
-    relative_divergence,
     relative_divergence_fourier,
 )
 from jaxmaterials.solver.hooke import compute_sigma_isotropic
 
 __all__ = ["solve"]
+
+PyTree: TypeAlias = Any
 
 
 @jax.jit(
@@ -34,17 +37,17 @@ __all__ = ["solve"]
     ]
 )
 def _lippmann_schwinger_jax(
-    compute_sigma,
-    params,
-    epsilon_bar,
-    ref_params,
-    grid_spec,
-    tol,
-    maxits,
-    depth,
-    dynamic_stopping,
-    verbose,
-):
+    compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
+    params: PyTree,
+    epsilon_bar: jax.Array,
+    ref_params: dict[str, float],
+    grid_spec: GridSpec,
+    tol: float,
+    maxits: int,
+    depth: int,
+    dynamic_stopping: bool,
+    verbose: int,
+) -> tuple[jax.Array, jax.Array]:
     """Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain
     relationship
 
@@ -60,31 +63,32 @@ def _lippmann_schwinger_jax(
 
     Parameters
     ==========
-    compute_sigma
+    compute_sigma :
         function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
-    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+    params :
         material parameters which are passed on to ``compute_sigma()``
-    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
-    ref_params : dict
+    ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
-        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        ``{"lambda":lambda, "mu":mu}``
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol :
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    dynamic_stopping : logical
+    dynamic_stopping :
         stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
-    verbose : int
+    verbose :
         verbosity level
 
     Returns
     =======
-    Strain :math:`\\epsilon` and stress :math:`\\sigma`
+    tuple[jax.Array, jax.Array]
+        Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     atol = tol
     rtol = 1.0e-20
@@ -117,7 +121,18 @@ def _lippmann_schwinger_jax(
             "  iteration  E = ||div(sigma)||/||sigma||  E/E_0", ordered=True
         )
 
-    def exit_condition(state):
+    def exit_condition(
+        state: tuple[
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            int,
+            jax.Array,
+        ],
+    ) -> jax.Array:
         """Check exit condition
 
         Let
@@ -133,12 +148,13 @@ def _lippmann_schwinger_jax(
 
         Parameters
         ==========
-        state : tuple
-            current iteration state ``(epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)``
+        state :
+            current iteration state ``(epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error)``
 
         Returns
         =======
-        ``True`` if :math:`e^{(i)} < \\max\\{atol, rtol\\cdot e^{(0)}\\}` or :math:`its > maxits`
+        jax.Array
+            ``True`` if :math:`e^{(i)} < \\max\\{atol, rtol\\cdot e^{(0)}\\}` or :math:`its > maxits`
         """
         its, rel_error = state[-2:]
         if verbose > 1:
@@ -152,17 +168,31 @@ def _lippmann_schwinger_jax(
 
         return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
 
-    def loop_body(state):
+    def loop_body(
+        state: tuple[
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            jax.Array,
+            int,
+            jax.Array,
+        ],
+    ) -> tuple[
+        jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int, jax.Array
+    ]:
         """Update strain, residual and stress according to update rule
 
         Parameters
         ==========
-        state : tuple
-            current iteration state ``(epsilon, residual, sigma,sigma_hat, A_anderson, its, rel_error)``
+        state :
+            current iteration state ``(epsilon, residual, sigma,sigma_hat, A_anderson, u_rhs, its, rel_error)``
 
         Returns
         =======
-        Updated iteration state
+        tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int, jax.Array]
+            Updated iteration state
         """
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
@@ -275,16 +305,19 @@ def _lippmann_schwinger_jax(
     ]
 )
 def _lippmann_schwinger_adjoint_jax(
-    sigma_vjp,
-    f_rhs,
-    ref_params,
-    grid_spec,
-    tol,
-    maxits,
-    depth,
-    dynamic_stopping,
-    verbose,
-):
+    sigma_vjp: Callable[
+        [jax.Array],
+        tuple[jax.Array, PyTree],
+    ],
+    f_rhs: jax.Array,
+    ref_params: dict[str, float],
+    grid_spec: GridSpec,
+    tol: float,
+    maxits: int,
+    depth: int,
+    dynamic_stopping: bool,
+    verbose: int,
+) -> tuple[jax.Array, int]:
     """Lippmann Schwinger iteration for adjoint equation
 
     Computational routine which should not be called directly.
@@ -305,27 +338,28 @@ def _lippmann_schwinger_adjoint_jax(
 
     Parameters
     ==========
-    sigma_vjp
+    sigma_vjp :
         vector-Jacobian product function :math:`\\delta \\sigma/\\delta \\epsilon`
-    f_rhs : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    f_rhs :
         right hand side in adjoint equation, array of shape ``(6,nx,ny,nz)
-    ref_params : dict
+    ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
-        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        ``{"lambda":lambda, "mu":mu}``
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol :
         relative tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration (depth=0: no acceleration)
-    dynamic_stopping : logical
+    dynamic_stopping :
             stop based on ``rtol`` and ``atol``? If ``False``, stop after ``maxits`` iterations
 
     Returns
     =======
-    Adjoint state :math:`\\Lambda` and number of iterations
+    tuple[jax.Array, int]
+        Adjoint state :math:`\\Lambda` and number of iterations
     """
     rtol = tol
     atol = 1.0e-20
@@ -354,7 +388,9 @@ def _lippmann_schwinger_adjoint_jax(
             ordered=True,
         )
 
-    def exit_condition(state):
+    def exit_condition(
+        state: tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int],
+    ) -> jax.Array:
         """Check exit condition
 
         This method checks whether the relative change
@@ -363,16 +399,17 @@ def _lippmann_schwinger_adjoint_jax(
 
         Parameters
         ==========
-        state : tuple
+        state :
             current iteration state ``Lambda, residual, A_anderson, u_rhs, increment_nrm, its``
 
         Returns
         =======
-        ``True`` if :math:`\\|\\Lambda^{(i)}-\\Lambda^{(i-1)}\\|_2 < \\max\\{atol, rtol\\cdot \\|\\Lambda^{(i)}\\|_2\\}`
-        or :math:`its > maxits`
+        jax.Array
+            ``True`` if :math:`\\|\\Lambda^{(i)}-\\Lambda^{(i-1)}\\|_2 < \\max\\{atol, rtol\\cdot \\|\\Lambda^{(i)}\\|_2\\}` or :math:`its > maxits`
         """
         Lambda = state[0]
-        increment_nrm, its = state[-2:]
+        increment_nrm = state[4]
+        its = state[5]
         nrm = jnp.linalg.norm(Lambda[0, ...])
         if verbose > 1:
             jax.debug.print(
@@ -385,7 +422,9 @@ def _lippmann_schwinger_adjoint_jax(
 
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
 
-    def loop_body(state):
+    def loop_body(
+        state: tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int],
+    ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, int]:
         """Update state according to update rule
 
         Parameters
@@ -512,46 +551,47 @@ def _lippmann_schwinger_adjoint_jax(
     ),
 )
 def solve(
-    compute_sigma,
-    params,
-    epsilon_bar,
-    ref_params,
-    grid_spec,
-    tol,
-    maxits,
-    depth,
-    dynamic_stopping,
-    verbose=0,
-):
+    compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
+    params: PyTree,
+    epsilon_bar: jax.Array,
+    ref_params: dict[str, float],
+    grid_spec: GridSpec,
+    tol: float,
+    maxits: int,
+    depth: int,
+    dynamic_stopping: bool,
+    verbose: int = 0,
+) -> tuple[jax.Array, jax.Array]:
     """Reverse mode differentiable implementation of the forward solve in :py:func:`_lippmann_schwinger_jax`
 
     Parameters
     ==========
-    compute_sigma
+    compute_sigma :
         function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
-    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+    params :
         material parameters which are passed on to ``compute_sigma()``
-    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
-    ref_params : dict
+    ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
-        ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        ``{"lambda":lambda, "mu":mu}`` where ``lambda``
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol :
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    dynamic_stopping : logical
+    dynamic_stopping :
         stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
-    verbose : int
+    verbose :
         verbosity level
 
     Returns
     =======
-    Strain :math:`\\epsilon` and strain :math:`\\sigma`
+    tuple[jax.Array, jax.Array]
+        Strain :math:`\\epsilon` and strain :math:`\\sigma`
     """
     epsilon, sigma = _lippmann_schwinger_jax(
         compute_sigma,
@@ -569,46 +609,50 @@ def solve(
 
 
 def _solve_fwd(
-    compute_sigma,
-    params,
-    epsilon_bar,
-    ref_params,
-    grid_spec,
-    tol,
-    maxits,
-    depth,
-    dynamic_stopping,
-    verbose=0,
-):
+    compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
+    params: PyTree,
+    epsilon_bar: jax.Array,
+    ref_params: dict[str, float],
+    grid_spec: GridSpec,
+    tol: float,
+    maxits: int,
+    depth: int,
+    dynamic_stopping: bool,
+    verbose: int = 0,
+) -> tuple[
+    tuple[jax.Array, jax.Array], tuple[PyTree, jax.Array, jax.Array, dict[str, float]]
+]:
     """Wrapped for forward solve
 
     Parameters
     ==========
-    compute_sigma
+    compute_sigma :
         function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
-    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+    params :
         material parameters which are passed on to ``compute_sigma()``
-    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
-    ref_params : dict
+    ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol :
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    dynamic_stopping : logical
+    dynamic_stopping :
         stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
-    verbose : int
+    verbose :
         verbosity level
 
     Returns
     =======
-    Strain :math:`\\epsilon` and strain :math:`\\sigma`"""
+    tuple[tuple[jax.Array,jax.Array], tuple[PyTree, jax.Array, jax.Array, dict[str, float]]]
+        Tuple containing strain :math:`\\epsilon` and strain :math:`\\sigma` and information that is used by backward solve
+    """
     out = _lippmann_schwinger_jax(
         compute_sigma,
         params,
@@ -626,46 +670,45 @@ def _solve_fwd(
 
 
 def _solve_bwd(
-    compute_sigma,
-    grid_spec,
-    tol,
-    maxits,
-    depth,
-    dynamic_stopping,
-    verbose,
-    res,
-    gradients,
-):
+    compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
+    grid_spec: GridSpec,
+    tol: float,
+    maxits: int,
+    depth: int,
+    dynamic_stopping: bool,
+    verbose: int,
+    res: tuple[PyTree, jax.Array, jax.Array, dict[str, float]],
+    gradients: tuple[jax.Array, jax.Array],
+) -> tuple[PyTree, jax.Array, PyTree]:
     """Backward solve based on the adjoint method
 
     Returns gradients with respect to material parameters and epsilon_bar
 
     Parameters
     ==========
-    compute_sigma
+    compute_sigma :
         function which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
         specification of computational grid
     tol : float
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    dynamic_stopping : logical
+    dynamic_stopping :
         stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
-    verbose : int
+    verbose :
         verbosity level
-    res
+    res :
         results object returned by :py:func:`solve_fwd()`
-    gradients
+    gradients :
         Riesz-representer of input gradients
 
     Returns
     =======
-    Gradients :math:`\\delta/\\delta\\Theta`, :math:`\\delta/\\delta\\overline{\\epsilion}` and
-    :math:`\\delta/\\delta\\Theta_{rfe}` where :math:`\\Theta` and :math:`\\Theta_{ref}` are the
-    parameters and reference parameters respectively.
+    tuple[PyTree, jax.Array, PyTree]
+        Gradients :math:`\\delta/\\delta\\Theta`, :math:`\\delta/\\delta\\overline{\\epsilion}` and :math:`\\delta/\\delta\\Theta_{rfe}` where :math:`\\Theta` and :math:`\\Theta_{ref}` are the parameters and reference parameters respectively; the latter are set to zero.
     """
     params, epsilon, _, ref_params = res
     dtype = epsilon.dtype

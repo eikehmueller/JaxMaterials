@@ -11,11 +11,15 @@ Solvers are implemented for three different setups:
 
 """
 
+from collections.abc import Callable
+from typing import Any, TypeAlias
 import warnings
 import ctypes
 import numpy as np
 import jax
+from jax import numpy as jnp
 
+from jaxmaterials.common import GridSpec
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver._backend import solve
 
@@ -25,12 +29,16 @@ __all__ = [
     "lippmann_schwinger_isotropic",
 ]
 
+PyTree: TypeAlias = Any
+
 
 class CUDAUnavailableError(RuntimeError):
+    """Specialised exception to signal that CUDA is unavailable"""
+
     pass
 
 
-def _load_cuda_library():
+def _load_cuda_library() -> ctypes.CDLL:
     """Load CUDA shared library for Lippmann-Schwinger solvers.
 
     Prefer explicit library paths to avoid accidentally resolving an older
@@ -46,7 +54,7 @@ def _load_cuda_library():
         ) from exc
 
 
-def _resolve_cuda_symbol(lib, names):
+def _resolve_cuda_symbol(lib: ctypes.CDLL, names: list[str]) -> Any:
     """Resolve the first available symbol from a list of candidate names.
 
     Implemented by GitHub Copilot (GPT-5.3-Codex); reviewed by Eike Mueller.
@@ -61,16 +69,16 @@ def _resolve_cuda_symbol(lib, names):
 
 
 def lippmann_schwinger(
-    compute_sigma,
-    params,
-    epsilon_bar,
-    ref_params,
-    grid_spec,
-    tol=1.0e-5,
-    maxits=1000,
-    depth=0,
-    verbose=0,
-):
+    compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
+    params: PyTree,
+    epsilon_bar: jax.Array,
+    ref_params: dict[str, float],
+    grid_spec: GridSpec,
+    tol: float = 1.0e-5,
+    maxits: int = 1000,
+    depth: int = 0,
+    verbose: int = 0,
+) -> tuple[jax.Array, jax.Array]:
     """Wrapper for Lippmann Schwinger iteration with Anderson acceleration for generic stress-strain relationship
 
     Iterates the Lippmann-Schwinger equation
@@ -100,32 +108,30 @@ def lippmann_schwinger(
 
     Parameters
     ==========
-    compute_sigma
+    compute_sigma :
         function :math:`\\sigma=\\Sigma(\\varepsilon|\\theta)` which describes the stress-strain relationship, see :py:mod:`jaxmaterials.solver.hooke`
-    params : `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_
+    params :
         material parameters which are passed on to ``compute_sigma()``
-    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
-    ref_params : dict
+    ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
-        ``{"lambda":lambda_ref, "mu":mu_ref}`` where ``lambda_ref`` and ``mu_ref`` are of
-        shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+        ``{"lambda":lambda_ref, "mu":mu_ref}``
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol :
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    dynamic_stopping : logical
-        stop based on ``rtol`` and ``atol``? If ``False``, stop after exactly ``maxits`` iterations
-    verbose : int
+    verbose :
         verbosity level
 
     Returns
     =======
-    Strain :math:`\\epsilon` and stress :math:`\\sigma`
+    tuple[jax.Array,jax.Array]
+        Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     assert depth >= 0
     assert maxits > 0
@@ -146,15 +152,15 @@ def lippmann_schwinger(
 
 
 def lippmann_schwinger_isotropic(
-    params,
-    epsilon_bar,
-    grid_spec,
-    tol=1.0e-5,
-    maxits=1000,
-    depth=0,
-    use_cuda=False,
-    verbose=0,
-):
+    params: dict[str, jax.Array],
+    epsilon_bar: jax.Array,
+    grid_spec: GridSpec,
+    tol: float = 1.0e-5,
+    maxits: int = 1000,
+    depth: int = 0,
+    use_cuda: bool = False,
+    verbose: int = 0,
+) -> tuple[jax.Array, jax.Array]:
     """Wrapper for Lippmann Schwinger in isotropic material
 
     Iterates the Lippmann-Schwinger equation
@@ -183,27 +189,28 @@ def lippmann_schwinger_isotropic(
 
     Parameters
     ==========
-    params : dict
+    params :
         dictionary ``{"lambda":lambda, "mu":mu}`` with Lame coefficients :math:`\\mu` and
          :math:`\\lambda` which are arrays of shape ``(nx,ny,nz)``
-    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol : 
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits : 
         maximum number of iterations
-    depth : int
+    depth : 
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    use_cuda : logical
+    use_cuda :
         use CUDA implementation instead of JAX? Onky forward pass is implemented in this case
-    verbose : int
+    verbose : 
         verbosity level
 
     Returns
     =======
-    Strain :math:`\\epsilon` and stress :math:`\\sigma`
+    tuple[jax.Array, jax.Array]
+        Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
     assert params["lambda"].dtype == dtype
@@ -237,18 +244,18 @@ def lippmann_schwinger_isotropic(
         cuda_code.restype = ctypes.c_int
         cells = np.array([grid_spec.nx, grid_spec.ny, grid_spec.nz], dtype=np.int32)
         extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
-        epsilon = np.empty(
+        epsilon_cuda = np.empty(
             (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
         )
-        sigma = np.empty(
+        sigma_cuda = np.empty(
             (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
         )
         its = cuda_code(
             np.ascontiguousarray(params["mu"]),
             np.ascontiguousarray(params["lambda"]),
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
-            epsilon,
-            sigma,
+            epsilon_cuda,
+            sigma_cuda,
             cells,
             extents,
             1.0e-20,
@@ -259,13 +266,13 @@ def lippmann_schwinger_isotropic(
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
-        return epsilon, sigma
+        return jnp.asarray(epsilon_cuda), jnp.asarray(sigma_cuda)
     else:
         ref_params = {
             field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
             for field in params.keys()
         }
-        epsilon, sigma = solve(
+        epsilon_jax, sigma_jax = solve(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
@@ -277,20 +284,20 @@ def lippmann_schwinger_isotropic(
             dynamic_stopping=True,
             verbose=verbose,
         )
-    return epsilon, sigma
+        return epsilon_jax, sigma_jax
 
 
 def lippmann_schwinger_anisotropic(
-    params,
-    epsilon_bar,
-    ref_params,
-    grid_spec,
-    tol=1.0e-5,
-    maxits=1000,
-    depth=0,
-    use_cuda=False,
-    verbose=0,
-):
+    params: dict[str, jax.Array],
+    epsilon_bar: jax.Array,
+    ref_params: dict[str, float],
+    grid_spec: GridSpec,
+    tol: float = 1.0e-5,
+    maxits: int = 1000,
+    depth: int = 0,
+    use_cuda: bool = False,
+    verbose: int = 0,
+) -> tuple[jax.Array, jax.Array]:
     """Wrapper for Lippmann Schwinger in anisotropic material
 
     Solves the Lippmann-Schwinger equation
@@ -313,31 +320,32 @@ def lippmann_schwinger_anisotropic(
 
     Parameters
     ==========
-    params : dict
+    params :
         dictionary ``{"stiffness_tensor": stiffness_tensor}`` with material parameter
         :math:`C`, which is a tensor of shape ``(21,nx,ny,nz)``
-    epsilon_bar : `numpy.array <https://numpy.org/doc/stable/reference/generated/numpy.array.html>`_
+    epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
-    ref_params : dict
+    ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda_ref, "mu":mu_ref}`` where ``lambda_ref`` and ``mu_ref`` are of
         shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
         specification of computational grid
-    tol : float
+    tol :
         absolute tolerance on normalised stress divergence to check convergence
-    maxits : int
+    maxits :
         maximum number of iterations
-    depth : int
+    depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
-    use_cuda : logical
+    use_cuda :
         use CUDA implementation instead of JAX? Onky forward pass is implemented in this case
-    verbose : int
+    verbose :
         verbosity level
 
     Returns
     =======
-    Strain :math:`\\epsilon` and stress :math:`\\sigma`
+    tuple[jax.Array, jax.Array]
+        Strain :math:`\\epsilon` and stress :math:`\\sigma`
     """
     dtype = np.float32 if use_cuda else epsilon_bar.dtype
     stiffness_tensor = params["stiffness_tensor"]
@@ -370,10 +378,10 @@ def lippmann_schwinger_anisotropic(
         cuda_code.restype = ctypes.c_int
         cells = np.array([grid_spec.nx, grid_spec.ny, grid_spec.nz], dtype=np.int32)
         extents = np.array([grid_spec.Lx, grid_spec.Ly, grid_spec.Lz], dtype=np.float32)
-        epsilon = np.empty(
+        epsilon_cuda = np.empty(
             (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
         )
-        sigma = np.empty(
+        sigma_cuda = np.empty(
             (6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=np.float32
         )
         its = cuda_code(
@@ -381,8 +389,8 @@ def lippmann_schwinger_anisotropic(
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
             ref_params["lambda"],
             ref_params["mu"],
-            epsilon,
-            sigma,
+            epsilon_cuda,
+            sigma_cuda,
             cells,
             extents,
             1.0e-20,
@@ -393,10 +401,10 @@ def lippmann_schwinger_anisotropic(
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
-
+        return jnp.asarray(epsilon_cuda), jnp.asarray(sigma_cuda)
     else:
         # Least squares fit
-        epsilon, sigma = solve(
+        epsilon_jax, sigma_jax = solve(
             compute_sigma_anisotropic,
             params,
             epsilon_bar,
@@ -408,4 +416,4 @@ def lippmann_schwinger_anisotropic(
             dynamic_stopping=True,
             verbose=verbose,
         )
-    return epsilon, sigma
+        return epsilon_jax, sigma_jax

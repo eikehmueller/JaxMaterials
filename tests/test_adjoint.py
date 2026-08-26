@@ -5,11 +5,7 @@ from jax import numpy as jnp
 from jax.test_util import check_vjp
 import functools
 
-from jaxmaterials.solver.hooke import (
-    compute_sigma_isotropic,
-    compute_sigma_anisotropic,
-    compute_sigma_inelastic,
-)
+from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger,
     lippmann_schwinger_isotropic,
@@ -31,6 +27,37 @@ from fixtures import (
 
 
 jax.config.update("jax_enable_x64", True)
+
+
+def compute_sigma_inelastic(
+    epsilon: jax.Array, params: dict[str, jax.Array]
+) -> jax.Array:
+    """Compute stress from strain for inelastic material
+
+    Returns :math:`\\sigma_{ij} = \\sigma_{ij}(\\epsilon_{kl})` for a ficticious inelastic material.
+    Voigt notation ``{00,11,22,01,02,12}`` is used for the stress and strain tensor.
+
+    Parameters
+    ==========
+    epsilon :
+        strain field :math:`\\epsilon`
+    params :
+        Lame parameters :math:`\\lambda` and :math:`\\mu`, dictionary
+        of the form ``{"lambda":lambda, "mu":mu}``, where ``lambda`` and ``mu`` are
+        of shape ``(nx,ny,nz)``
+
+    Returns
+    =======
+    jax.Array
+        stress field :math:`\\sigma` of shape ``(6,nx,ny,nz)``, using Voigt notation for indexing.
+    """
+    tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
+    sigma = 2 * params["mu"] / (
+        1 + 0.1 * jnp.linalg.norm(tr_epsilon, axis=0)
+    ) * epsilon + params["lambda"] * jnp.stack(
+        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
+    )
+    return sigma
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])

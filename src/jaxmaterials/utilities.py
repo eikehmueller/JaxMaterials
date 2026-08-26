@@ -1,32 +1,41 @@
 """Utility functions for profiling and saving results to disk"""
 
-import numpy as np
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 import time
+from typing import Any
+import numpy as np
+from jaxmaterials.common import GridSpec
 
 __all__ = ["measure_time", "save_to_vtk"]
 
 
 @contextmanager
-def measure_time(label, repeat=1, warmup=False):
+def measure_time(
+    label: str, repeat: int = 1, warmup: bool = False
+) -> Generator[tuple[Callable[..., Any], Callable[[], int]]]:
     """Context manager for measuring the time it takes to execute a block of code
 
     Parameters
     ==========
-    label : str
+    label :
         label for the time measurement
-    repeat : int
+    repeat :
         number of repetitions used for timing
-    warmup_call : logical
+    warmup :
         include a warmup call at the beginning which is not timed?
+
+    Yields
+    ======
+    Tuple of callable wrapper around code and function for returning the number of iterations
     """
     timings = []
     it = [0]
 
-    def get_iter():
+    def get_iter() -> int:
         return it[0]
 
-    def run(func, *args, **kwargs):
+    def run(func: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         if warmup:
             func(*args, **kwargs)
         timings.append(time.perf_counter())
@@ -43,20 +52,25 @@ def measure_time(label, repeat=1, warmup=False):
         print(f"time [{label}] = {t_elapsed:8.3f} s")
 
 
-def save_to_vtk(data, grid_spec, filename, location="centre"):
+def save_to_vtk(
+    data: dict[str, np.ndarray],
+    grid_spec: GridSpec,
+    filename: str,
+    location: str = "centre",
+) -> None:
     """Save fields to VTK file
 
     Parameters
     ==========
-    data : dict
+    data :
         dictionary of the form ``{"label_1":field_1, "label_2":field_2, ...}`` where the labels
         are strings and each ``field_i`` is an array of shape ``(nx,ny,nz)``
-    grid_spec : :py:class:`jaxmaterials.common.GridSpec`
+    grid_spec :
         Specification of computational grid
-    filename : str
+    filename :
         name of file to save to
-    location : str
-        location of data within voxel. Currently only "centre" is supported
+    location :
+        location of data within voxel. Currently only ``"centre"`` is supported
     """
     assert location == "centre"
     shape = next(iter(data.values())).shape
