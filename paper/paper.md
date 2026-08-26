@@ -443,7 +443,7 @@ The workflow is summarised in \autoref{fig:inv_elas_workflow}.
 
 # AI usage disclosure
 
- Generative AI (mainly GitHub copilot) was used to generate some of the code, to identify and locate bugs and to generate informed feedback on the code and documentation. Code generation was closely supervised by limiting it to routine transformations and by breaking it into small, transparent tasks the correctness implementation of which could be easily verified. All generated code and all AI suggestions were carefully reviewed by the authors to ensure correctness. GenAI was used for final spell checking of the manuscript.
+ Generative AI (GitHub copilot and ChatGPT) was used to generate some of the code and automated workflow scripts, to identify and locate bugs and to generate informed feedback on the code and documentation. Code generation was closely supervised by limiting it to routine transformations and by breaking it into small, transparent tasks the correctness implementation of which could be easily verified. All generated code and all AI suggestions were carefully reviewed by the authors. GitHub copilot was used for final spell checking of the manuscript.
 
 # Outlook and future work
 There are several ways in which this work can be extended.
