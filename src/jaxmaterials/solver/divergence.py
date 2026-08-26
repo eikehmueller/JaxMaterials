@@ -60,7 +60,7 @@ def relative_divergence_fourier(sigma_hat: jax.Array, xi: np.ndarray) -> jax.Arr
     ==========
     sigma_hat :
         stress :math:`\\sigma` in Fourier space, array of shape ``(6,nx,ny,nz)``
-    :arg xi :
+    xi :
         Fourier vectors, array of shape ``(6,nx,ny,nz)``
 
     Returns

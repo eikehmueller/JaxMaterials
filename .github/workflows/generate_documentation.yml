@@ -29,11 +29,11 @@ jobs:
               python -m pip install .
           - name: Run Sphinx
             run: |
-              sphinx-build -b html docs docs/_build/html
+              sphinx-build -M html docs build
           - name: Upload artifacts
             uses: actions/upload-pages-artifact@v3
             with:
-              path: docs/_build/html
+              path: build/html
               name: github-pages
           - name: Deploy to GitHub Pages
             id: deployment

@@ -6,5 +6,10 @@ Python API
    :toctree: generated
    :recursive:
 
-   jaxmaterials
-   
+   jaxmaterials.common
+   jaxmaterials.utilities
+   jaxmaterials.solver.derivatives
+   jaxmaterials.solver.divergence
+   jaxmaterials.solver.fourier
+   jaxmaterials.solver.hooke
+   jaxmaterials.solver.lippmann_schwinger
