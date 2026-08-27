@@ -210,13 +210,14 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     tol = 1.0e-20
     maxits = 128
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec_small.extents), dtype=dtype)
 
     def loss_fn_adjoint(params, epsilon_bar):
         epsilon, sigma = solve(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
-            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+            delta_epsilon_initial,
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -232,7 +233,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
             compute_sigma_isotropic,
             params,
             epsilon_bar,
-            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+            delta_epsilon_initial,
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -246,10 +247,9 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
     g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(params, epsilon_bar)
     g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
     rtol = 1.0e-12 if dtype == jnp.float64 else 4.0e-3
-    assert all(
-        np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
-        for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
-    )
+    for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0]):
+        print("||x|| = ", np.linalg.norm(x), "||y|| = ", np.linalg.norm(y))
+        assert np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
@@ -262,13 +262,14 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
     params_anisotropic = perturbed_parameters(rng, params, delta=0.1)
     tol = 1.0e-20
     maxits = 128
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec_small.extents), dtype=dtype)
 
     def loss_fn_adjoint(params_anisotropic, epsilon_bar):
         epsilon, sigma = solve(
             compute_sigma_anisotropic,
             params_anisotropic,
             epsilon_bar,
-            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+            delta_epsilon_initial,
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -284,7 +285,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
             compute_sigma_anisotropic,
             params_anisotropic,
             epsilon_bar,
-            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+            delta_epsilon_initial,
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -319,13 +320,14 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     tol = 1.0e-20
     maxits = 256
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec_small.extents), dtype=dtype)
 
     def loss_fn_adjoint(params, epsilon_bar):
         epsilon, sigma = solve(
             compute_sigma_inelastic,
             params,
             epsilon_bar,
-            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+            delta_epsilon_initial,
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -341,7 +343,7 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
             compute_sigma_inelastic,
             params,
             epsilon_bar,
-            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+            delta_epsilon_initial,
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -356,5 +358,7 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
     g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
     rtol = 1.0e-11 if dtype == jnp.float64 else 1.0e-5
 
-    for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0]):
-        assert np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
+    assert all(
+        np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
+        for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
+    )

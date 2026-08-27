@@ -56,11 +56,12 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params = initialise_isotropic_material(grid_spec, rng, dtype)
     ref_params = reference_parameters(params)
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec.extents), dtype=dtype)
     epsilon_isotropic, sigma_isotropic = _lippmann_schwinger_jax(
         compute_sigma_isotropic,
         params,
         epsilon_bar,
-        jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+        delta_epsilon_initial,
         ref_params,
         grid_spec,
         tol=tol,
@@ -82,7 +83,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         compute_sigma_anisotropic,
         params_anisotropic,
         epsilon_bar,
-        jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+        delta_epsilon_initial,
         ref_params,
         grid_spec,
         tol=tol,
@@ -120,11 +121,12 @@ def test_convergence(capfd, grid_spec, rng, dtype, depth):
     params = initialise_isotropic_material(grid_spec, rng, dtype)
     ref_params = reference_parameters(params)
     tol = 1.0e-5 if dtype == np.float32 else 1.0e-12
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec.extents), dtype=dtype)
     _, sigma = _lippmann_schwinger_jax(
         compute_sigma_isotropic,
         params,
         epsilon_bar,
-        jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
+        delta_epsilon_initial,
         ref_params,
         grid_spec,
         tol=tol,

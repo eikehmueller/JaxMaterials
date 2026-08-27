@@ -101,6 +101,11 @@ class GridSpec:
         return (self.dx, self.dy, self.dz)
 
     @property
+    def extents(self) -> tuple[int, int, int]:
+        """Tuple of extents spacings :math:`(n_x,n_y,n_z)`"""
+        return (self.nx, self.ny, self.nz)
+
+    @property
     def voxel_centers(self) -> np.ndarray:
         """Array with voxel centres"""
         x = np.linspace(self.dx / 2, self._Lx - self.dx / 2, self._nx)
