@@ -115,12 +115,12 @@ def get_grid_spec(
     Ly: float,
     Lz: float,
     /,
-    nx: int = 0,
-    ny: int = 0,
-    nz: int = 0,
-    dx: float = 0,
-    dy: float = 0,
-    dz: float = 0,
+    nx: int | None = None,
+    ny: int | None = None,
+    nz: int | None = None,
+    dx: float | None = None,
+    dy: float | None = None,
+    dz: float | None = None,
 ) -> GridSpec:
     """Factory for constructing grid specification
 
@@ -160,11 +160,13 @@ def get_grid_spec(
         Specification of computational grid
     """
 
-    def _valid(n: int, h: float) -> bool:
-        return ((n == 0) and isinstance(h, float)) or (isinstance(n, int) and (h == 0))
+    def _valid(n: int | None, h: float | None) -> bool:
+        return ((n is None) and isinstance(h, float)) or (
+            isinstance(n, int) and (h is None)
+        )
 
     assert _valid(nx, dx) and _valid(ny, dy) and _valid(nz, dz)
-    _nx = nx if dx == 0 else int(Lx / dx)
-    _ny = ny if dy == 0 else int(Ly / dy)
-    _nz = nz if dz == 0 else int(Lz / dz)
+    _nx = nx if dx is None else int(Lx / dx)
+    _ny = ny if dy is None else int(Ly / dy)
+    _nz = nz if dz is None else int(Lz / dz)
     return GridSpec(Lx, Ly, Lz, _nx, _ny, _nz)
