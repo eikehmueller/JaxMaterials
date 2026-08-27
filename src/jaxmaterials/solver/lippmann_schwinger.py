@@ -74,6 +74,7 @@ def lippmann_schwinger(
     epsilon_bar: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
+    epsilon_initial: jax.Array | None = None,
     tol: float = 1.0e-5,
     maxits: int = 1000,
     depth: int = 0,
@@ -114,6 +115,8 @@ def lippmann_schwinger(
         material parameters which are passed on to ``compute_sigma()``
     epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    epsilon_initial :
+        initial value of strain :math:`\\epsilon`. If this is ``None``, use :math:`\\overline{\\epsilon}`
     ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda_ref, "mu":mu_ref}``
@@ -136,10 +139,15 @@ def lippmann_schwinger(
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
+    if epsilon_initial is None:
+        _epsilon_initial = jnp.expand_dims(epsilon_bar, axis=(1, 2, 3))
+    else:
+        _epsilon_initial = epsilon_initial
     epsilon, sigma = solve(
         compute_sigma,
         params,
         epsilon_bar,
+        _epsilon_initial,
         ref_params,
         grid_spec,
         tol=tol,
@@ -155,6 +163,7 @@ def lippmann_schwinger_isotropic(
     params: dict[str, jax.Array],
     epsilon_bar: jax.Array,
     grid_spec: GridSpec,
+    epsilon_initial: jax.Array | None = None,
     tol: float = 1.0e-5,
     maxits: int = 1000,
     depth: int = 0,
@@ -196,6 +205,8 @@ def lippmann_schwinger_isotropic(
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
     grid_spec :
         specification of computational grid
+    epsilon_initial :
+        initial value of strain :math:`\\epsilon`. If this is ``None``, use :math:`\\overline{\\epsilon}`    
     tol : 
         absolute tolerance on normalised stress divergence to check convergence
     maxits : 
@@ -272,10 +283,15 @@ def lippmann_schwinger_isotropic(
             field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
             for field in params.keys()
         }
+        if epsilon_initial is None:
+            _epsilon_initial = jnp.expand_dims(epsilon_bar, axis=(1, 2, 3))
+        else:
+            _epsilon_initial = epsilon_initial
         epsilon_jax, sigma_jax = solve(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
+            _epsilon_initial,
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
@@ -292,6 +308,7 @@ def lippmann_schwinger_anisotropic(
     epsilon_bar: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
+    epsilon_initial: jax.Array | None = None,
     tol: float = 1.0e-5,
     maxits: int = 1000,
     depth: int = 0,
@@ -331,6 +348,8 @@ def lippmann_schwinger_anisotropic(
         shape ``(nx,ny,nz)``
     grid_spec :
         specification of computational grid
+    epsilon_initial :
+        initial value of strain :math:`\\epsilon`. If this is ``None``, use :math:`\\overline{\\epsilon}`
     tol :
         absolute tolerance on normalised stress divergence to check convergence
     maxits :
@@ -338,7 +357,7 @@ def lippmann_schwinger_anisotropic(
     depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
     use_cuda :
-        use CUDA implementation instead of JAX? Onky forward pass is implemented in this case
+        use CUDA implementation instead of JAX? Only forward pass is implemented in this case
     verbose :
         verbosity level
 
@@ -403,11 +422,15 @@ def lippmann_schwinger_anisotropic(
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
         return jnp.asarray(epsilon_cuda), jnp.asarray(sigma_cuda)
     else:
-        # Least squares fit
+        if epsilon_initial is None:
+            _epsilon_initial = jnp.expand_dims(epsilon_bar, axis=(1, 2, 3))
+        else:
+            _epsilon_initial = epsilon_initial
         epsilon_jax, sigma_jax = solve(
             compute_sigma_anisotropic,
             params,
             epsilon_bar,
+            _epsilon_initial,
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,

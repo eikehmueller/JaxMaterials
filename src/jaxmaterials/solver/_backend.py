@@ -40,6 +40,7 @@ def _lippmann_schwinger_jax(
     compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
     params: PyTree,
     epsilon_bar: jax.Array,
+    epsilon_initial: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
     tol: float,
@@ -69,6 +70,8 @@ def _lippmann_schwinger_jax(
         material parameters which are passed on to ``compute_sigma()``
     epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    epsilon_initial :
+        initial value of strain :math:`\\epsilon`
     ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda, "mu":mu}``
@@ -101,9 +104,11 @@ def _lippmann_schwinger_jax(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
         dtype=dtype,
     )
-    epsilon = epsilon.at[0, ...].set(
-        jnp.expand_dims(jnp.astype(epsilon_bar, dtype), [1, 2, 3])
+    _epsilon_bar = jnp.expand_dims(epsilon_bar, axis=(1, 2, 3))
+    delta_epsilon = jax.lax.stop_gradient(
+        jnp.astype(epsilon_initial, dtype) - _epsilon_bar
     )
+    epsilon = epsilon.at[0, ...].set(_epsilon_bar + delta_epsilon)
     residual = jnp.zeros(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
     )
@@ -554,6 +559,7 @@ def solve(
     compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
     params: PyTree,
     epsilon_bar: jax.Array,
+    epsilon_initial: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
     tol: float,
@@ -572,6 +578,8 @@ def solve(
         material parameters which are passed on to ``compute_sigma()``
     epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    epsilon_initial :
+        initial value of strain :math:`\\epsilon`
     ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda, "mu":mu}`` where ``lambda``
@@ -597,6 +605,7 @@ def solve(
         compute_sigma,
         params,
         epsilon_bar,
+        epsilon_initial,
         ref_params,
         grid_spec,
         tol=tol,
@@ -612,6 +621,7 @@ def _solve_fwd(
     compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
     params: PyTree,
     epsilon_bar: jax.Array,
+    epsilon_initial: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
     tol: float,
@@ -632,6 +642,8 @@ def _solve_fwd(
         material parameters which are passed on to ``compute_sigma()``
     epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    epsilon_initial :
+        initial value of strain :math:`\\epsilon`
     ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda, "mu":mu}`` where ``lambda`` and ``mu`` are of shape ``(nx,ny,nz)``
@@ -657,6 +669,7 @@ def _solve_fwd(
         compute_sigma,
         params,
         epsilon_bar,
+        epsilon_initial,
         ref_params,
         grid_spec,
         tol=tol,
@@ -666,7 +679,7 @@ def _solve_fwd(
         verbose=verbose,
     )
     epsilon, sigma = out
-    return out, (params, epsilon, sigma, ref_params)
+    return out, (params, epsilon, sigma, epsilon_initial, ref_params)
 
 
 def _solve_bwd(
@@ -710,7 +723,7 @@ def _solve_bwd(
     tuple[PyTree, jax.Array, PyTree]
         Gradients :math:`\\delta/\\delta\\Theta`, :math:`\\delta/\\delta\\overline{\\epsilion}` and :math:`\\delta/\\delta\\Theta_{rfe}` where :math:`\\Theta` and :math:`\\Theta_{ref}` are the parameters and reference parameters respectively; the latter are set to zero.
     """
-    params, epsilon, _, ref_params = res
+    params, epsilon, _, epsilon_initial, ref_params = res
     dtype = epsilon.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     # Incoming gradients are dual vectors with respect to
@@ -747,8 +760,9 @@ def _solve_bwd(
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
     # Derivative with respect to parameters
     g_params = sigma_vjp(S_star)[1]
+    g_epsilon_initial = jax.tree.map(jnp.zeros_like, epsilon_initial)
     g_ref_params = jax.tree.map(jnp.zeros_like, ref_params)
-    return g_params, g_epsilon_bar, g_ref_params
+    return g_params, g_epsilon_bar, g_epsilon_initial, g_ref_params
 
 
 solve.defvjp(_solve_fwd, _solve_bwd)

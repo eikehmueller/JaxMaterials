@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import pytest
 import jax
+from jax import numpy as jnp
 import re
 
 from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
@@ -59,6 +60,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         compute_sigma_isotropic,
         params,
         epsilon_bar,
+        jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
         ref_params,
         grid_spec,
         tol=tol,
@@ -80,6 +82,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         compute_sigma_anisotropic,
         params_anisotropic,
         epsilon_bar,
+        jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
         ref_params,
         grid_spec,
         tol=tol,
@@ -121,6 +124,7 @@ def test_convergence(capfd, grid_spec, rng, dtype, depth):
         compute_sigma_isotropic,
         params,
         epsilon_bar,
+        jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
         ref_params,
         grid_spec,
         tol=tol,

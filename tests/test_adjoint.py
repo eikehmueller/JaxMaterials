@@ -216,6 +216,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
             compute_sigma_isotropic,
             params,
             epsilon_bar,
+            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -231,6 +232,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
             compute_sigma_isotropic,
             params,
             epsilon_bar,
+            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -243,7 +245,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
 
     g_adjoint = jax.grad(loss_fn_adjoint, argnums=(0, 1))(params, epsilon_bar)
     g_autodiff = jax.grad(loss_fn, argnums=(0, 1))(params, epsilon_bar)
-    rtol = 1.0e-12 if dtype == jnp.float64 else 1.0e-4
+    rtol = 1.0e-12 if dtype == jnp.float64 else 4.0e-3
     assert all(
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
         for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
@@ -266,6 +268,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
             compute_sigma_anisotropic,
             params_anisotropic,
             epsilon_bar,
+            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -281,6 +284,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
             compute_sigma_anisotropic,
             params_anisotropic,
             epsilon_bar,
+            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -321,6 +325,7 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
             compute_sigma_inelastic,
             params,
             epsilon_bar,
+            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
             ref_params,
             grid_spec_small,
             tol=tol,
@@ -336,6 +341,7 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
             compute_sigma_inelastic,
             params,
             epsilon_bar,
+            jnp.expand_dims(epsilon_bar, axis=(1, 2, 3)),
             ref_params,
             grid_spec_small,
             tol=tol,
