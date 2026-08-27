@@ -140,7 +140,7 @@ def compute_sigma(epsilon, params):
     return sigma
 ```
 
-Internally, this calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable. By design our library allows the implementation of non-trivial models such as the one in [@Chen:2019]. Other examples are given below.
+Internally, `lippmann_schwinger()` calls a backend function which is equipped with custom reverse mode gradients through JAX's `defvjp` functionality. It should be stressed that `compute_sigma()` can be any function, as long as it is reverse mode differentiable. By design our library allows the implementation of non-trivial models such as the one in [@Chen:2019]. Other examples are given below.
 
 For convenience, special cases for isotropic and anisotropic elastic materials have been implemented as well. In this case the user only needs to pass the Lamé coefficients $\lambda(x)$, $\mu(x)$ or the independent entries of the (symmetric) elasticity tensor $C(x)$.
 
