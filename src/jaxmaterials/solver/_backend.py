@@ -632,7 +632,8 @@ def _solve_fwd(
     dynamic_stopping: bool,
     verbose: int = 0,
 ) -> tuple[
-    tuple[jax.Array, jax.Array], tuple[PyTree, jax.Array, jax.Array, dict[str, float]]
+    tuple[jax.Array, jax.Array],
+    tuple[PyTree, jax.Array, jax.Array, jax.Array, dict[str, float]],
 ]:
     """Wrapped for forward solve
 
@@ -664,7 +665,7 @@ def _solve_fwd(
 
     Returns
     =======
-    tuple[tuple[jax.Array,jax.Array], tuple[PyTree, jax.Array, jax.Array, dict[str, float]]]
+    tuple[tuple[jax.Array,jax.Array], tuple[PyTree, jax.Array, jax.Array, jax.Array, dict[str, float]]]
         Tuple containing strain :math:`\\epsilon` and strain :math:`\\sigma` and information that is used by backward solve
     """
     out = _lippmann_schwinger_jax(
@@ -692,9 +693,9 @@ def _solve_bwd(
     depth: int,
     dynamic_stopping: bool,
     verbose: int,
-    res: tuple[PyTree, jax.Array, jax.Array, dict[str, float]],
+    res: tuple[PyTree, jax.Array, jax.Array, jax.Array, dict[str, float]],
     gradients: tuple[jax.Array, jax.Array],
-) -> tuple[PyTree, jax.Array, PyTree]:
+) -> tuple[PyTree, jax.Array, jax.Array, PyTree]:
     """Backward solve based on the adjoint method
 
     Returns gradients with respect to material parameters and epsilon_bar
@@ -722,7 +723,7 @@ def _solve_bwd(
 
     Returns
     =======
-    tuple[PyTree, jax.Array, PyTree]
+    tuple[PyTree, jax.Array, jax.Array, PyTree]
         Gradients :math:`\\delta/\\delta\\Theta`, :math:`\\delta/\\delta\\overline{\\epsilion}` and :math:`\\delta/\\delta\\Theta_{rfe}` where :math:`\\Theta` and :math:`\\Theta_{ref}` are the parameters and reference parameters respectively; the latter are set to zero.
     """
     params, epsilon, _, delta_epsilon_initial, ref_params = res
