@@ -1,6 +1,7 @@
 """Common definitions required throughout the code"""
 
 import numpy as np
+import typing
 
 __all__ = ["GridSpec", "get_grid_spec"]
 
@@ -166,7 +167,7 @@ def get_grid_spec(
         )
 
     assert _valid(nx, dx) and _valid(ny, dy) and _valid(nz, dz)
-    _nx = nx if dx is None else int(Lx / dx)
-    _ny = ny if dy is None else int(Ly / dy)
-    _nz = nz if dz is None else int(Lz / dz)
+    _nx = typing.cast(int, nx if dx is None else int(Lx / dx))
+    _ny = typing.cast(int, ny if dy is None else int(Ly / dy))
+    _nz = typing.cast(int, nz if dz is None else int(Lz / dz))
     return GridSpec(Lx, Ly, Lz, _nx, _ny, _nz)
