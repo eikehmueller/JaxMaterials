@@ -69,6 +69,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         dynamic_stopping=True,
         verbose=1,
     )
+    epsilon_isotropic.block_until_ready()
     its_isotropic = get_niter(capfd)
     lmbda = params["lambda"]
     mu = params["mu"]
@@ -90,6 +91,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         dynamic_stopping=True,
         verbose=1,
     )
+    epsilon_anisotropic.block_until_ready()
     its_anisotropic = get_niter(capfd)
     assert (
         np.linalg.norm(epsilon_isotropic - epsilon_anisotropic)
