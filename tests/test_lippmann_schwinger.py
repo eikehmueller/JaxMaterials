@@ -32,13 +32,14 @@ def get_niter(capfd):
     :arg capfd: output capture
     """
     captured = capfd.readouterr()
+    with capfd.disabled():
+        print(captured.out)
+
     m = re.search("converged after *([0-9]+) *of *[0-9]+ *iterations", captured.out)
     if m:
         its = int(m.group(1))
     else:
         assert False
-    with capfd.disabled():
-        print(captured.out)
 
     return its
 
@@ -58,7 +59,6 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params = initialise_isotropic_material(grid_spec, rng, dtype)
     ref_params = reference_parameters(params)
-    delta_epsilon_initial = jnp.zeros((6, *grid_spec.extents), dtype=dtype)
     epsilon_isotropic, sigma_isotropic = _lippmann_schwinger_jax(
         compute_sigma_isotropic,
         params,
@@ -72,6 +72,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         dynamic_stopping=True,
         verbose=1,
     )
+    epsilon_isotropic.block_until_ready()
     its_isotropic = get_niter(capfd)
     lmbda = params["lambda"]
     mu = params["mu"]
@@ -94,6 +95,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
         dynamic_stopping=True,
         verbose=1,
     )
+    epsilon_anisotropic.block_until_ready()
     its_anisotropic = get_niter(capfd)
     assert (
         np.linalg.norm(epsilon_isotropic - epsilon_anisotropic)
@@ -137,6 +139,7 @@ def test_convergence(capfd, grid_spec, rng, dtype, depth):
         dynamic_stopping=True,
         verbose=1,
     )
+    sigma.block_until_ready()
     its = get_niter(capfd)
     rel_div = relative_divergence(sigma, grid_spec)
     if dtype == np.float32:
@@ -150,6 +153,52 @@ def test_convergence(capfd, grid_spec, rng, dtype, depth):
         else:
             assert its < 15
     assert rel_div < tol
+
+
+@pytest.mark.parametrize("depth", [0, 2, 4])
+def test_epsilon_initialisation(capfd, grid_spec, rng, depth):
+    """Verify that initialising epsilon improves
+
+    Restart solve from value obtained by previous solve to loose tolerance,
+    The subsequent solve should require fewer iterations that the initial
+    solve from a cold start.
+
+    :arg grid_spec: specification of computational grid
+    :arg rng: random number generator
+    :arg depth: depth of Anderson acceleration
+    """
+    dtype = np.float64
+    epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+    params = initialise_isotropic_material(grid_spec, rng, dtype)
+    ref_params = reference_parameters(params)
+
+    def _solve(tol, delta_epsilon_initial):
+        epsilon, _ = _lippmann_schwinger_jax(
+            compute_sigma_isotropic,
+            params,
+            epsilon_bar,
+            delta_epsilon_initial,
+            ref_params,
+            grid_spec,
+            tol=tol,
+            depth=depth,
+            maxits=32,
+            dynamic_stopping=True,
+            verbose=1,
+        )
+        epsilon.block_until_ready()
+        return epsilon, get_niter(capfd)
+
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec.extents), dtype=dtype)
+    # Solve to tight tolerance, starting from zero initial guess
+    _, niter_cold = _solve(1.0e-12, delta_epsilon_initial)
+    # Now solve to a loose tolerance
+    epsilon, niter_loose = _solve(1.0e-3, delta_epsilon_initial)
+    # use resulting strain as a starting point
+    delta_epsilon_initial = epsilon - np.expand_dims(epsilon_bar, (1, 2, 3))
+    _, niter_warm = _solve(1.0e-12, delta_epsilon_initial)
+
+    assert niter_cold >= niter_loose + niter_warm
 
 
 def test_jax_matches_cuda_isotropic(grid_spec, rng):
