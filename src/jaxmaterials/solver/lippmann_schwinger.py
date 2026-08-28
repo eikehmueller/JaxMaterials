@@ -262,6 +262,8 @@ def lippmann_schwinger_isotropic(
     assert params["lambda"].dtype == dtype
     assert params["mu"].dtype == dtype
     assert epsilon_bar.dtype == dtype
+    if delta_epsilon_initial is not None:
+        assert delta_epsilon_initial.dtype == dtype
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
@@ -409,6 +411,8 @@ def lippmann_schwinger_anisotropic(
     stiffness_tensor = params["stiffness_tensor"]
     assert stiffness_tensor.dtype == dtype
     assert epsilon_bar.dtype == dtype
+    if delta_epsilon_initial is not None:
+        assert delta_epsilon_initial.dtype == dtype
     assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
     assert depth >= 0
     assert maxits > 0
