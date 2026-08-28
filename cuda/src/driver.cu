@@ -54,20 +54,25 @@ int main(int argc, char *argv[])
   float *mu;
   float epsilon_bar[6] = {1.1, 0.4, 0.2, 1.5, 0.8, 0.7};
   float *epsilon;
+  float *delta_epsilon_initial;
   float *sigma;
   CUDA_CHECK(cudaMallocHost(&lambda, nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&mu, nvoxels * sizeof(float)));
   initialize_lame_parameters(lambda, mu, grid_spec);
   CUDA_CHECK(cudaMallocHost(&epsilon, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&delta_epsilon_initial, 6 * nvoxels * sizeof(float)));
+  for (int ell = 0; ell < 6 * nvoxels; ++ell)
+    delta_epsilon_initial[ell] = 0;
   CUDA_CHECK(cudaMallocHost(&sigma, 6 * nvoxels * sizeof(float)));
   const float rtol = 1.E-6;
   const float atol = 1.E-4;
   const int maxiter = 32;
   const int verbose = 2;
-  int niter = lippmann_schwinger_solve_isotropic(lambda, mu, epsilon_bar, epsilon, sigma, voxels, extents, rtol, atol, maxiter, verbose);
+  int niter = lippmann_schwinger_solve_isotropic(lambda, mu, epsilon_bar, delta_epsilon_initial, epsilon, sigma, voxels, extents, rtol, atol, maxiter, verbose);
 
   CUDA_CHECK(cudaFreeHost(lambda));
   CUDA_CHECK(cudaFreeHost(mu));
   CUDA_CHECK(cudaFreeHost(epsilon));
+  CUDA_CHECK(cudaFreeHost(delta_epsilon_initial));
   CUDA_CHECK(cudaFreeHost(sigma));
 }

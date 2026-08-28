@@ -107,11 +107,16 @@ TEST_P(LippmannSchwingerTest, TestHomogeneousMaterial)
   float *mu = nullptr;
   float *lambda = nullptr;
   float *epsilon = nullptr;
+  float *delta_epsilon_initial = nullptr;
   float *sigma = nullptr;
   float epsilon_bar[6] = {1.0, 0.4, 0.3, 0.1, -0.4, 0.7};
   CUDA_CHECK(cudaMallocHost(&mu, nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&lambda, nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&epsilon, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&delta_epsilon_initial, 6 * nvoxels * sizeof(float)));
+  for (int ell = 0; ell < 6 * nvoxels; ++ell)
+    delta_epsilon_initial[ell] = 0;
+
   CUDA_CHECK(cudaMallocHost(&sigma, 6 * nvoxels * sizeof(float)));
   std::fill(mu, mu + nvoxels, 1.2);
   std::fill(lambda, lambda + nvoxels, 1.2);
@@ -119,10 +124,11 @@ TEST_P(LippmannSchwingerTest, TestHomogeneousMaterial)
   LippmannSchwingerSolver solver(grid_spec);
   float rtol = 1.E-20;
   float atol = 1.E-4;
-  int iter = solver.apply(lambda, mu, epsilon_bar, epsilon, sigma, rtol, atol);
+  int iter = solver.apply(lambda, mu, epsilon_bar, delta_epsilon_initial, epsilon, sigma, rtol, atol);
   CUDA_CHECK(cudaFreeHost(mu));
   CUDA_CHECK(cudaFreeHost(lambda));
   CUDA_CHECK(cudaFreeHost(epsilon));
+  CUDA_CHECK(cudaFreeHost(delta_epsilon_initial));
   CUDA_CHECK(cudaFreeHost(sigma));
   EXPECT_EQ(iter, 0);
 }
@@ -135,12 +141,16 @@ TEST_P(LippmannSchwingerTest, TestConvergence)
   float *mu = nullptr;
   float *lambda = nullptr;
   float *epsilon = nullptr;
+  float *delta_epsilon_initial = nullptr;
   float *sigma = nullptr;
   float *div_sigma = nullptr;
   float epsilon_bar[6] = {1.0, 0.4, 0.3, 0.1, -0.4, 0.7};
   CUDA_CHECK(cudaMallocHost(&mu, nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&lambda, nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&epsilon, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&delta_epsilon_initial, 6 * nvoxels * sizeof(float)));
+  for (int ell = 0; ell < 6 * nvoxels; ++ell)
+    delta_epsilon_initial[ell] = 0;
   CUDA_CHECK(cudaMallocHost(&sigma, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&div_sigma, 3 * nvoxels * sizeof(float)));
 
@@ -154,7 +164,7 @@ TEST_P(LippmannSchwingerTest, TestConvergence)
   LippmannSchwingerSolver solver(grid_spec);
   float rtol = 1.E-20;
   float atol = 1.E-4;
-  int iter = solver.apply(lambda, mu, epsilon_bar, epsilon, sigma, rtol, atol);
+  int iter = solver.apply(lambda, mu, epsilon_bar, delta_epsilon_initial, epsilon, sigma, rtol, atol);
 
   // normalised divergence
   backward_divergence_host(sigma, div_sigma, grid_spec);
@@ -172,6 +182,7 @@ TEST_P(LippmannSchwingerTest, TestConvergence)
   CUDA_CHECK(cudaFreeHost(mu));
   CUDA_CHECK(cudaFreeHost(lambda));
   CUDA_CHECK(cudaFreeHost(epsilon));
+  CUDA_CHECK(cudaFreeHost(delta_epsilon_initial));
   CUDA_CHECK(cudaFreeHost(sigma));
   CUDA_CHECK(cudaFreeHost(div_sigma));
   // Check that number of iterations is small
@@ -192,6 +203,7 @@ TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
   float *epsilon_isotropic = nullptr;
   float *sigma_isotropic = nullptr;
   float *epsilon_anisotropic = nullptr;
+  float *delta_epsilon_initial = nullptr;
   float *sigma_anisotropic = nullptr;
   float epsilon_bar[6] = {1.0, 0.4, 0.3, 0.1, -0.4, 0.7};
   CUDA_CHECK(cudaMallocHost(&mu, nvoxels * sizeof(float)));
@@ -200,6 +212,10 @@ TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
   CUDA_CHECK(cudaMallocHost(&epsilon_isotropic, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&sigma_isotropic, 6 * nvoxels * sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&epsilon_anisotropic, 6 * nvoxels * sizeof(float)));
+  CUDA_CHECK(cudaMallocHost(&delta_epsilon_initial, 6 * nvoxels * sizeof(float)));
+  for (int ell = 0; ell < 6 * nvoxels; ++ell)
+    delta_epsilon_initial[ell] = 0;
+
   CUDA_CHECK(cudaMallocHost(&sigma_anisotropic, 6 * nvoxels * sizeof(float)));
 
   std::default_random_engine rng;
@@ -232,10 +248,10 @@ TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
   LippmannSchwingerAnisotropicSolver anisotropic_solver(grid_spec);
   float rtol = 1.E-20;
   float atol = 1.E-4;
-  int iter_isotropic = isotropic_solver.apply(lambda, mu, epsilon_bar,
+  int iter_isotropic = isotropic_solver.apply(lambda, mu, epsilon_bar, delta_epsilon_initial,
                                               epsilon_isotropic, sigma_isotropic,
                                               rtol, atol);
-  int iter_anisotropic = anisotropic_solver.apply(stiffness, epsilon_bar,
+  int iter_anisotropic = anisotropic_solver.apply(stiffness, epsilon_bar, delta_epsilon_initial,
                                                   lambda_0, mu_0,
                                                   epsilon_anisotropic, sigma_anisotropic,
                                                   rtol, atol);
@@ -253,6 +269,7 @@ TEST_P(LippmannSchwingerTest, TestAnisotropicMatchesIsotropic)
   CUDA_CHECK(cudaFreeHost(epsilon_isotropic));
   CUDA_CHECK(cudaFreeHost(sigma_isotropic));
   CUDA_CHECK(cudaFreeHost(epsilon_anisotropic));
+  CUDA_CHECK(cudaFreeHost(delta_epsilon_initial));
   CUDA_CHECK(cudaFreeHost(sigma_anisotropic));
 
   EXPECT_LE(abs(iter_anisotropic - iter_isotropic), 1);

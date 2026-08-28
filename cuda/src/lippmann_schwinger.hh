@@ -70,9 +70,11 @@ protected:
      *
      * @param[out] dev_epsilon strain field to to set (device array of size 6*nvoxels)
      * @param[in] epsilon_bar constant mean strain field (device array of size 6)
+     * @param[in] delta_epsilon_initial non-constant part of initial strain (device array of size 6*nvoxels)
      */
-    void set_epsilon_bar(float *__restrict__ dev_epsilon,
-                         float *__restrict__ dev_epsilon_bar);
+    void set_epsilon_initial(float *__restrict__ dev_epsilon,
+                             float *__restrict__ dev_epsilon_bar,
+                             float *__restrict__ dev_delta_epsilon_initial);
 
     /* Class variables */
     /** @brief specification of computational grid */
@@ -91,6 +93,8 @@ protected:
     float *dev_epsilon;
     /** @brief real-valued mean strain epsilon on device */
     float *dev_epsilon_bar;
+    /** @brief real-valued non-constant part of initial strain */
+    float *dev_delta_epsilon_initial;
     /** @brief real-valued stress sigma on device */
     float *dev_sigma;
     /** @brief divergence of sigma on device */
@@ -149,6 +153,7 @@ public:
      * @param[in] lambda Lame parameter lambda (host array, size nvoxels)
      * @param[in] mu Lame parameter mu (host array, size nvoxels)
      * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[in] delta_epsilon_initial initial value of non-constant part of epsilon
      * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
      * @param[out] sigma resulting stress (host array, size 6*nvoxels)
      * @param[in] rtol relative tolerance on normalised divergence
@@ -158,6 +163,7 @@ public:
     int apply(float *__restrict__ lambda,
               float *__restrict__ mu,
               float *__restrict__ epsilon_bar,
+              float *__restrict__ delta_epsilon_initial,
               float *__restrict__ epsilon,
               float *__restrict__ sigma,
               float rtol, float atol, int maxits = 100);
@@ -206,6 +212,7 @@ public:
      *
      * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
      * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[in] delta_epsilon_initial initial value of non-constant part of epsilon
      * @param[in] lambda_ref reference Lame parameter lambda
      * @param[in] mu_ref reference Lame parameter mu
      * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
@@ -216,6 +223,7 @@ public:
      */
     int apply(float *__restrict__ stiffness,
               float *__restrict__ epsilon_bar,
+              float *__restrict__ delta_epsilon_initial,
               const float lambda_ref,
               const float mu_ref,
               float *__restrict__ epsilon,
@@ -234,6 +242,7 @@ private:
  * @param[in] lambda Lame parameter lambda (host array, size nvoxels)
  * @param[in] mu Lame parameter mu (host array, size nvoxels)
  * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+ * @param[in] delta_epsilon_initial initial value of non-constant part of epsilon
  * @param[out] epsilon Resulting strain (host array, size 6*nvoxels)
  * @param[out] sigma Resulting stress (host array, size 6*nvoxels)
  * @param[in] voxels Number of voxels (nx,ny,nz)
@@ -249,6 +258,7 @@ extern "C"
 {
     int lippmann_schwinger_solve_isotropic(float *lambda, float *mu,
                                            float *epsilon_bar,
+                                           float *delta_epsilon_initial,
                                            float *epsilon, float *sigma,
                                            int *voxels,
                                            float *extents,
@@ -263,6 +273,7 @@ extern "C"
      *
      * @param[in] stiffness stiffness tensor C (host array, size 21*nvoxels)
      * @param[in] epsilon_bar average value of epsilon (host array, size 6)
+     * @param[in] delta_epsilon_initial initial value of non-constant part of epsilon
      * @param[in] lambda_ref reference Lame parameter lambda
      * @param[in] mu_ref reference Lame parameter mu
      * @param[out] epsilon resulting strain (host array, size 6*nvoxels)
@@ -278,6 +289,7 @@ extern "C"
      */
     int lippmann_schwinger_solve_anisotropic(float *stiffness,
                                              float *epsilon_bar,
+                                             float *delta_epsilon_initial,
                                              const float lambda_ref,
                                              const float mu_ref,
                                              float *epsilon,

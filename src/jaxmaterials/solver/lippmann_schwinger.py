@@ -68,12 +68,51 @@ def _resolve_cuda_symbol(lib: ctypes.CDLL, names: list[str]) -> Any:
     )
 
 
+def _expand_delta_epsilon_initial(
+    epsilon_bar: jax.Array, delta_epsilon_initial: jax.Array | None
+):
+    """Proceess :math:`\\delta{\\epsilon}`
+
+    If no value is given (i.e. ``delta_epsilon_initial`` is ``None``), create a
+    zero field. Otherwise, verify that :math:`\\delta{\\epsilon}` indeed integrates to
+    zero.
+
+    Parameters
+    ==========
+    epsilon_bar :
+        Average strain :math:`\\overline{\\varepsilon}`
+    delta_epsilon_initial :
+        Correction :math:`\\delta{\\epsilon}` to initial value of :math:`\\varepsilon`
+
+    Returns
+    =======
+    jax.Array
+        Zero array if ``delta_epsilon_initial`` is ``None``, ``delta_epsilon_initial`` otherwise
+    """
+    dtype = epsilon_bar.dtype
+    if delta_epsilon_initial is None:
+        _delta_epsilon_initial = jnp.zeros(shape=(6, 1, 1, 1), dtype=dtype)
+    else:
+        _delta_epsilon_initial = jnp.astype(delta_epsilon_initial, dtype)
+        delta = 1.0e-12 if np.dtype(dtype) == np.float64 else 1.0e-6
+        if (
+            jnp.linalg.norm(jnp.average(_delta_epsilon_initial, axis=(1, 2, 3)))
+            / jnp.linalg.norm(epsilon_bar)
+            > delta
+        ):
+            raise RuntimeError(
+                "|| <delta(epsilon)> || / || bar(epsilon) || > tolerance"
+            )
+    return _delta_epsilon_initial
+
+
 def lippmann_schwinger(
     compute_sigma: Callable[[jax.Array, PyTree], jax.Array],
     params: PyTree,
     epsilon_bar: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
+    delta_epsilon_initial: jax.Array | None = None,
     tol: float = 1.0e-5,
     maxits: int = 1000,
     depth: int = 0,
@@ -114,6 +153,8 @@ def lippmann_schwinger(
         material parameters which are passed on to ``compute_sigma()``
     epsilon_bar :
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
+    delta_epsilon_initial :
+        initial strain perturbation :math:`\\delta\\epsilon`, which needs to average to zero. :math:`\\epsilon` is initialised to :math:`\\overline{\\epsilon}+\\delta\\epsilon`
     ref_params :
         Lame coefficients of isotropic reference material, dictionary of the form
         ``{"lambda":lambda_ref, "mu":mu_ref}``
@@ -136,10 +177,12 @@ def lippmann_schwinger(
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
+
     epsilon, sigma = solve(
         compute_sigma,
         params,
         epsilon_bar,
+        _expand_delta_epsilon_initial(epsilon_bar, delta_epsilon_initial),
         ref_params,
         grid_spec,
         tol=tol,
@@ -155,6 +198,7 @@ def lippmann_schwinger_isotropic(
     params: dict[str, jax.Array],
     epsilon_bar: jax.Array,
     grid_spec: GridSpec,
+    delta_epsilon_initial: jax.Array | None = None,
     tol: float = 1.0e-5,
     maxits: int = 1000,
     depth: int = 0,
@@ -196,6 +240,8 @@ def lippmann_schwinger_isotropic(
         mean value :math:`\\overline{\\epsilon}` of strain :math:`\\epsilon`, array of shape ``(6,)``
     grid_spec :
         specification of computational grid
+    delta_epsilon_initial :
+        initial strain perturbation :math:`\\delta\\epsilon`, which needs to average to zero. :math:`\\epsilon` is initialised to :math:`\\overline{\\epsilon}+\\delta\\epsilon`
     tol : 
         absolute tolerance on normalised stress divergence to check convergence
     maxits : 
@@ -216,9 +262,14 @@ def lippmann_schwinger_isotropic(
     assert params["lambda"].dtype == dtype
     assert params["mu"].dtype == dtype
     assert epsilon_bar.dtype == dtype
+    if delta_epsilon_initial is not None:
+        assert delta_epsilon_initial.dtype == dtype
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
+    _delta_epsilon_initial = _expand_delta_epsilon_initial(
+        epsilon_bar, delta_epsilon_initial
+    )
     if use_cuda:
         if depth > 0:
             warnings.warn("Parameter depth ignored for CUDA implementations")
@@ -229,6 +280,7 @@ def lippmann_schwinger_isotropic(
             ["lippmann_schwinger_solve_isotropic", "lippmann_schwinger_solve"],
         )
         cuda_code.argtypes = [
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
@@ -254,6 +306,10 @@ def lippmann_schwinger_isotropic(
             np.ascontiguousarray(params["mu"]),
             np.ascontiguousarray(params["lambda"]),
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            np.ascontiguousarray(
+                jnp.broadcast_to(_delta_epsilon_initial, shape=(6, *grid_spec.extents)),
+                dtype=np.float32,
+            ),
             epsilon_cuda,
             sigma_cuda,
             cells,
@@ -263,6 +319,7 @@ def lippmann_schwinger_isotropic(
             maxits,
             verbose,
         )
+        lib.fflush(None)
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
@@ -276,6 +333,7 @@ def lippmann_schwinger_isotropic(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
+            _delta_epsilon_initial,
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
@@ -292,6 +350,7 @@ def lippmann_schwinger_anisotropic(
     epsilon_bar: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
+    delta_epsilon_initial: jax.Array | None = None,
     tol: float = 1.0e-5,
     maxits: int = 1000,
     depth: int = 0,
@@ -331,6 +390,8 @@ def lippmann_schwinger_anisotropic(
         shape ``(nx,ny,nz)``
     grid_spec :
         specification of computational grid
+    delta_epsilon_initial :
+        initial strain perturbation :math:`\\delta\\epsilon`, which needs to average to zero. :math:`\\epsilon` is initialised to :math:`\\overline{\\epsilon}+\\delta\\epsilon`
     tol :
         absolute tolerance on normalised stress divergence to check convergence
     maxits :
@@ -338,7 +399,7 @@ def lippmann_schwinger_anisotropic(
     depth :
         depth of Anderson acceleration; depth=0 corresponds to no Anderson acceleration
     use_cuda :
-        use CUDA implementation instead of JAX? Onky forward pass is implemented in this case
+        use CUDA implementation instead of JAX? Only forward pass is implemented in this case
     verbose :
         verbosity level
 
@@ -351,10 +412,15 @@ def lippmann_schwinger_anisotropic(
     stiffness_tensor = params["stiffness_tensor"]
     assert stiffness_tensor.dtype == dtype
     assert epsilon_bar.dtype == dtype
+    if delta_epsilon_initial is not None:
+        assert delta_epsilon_initial.dtype == dtype
     assert stiffness_tensor.shape == (21, grid_spec.nx, grid_spec.ny, grid_spec.nz)
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
+    _delta_epsilon_initial = _expand_delta_epsilon_initial(
+        epsilon_bar, delta_epsilon_initial
+    )
     if use_cuda:
         if depth > 0:
             warnings.warn("Parameter depth ignored for CUDA implementations")
@@ -362,6 +428,7 @@ def lippmann_schwinger_anisotropic(
         lib = _load_cuda_library()
         cuda_code = _resolve_cuda_symbol(lib, ["lippmann_schwinger_solve_anisotropic"])
         cuda_code.argtypes = [
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             ctypes.c_float,
@@ -387,6 +454,10 @@ def lippmann_schwinger_anisotropic(
         its = cuda_code(
             stiffness,
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            np.ascontiguousarray(
+                jnp.broadcast_to(_delta_epsilon_initial, shape=(6, *grid_spec.extents)),
+                dtype=np.float32,
+            ),
             ref_params["lambda"],
             ref_params["mu"],
             epsilon_cuda,
@@ -398,16 +469,17 @@ def lippmann_schwinger_anisotropic(
             maxits,
             verbose,
         )
+        lib.fflush(None)
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
         return jnp.asarray(epsilon_cuda), jnp.asarray(sigma_cuda)
     else:
-        # Least squares fit
         epsilon_jax, sigma_jax = solve(
             compute_sigma_anisotropic,
             params,
             epsilon_bar,
+            _delta_epsilon_initial,
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
