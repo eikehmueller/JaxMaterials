@@ -94,7 +94,7 @@ def _expand_delta_epsilon_initial(
         _delta_epsilon_initial = jnp.zeros(shape=(6, 1, 1, 1), dtype=dtype)
     else:
         _delta_epsilon_initial = jnp.astype(delta_epsilon_initial, dtype)
-        delta = 1.0e-12 if np.dtype(dtype) == np.float32 else 1.0e-6
+        delta = 1.0e-12 if np.dtype(dtype) == np.float64 else 1.0e-6
         if (
             jnp.linalg.norm(jnp.average(_delta_epsilon_initial, axis=(1, 2, 3)))
             / jnp.linalg.norm(epsilon_bar)
