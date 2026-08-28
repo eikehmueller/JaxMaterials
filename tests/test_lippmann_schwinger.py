@@ -59,6 +59,7 @@ def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params = initialise_isotropic_material(grid_spec, rng, dtype)
     ref_params = reference_parameters(params)
+    delta_epsilon_initial = jnp.zeros((6, *grid_spec.extents), dtype=dtype)
     epsilon_isotropic, sigma_isotropic = _lippmann_schwinger_jax(
         compute_sigma_isotropic,
         params,
@@ -201,7 +202,8 @@ def test_epsilon_initialisation(capfd, grid_spec, rng, depth):
     assert niter_cold >= niter_loose + niter_warm
 
 
-def test_jax_matches_cuda_isotropic(grid_spec, rng):
+@pytest.mark.parametrize("initialise_epsilon", [False, True])
+def test_jax_matches_cuda_isotropic(grid_spec, rng, initialise_epsilon):
     """Verify that CUDA and Jax solvers give identical results for isotropic materials
     (skipped if no GPU is available)
 
@@ -212,11 +214,21 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
     tol = 1.0e-5
     maxits = 32
     params = initialise_isotropic_material(grid_spec, rng, dtype=np.float32)
+    if initialise_epsilon:
+        delta_epsilon_initial = np.astype(
+            rng.normal(size=(6, *grid_spec.extents)), np.float32
+        )
+        delta_epsilon_initial -= np.average(
+            delta_epsilon_initial, axis=(1, 2, 3), keepdims=True
+        )
+    else:
+        delta_epsilon_initial = None
     try:
         epsilon_cuda, sigma_cuda = lippmann_schwinger_isotropic(
             params,
             epsilon_bar,
             grid_spec,
+            delta_epsilon_initial=delta_epsilon_initial,
             tol=tol,
             maxits=maxits,
             use_cuda=True,
@@ -228,6 +240,7 @@ def test_jax_matches_cuda_isotropic(grid_spec, rng):
         params,
         epsilon_bar,
         grid_spec,
+        delta_epsilon_initial=delta_epsilon_initial,
         tol=tol,
         maxits=maxits,
         use_cuda=False,
