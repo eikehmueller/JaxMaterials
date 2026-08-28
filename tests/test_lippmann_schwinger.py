@@ -181,17 +181,20 @@ def test_epsilon_initialisation(capfd, grid_spec, rng, depth, use_cuda):
     params = initialise_isotropic_material(grid_spec, rng, dtype)
 
     def _solve(tol, delta_epsilon_initial):
-        epsilon, _ = lippmann_schwinger_isotropic(
-            params,
-            epsilon_bar,
-            grid_spec,
-            delta_epsilon_initial=delta_epsilon_initial,
-            tol=tol,
-            maxits=32,
-            depth=depth,
-            use_cuda=use_cuda,
-            verbose=1,
-        )
+        try:
+            epsilon, _ = lippmann_schwinger_isotropic(
+                params,
+                epsilon_bar,
+                grid_spec,
+                delta_epsilon_initial=delta_epsilon_initial,
+                tol=tol,
+                maxits=32,
+                depth=depth,
+                use_cuda=use_cuda,
+                verbose=1,
+            )
+        except CUDAUnavailableError:
+            pytest.skip(reason="CUDA code not available")
         epsilon.block_until_ready()
         return epsilon, get_niter(capfd)
 
