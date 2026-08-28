@@ -319,6 +319,7 @@ def lippmann_schwinger_isotropic(
             maxits,
             verbose,
         )
+        lib.fflush(None)
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")
@@ -468,6 +469,7 @@ def lippmann_schwinger_anisotropic(
             maxits,
             verbose,
         )
+        lib.fflush(None)
 
         if its >= maxits:
             raise RuntimeError(f"Solver failed to converge after {maxits} iterations")

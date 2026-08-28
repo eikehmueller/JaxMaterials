@@ -32,7 +32,6 @@ def get_niter(capfd):
     :arg capfd: output capture
     """
     captured = capfd.readouterr()
-
     m = re.search("converged after *([0-9]+) *of *[0-9]+ *iterations", captured.out)
     if m:
         its = int(m.group(1))
@@ -44,7 +43,7 @@ def get_niter(capfd):
 
 @pytest.mark.parametrize("depth", [0, 2, 4])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
+def test_anisotropic_solve(capfd, capfdbinary, grid_spec, rng, depth, dtype):
     """Verify that isotropic and anisotropic solvers give the same result when applied
     to an isotropic material
 
@@ -154,8 +153,9 @@ def test_convergence(capfd, grid_spec, rng, dtype, depth):
     assert rel_div < tol
 
 
+@pytest.mark.parametrize("use_cuda", [False, True])
 @pytest.mark.parametrize("depth", [0, 2, 4])
-def test_epsilon_initialisation(capfd, grid_spec, rng, depth):
+def test_epsilon_initialisation(capfd, grid_spec, rng, depth, use_cuda):
     """Verify that initialising epsilon improves
 
     Restart solve from value obtained by previous solve to loose tolerance,
@@ -165,37 +165,44 @@ def test_epsilon_initialisation(capfd, grid_spec, rng, depth):
     :arg grid_spec: specification of computational grid
     :arg rng: random number generator
     :arg depth: depth of Anderson acceleration
+    :arg use_cuda: use CUDA impementation?
     """
-    dtype = np.float64
+    if use_cuda:
+        if depth > 0:
+            pytest.skip("CUDA implementation does not support Anderson acceleration")
+        dtype = np.float32
+        tol_warmup = 1.0e-2
+        tol_target = 1.0e-5
+    else:
+        dtype = np.float64
+        tol_warmup = 1.0e-3
+        tol_target = 1.0e-12
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params = initialise_isotropic_material(grid_spec, rng, dtype)
-    ref_params = reference_parameters(params)
 
     def _solve(tol, delta_epsilon_initial):
-        epsilon, _ = _lippmann_schwinger_jax(
-            compute_sigma_isotropic,
+        epsilon, _ = lippmann_schwinger_isotropic(
             params,
             epsilon_bar,
-            delta_epsilon_initial,
-            ref_params,
             grid_spec,
+            delta_epsilon_initial=delta_epsilon_initial,
             tol=tol,
-            depth=depth,
             maxits=32,
-            dynamic_stopping=True,
+            depth=depth,
+            use_cuda=use_cuda,
             verbose=1,
         )
         epsilon.block_until_ready()
         return epsilon, get_niter(capfd)
 
-    delta_epsilon_initial = jnp.zeros((6, *grid_spec.extents), dtype=dtype)
+    delta_epsilon_initial = None
     # Solve to tight tolerance, starting from zero initial guess
-    _, niter_cold = _solve(1.0e-12, delta_epsilon_initial)
+    _, niter_cold = _solve(tol_target, delta_epsilon_initial)
     # Now solve to a loose tolerance
-    epsilon, niter_loose = _solve(1.0e-3, delta_epsilon_initial)
+    epsilon, niter_loose = _solve(tol_warmup, delta_epsilon_initial)
     # use resulting strain as a starting point
     delta_epsilon_initial = epsilon - np.expand_dims(epsilon_bar, (1, 2, 3))
-    _, niter_warm = _solve(1.0e-12, delta_epsilon_initial)
+    _, niter_warm = _solve(tol_target, delta_epsilon_initial)
 
     assert niter_cold >= niter_loose + niter_warm
 
