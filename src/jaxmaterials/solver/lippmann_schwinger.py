@@ -75,7 +75,7 @@ def _expand_delta_epsilon_initial(
 
     If no value is given (i.e. ``delta_epsilon_initial`` is ``None``), create a
     zero field. Otherwise, verify that :math:`\\delta{\\epsilon}` indeed integrates to
-    zero
+    zero.
 
     Parameters
     ==========
@@ -265,6 +265,9 @@ def lippmann_schwinger_isotropic(
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
+    _delta_epsilon_initial = _expand_delta_epsilon_initial(
+        epsilon_bar, delta_epsilon_initial
+    )
     if use_cuda:
         if depth > 0:
             warnings.warn("Parameter depth ignored for CUDA implementations")
@@ -275,6 +278,7 @@ def lippmann_schwinger_isotropic(
             ["lippmann_schwinger_solve_isotropic", "lippmann_schwinger_solve"],
         )
         cuda_code.argtypes = [
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
@@ -300,6 +304,10 @@ def lippmann_schwinger_isotropic(
             np.ascontiguousarray(params["mu"]),
             np.ascontiguousarray(params["lambda"]),
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            np.ascontiguousarray(
+                jnp.broadcast_to(_delta_epsilon_initial, shape=(6, *grid_spec.extents)),
+                dtype=np.float32,
+            ),
             epsilon_cuda,
             sigma_cuda,
             cells,
@@ -322,7 +330,7 @@ def lippmann_schwinger_isotropic(
             compute_sigma_isotropic,
             params,
             epsilon_bar,
-            _expand_delta_epsilon_initial(epsilon_bar, delta_epsilon_initial),
+            _delta_epsilon_initial,
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,
@@ -405,6 +413,9 @@ def lippmann_schwinger_anisotropic(
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
+    _delta_epsilon_initial = _expand_delta_epsilon_initial(
+        epsilon_bar, delta_epsilon_initial
+    )
     if use_cuda:
         if depth > 0:
             warnings.warn("Parameter depth ignored for CUDA implementations")
@@ -412,6 +423,7 @@ def lippmann_schwinger_anisotropic(
         lib = _load_cuda_library()
         cuda_code = _resolve_cuda_symbol(lib, ["lippmann_schwinger_solve_anisotropic"])
         cuda_code.argtypes = [
+            np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             np.ctypeslib.ndpointer(ctypes.c_float, flags="C_CONTIGUOUS"),
             ctypes.c_float,
@@ -437,6 +449,10 @@ def lippmann_schwinger_anisotropic(
         its = cuda_code(
             stiffness,
             np.ascontiguousarray(epsilon_bar, dtype=np.float32),
+            np.ascontiguousarray(
+                jnp.broadcast_to(_delta_epsilon_initial, shape=(6, *grid_spec.extents)),
+                dtype=np.float32,
+            ),
             ref_params["lambda"],
             ref_params["mu"],
             epsilon_cuda,
@@ -457,7 +473,7 @@ def lippmann_schwinger_anisotropic(
             compute_sigma_anisotropic,
             params,
             epsilon_bar,
-            _expand_delta_epsilon_initial(epsilon_bar, delta_epsilon_initial),
+            _delta_epsilon_initial,
             jax.lax.stop_gradient(ref_params),
             grid_spec,
             tol=tol,

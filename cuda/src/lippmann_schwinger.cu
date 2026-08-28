@@ -5,14 +5,15 @@
 /* **** CUDA kernels **** */
 
 /* Kernel for setting the values of epsilon to the constant bar(epsilon) */
-__global__ void set_epsilon_bar_kernel(float *__restrict__ dev_epsilon,
-                                       float *__restrict__ dev_epsilon_bar,
-                                       const size_t nvoxels)
+__global__ void set_epsilon_initial_kernel(float *__restrict__ dev_epsilon,
+                                           float *__restrict__ dev_epsilon_bar,
+                                           float *__restrict__ dev_delta_epsilon_initial,
+                                           const size_t nvoxels)
 {
   int ell = blockDim.x * blockIdx.x + threadIdx.x;
   if (ell < nvoxels)
     for (int alpha = 0; alpha < 6; ++alpha)
-      dev_epsilon[alpha * nvoxels + ell] = dev_epsilon_bar[alpha];
+      dev_epsilon[alpha * nvoxels + ell] = dev_epsilon_bar[alpha] + dev_delta_epsilon_initial[alpha * nvoxels + ell];
 }
 
 /* Kernel for incrementing solution epsilon -> epsilon + alpha*r */
@@ -31,12 +32,13 @@ __global__ void increment_solution_kernel(float *__restrict__ dev_epsilon,
 /* **** class methods **** */
 
 /* Set the values of epsilon to bar(epsilon) on the device */
-void LippmannSchwingerSolverBase::set_epsilon_bar(float *__restrict__ dev_epsilon,
-                                                  float *__restrict__ epsilon_bar)
+void LippmannSchwingerSolverBase::set_epsilon_initial(float *__restrict__ dev_epsilon,
+                                                      float *__restrict__ epsilon_bar,
+                                                      float *__restrict__ delta_epsilon_initial)
 {
   size_t nvoxels = grid_spec.number_of_voxels();
   const size_t nblocks = (nvoxels + BLOCKSIZE - 1) / BLOCKSIZE;
-  set_epsilon_bar_kernel<<<nblocks, BLOCKSIZE>>>(dev_epsilon, epsilon_bar, nvoxels);
+  set_epsilon_initial_kernel<<<nblocks, BLOCKSIZE>>>(dev_epsilon, epsilon_bar, delta_epsilon_initial, nvoxels);
 }
 
 /* Increment solution epsilon -> epsilon + 1/nvoxels * r */
@@ -89,6 +91,7 @@ LippmannSchwingerSolverBase::LippmannSchwingerSolverBase(const GridSpec grid_spe
   CUDA_CHECK(cudaMalloc(&dev_residual_hat, 6 * nmodes * sizeof(cufftComplex)));
   CUDA_CHECK(cudaMallocHost(&sigma_0, 6 * sizeof(cufftComplex)));
   CUDA_CHECK(cudaMalloc(&dev_epsilon_bar, 6 * sizeof(cufftComplex)));
+  CUDA_CHECK(cudaMalloc(&dev_delta_epsilon_initial, 6 * nvoxels * sizeof(cufftComplex)));
   CUDA_CHECK(cudaMalloc(&dev_sum, sizeof(float)));
   CUDA_CHECK(cudaMallocHost(&sum, sizeof(float)));
   // initialize Fourier vectors
@@ -111,6 +114,7 @@ LippmannSchwingerSolverBase::~LippmannSchwingerSolverBase()
   CUDA_CHECK(cudaFree(dev_residual_hat));
   CUDA_CHECK(cudaFree(dev_sigma_hat));
   CUDA_CHECK(cudaFree(dev_epsilon_bar));
+  CUDA_CHECK(cudaFree(dev_delta_epsilon_initial));
   CUDA_CHECK(cudaFreeHost(sigma_0));
   CUDA_CHECK(cudaFree(dev_sum));
   CUDA_CHECK(cudaFreeHost(sum));
@@ -151,6 +155,7 @@ LippmannSchwingerAnisotropicSolver::~LippmannSchwingerAnisotropicSolver()
 
 /* apply solver */
 int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
+                                   float *delta_epsilon_initial,
                                    float *epsilon, float *sigma,
                                    float rtol, float atol, int maxits)
 {
@@ -163,9 +168,10 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
   CUDA_CHECK(cudaMemcpy(dev_lambda, lambda, nvoxels * sizeof(float), cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(dev_mu, mu, nvoxels * sizeof(float), cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(dev_epsilon_bar, epsilon_bar, 6 * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(dev_delta_epsilon_initial, delta_epsilon_initial, 6 * nvoxels * sizeof(float), cudaMemcpyHostToDevice));
 
   // set average value of epsilon
-  set_epsilon_bar(dev_epsilon, dev_epsilon_bar);
+  set_epsilon_initial(dev_epsilon, dev_epsilon_bar, dev_delta_epsilon_initial);
   CUDA_CHECK(cudaDeviceSynchronize());
   // main Lippmann-Schwinger loop
   float rel_div_norm = 0;
@@ -220,6 +226,7 @@ int LippmannSchwingerSolver::apply(float *lambda, float *mu, float *epsilon_bar,
 /* apply solver (anisotropic) */
 int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
                                               float *epsilon_bar,
+                                              float *delta_epsilon_initial,
                                               const float lambda_ref,
                                               const float mu_ref,
                                               float *epsilon,
@@ -231,9 +238,10 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
   // Copy material data to device and construct anisotropic Fourier operator.
   CUDA_CHECK(cudaMemcpy(dev_stiffness, stiffness, 21 * nvoxels * sizeof(float), cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(dev_epsilon_bar, epsilon_bar, 6 * sizeof(float), cudaMemcpyHostToDevice));
+  CUDA_CHECK(cudaMemcpy(dev_delta_epsilon_initial, delta_epsilon_initial, 6 * nvoxels * sizeof(float), cudaMemcpyHostToDevice));
 
   // Set average value of epsilon.
-  set_epsilon_bar(dev_epsilon, dev_epsilon_bar);
+  set_epsilon_initial(dev_epsilon, dev_epsilon_bar, dev_delta_epsilon_initial);
   CUDA_CHECK(cudaDeviceSynchronize());
   // Main Lippmann-Schwinger loop.
   float rel_div_norm = 0;
@@ -289,6 +297,7 @@ int LippmannSchwingerAnisotropicSolver::apply(float *stiffness,
 extern "C"
 {
   int lippmann_schwinger_solve_isotropic(float *lambda, float *mu, float *epsilon_bar,
+                                         float *delta_epsilon_initial,
                                          float *epsilon, float *sigma,
                                          int *voxels,
                                          float *extents,
@@ -304,6 +313,7 @@ extern "C"
     grid_spec.Lz = extents[2];
     LippmannSchwingerSolver solver(grid_spec, verbose);
     int its = solver.apply(lambda, mu, epsilon_bar,
+                           delta_epsilon_initial,
                            epsilon, sigma,
                            rtol, atol, maxits);
     return its;
@@ -311,6 +321,7 @@ extern "C"
 
   int lippmann_schwinger_solve_anisotropic(float *stiffness,
                                            float *epsilon_bar,
+                                           float *delta_epsilon_initial,
                                            const float lambda_ref,
                                            const float mu_ref,
                                            float *epsilon,
@@ -330,6 +341,7 @@ extern "C"
     grid_spec.Lz = extents[2];
     LippmannSchwingerAnisotropicSolver solver(grid_spec, verbose);
     int its = solver.apply(stiffness, epsilon_bar,
+                           delta_epsilon_initial,
                            lambda_ref, mu_ref,
                            epsilon, sigma,
                            rtol, atol, maxits);
