@@ -32,8 +32,6 @@ def get_niter(capfd):
     :arg capfd: output capture
     """
     captured = capfd.readouterr()
-    with capfd.disabled():
-        print(captured.out)
 
     m = re.search("converged after *([0-9]+) *of *[0-9]+ *iterations", captured.out)
     if m:
