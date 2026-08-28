@@ -43,7 +43,7 @@ def get_niter(capfd):
 
 @pytest.mark.parametrize("depth", [0, 2, 4])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_anisotropic_solve(capfd, capfdbinary, grid_spec, rng, depth, dtype):
+def test_anisotropic_solve(capfd, grid_spec, rng, depth, dtype):
     """Verify that isotropic and anisotropic solvers give the same result when applied
     to an isotropic material
 
