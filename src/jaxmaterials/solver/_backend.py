@@ -222,7 +222,7 @@ def _lippmann_schwinger_jax(
             epsilon = jnp.roll(epsilon, 1, axis=0)
         else:
             epsilon_tilde = epsilon[0, ...] + r
-        epsilon = epsilon.at[0, ...].set(epsilon_tilde)
+        epsilon = epsilon.at[0, ...].set(jnp.astype(epsilon_tilde, dtype))
         sigma = compute_sigma(epsilon[0, ...], params)
         # Fourier transform sigma
         sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
@@ -469,7 +469,7 @@ def _lippmann_schwinger_adjoint_jax(
             Lambda = jnp.roll(Lambda, 1, axis=0)
         else:
             Lambda_tilde = Lambda[0, ...] - r
-        Lambda = Lambda.at[0, ...].set(Lambda_tilde)
+        Lambda = Lambda.at[0, ...].set(jnp.astype(Lambda_tilde, dtype))
 
         its += 1
         increment_nrm = jnp.linalg.norm(r)
