@@ -36,9 +36,6 @@ def get_niter(capfd):
         its = int(m.group(1))
     else:
         assert False
-    with capfd.disabled():
-        print(captured.out)
-
     return its
 
 
