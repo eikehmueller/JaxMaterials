@@ -117,9 +117,9 @@ class GridSpec:
 
 
 def get_grid_spec(
-    Lx: float,
-    Ly: float,
-    Lz: float,
+    Lx: float = 1.0,
+    Ly: float = 1.0,
+    Lz: float = 1.0,
     *,
     nx: int | None = None,
     ny: int | None = None,
