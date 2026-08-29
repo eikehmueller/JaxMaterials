@@ -120,7 +120,7 @@ def get_grid_spec(
     Lx: float,
     Ly: float,
     Lz: float,
-    /,
+    *,
     nx: int | None = None,
     ny: int | None = None,
     nz: int | None = None,
