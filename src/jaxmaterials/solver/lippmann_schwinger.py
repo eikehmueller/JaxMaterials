@@ -11,17 +11,18 @@ Solvers are implemented for three different setups:
 
 """
 
-from collections.abc import Callable
-from typing import Any, TypeAlias
-import warnings
 import ctypes
-import numpy as np
+import warnings
+from collections.abc import Callable
+from typing import Any
+
 import jax
+import numpy as np
 from jax import numpy as jnp
 
 from jaxmaterials.common import GridSpec
-from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
 from jaxmaterials.solver._backend import solve
+from jaxmaterials.solver.hooke import compute_sigma_anisotropic, compute_sigma_isotropic
 
 __all__ = [
     "lippmann_schwinger",
@@ -29,13 +30,11 @@ __all__ = [
     "lippmann_schwinger_isotropic",
 ]
 
-PyTree: TypeAlias = Any
+type PyTree = Any
 
 
 class CUDAUnavailableError(RuntimeError):
     """Specialised exception to signal that CUDA is unavailable"""
-
-    pass
 
 
 def _load_cuda_library() -> ctypes.CDLL:
@@ -327,7 +326,7 @@ def lippmann_schwinger_isotropic(
     else:
         ref_params = {
             field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
-            for field in params.keys()
+            for field in params
         }
         epsilon_jax, sigma_jax = solve(
             compute_sigma_isotropic,

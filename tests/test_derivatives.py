@@ -1,10 +1,10 @@
-import pytest
-import numpy as np
 import jax
 import jax.numpy as jnp
+import numpy as np
+import pytest
+from fixtures import grid_spec, grid_spec_highres, rng
 
 from jaxmaterials.solver.derivatives import backward_derivative, backward_divergence
-from fixtures import grid_spec, grid_spec_highres, rng
 
 jax.config.update("jax_enable_x64", True)
 

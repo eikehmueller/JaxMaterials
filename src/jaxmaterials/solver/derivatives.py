@@ -2,6 +2,7 @@
 
 import jax
 from jax import numpy as jnp
+
 from jaxmaterials.common import GridSpec
 
 __all__ = [

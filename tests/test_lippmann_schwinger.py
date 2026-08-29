@@ -1,26 +1,24 @@
-import pytest
-import numpy as np
-import pytest
-import jax
-from jax import numpy as jnp
 import re
 
-from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
-
-from jaxmaterials.solver.divergence import relative_divergence
+import jax
+import numpy as np
+import pytest
+from fixtures import (
+    grid_spec,
+    initialise_isotropic_material,
+    perturbed_parameters,
+    reference_parameters,
+    rng,
+)
+from jax import numpy as jnp
 
 from jaxmaterials.solver._backend import _lippmann_schwinger_jax
+from jaxmaterials.solver.divergence import relative_divergence
+from jaxmaterials.solver.hooke import compute_sigma_anisotropic, compute_sigma_isotropic
 from jaxmaterials.solver.lippmann_schwinger import (
-    lippmann_schwinger_isotropic,
-    lippmann_schwinger_anisotropic,
     CUDAUnavailableError,
-)
-from fixtures import (
-    initialise_isotropic_material,
-    reference_parameters,
-    perturbed_parameters,
-    grid_spec,
-    rng,
+    lippmann_schwinger_anisotropic,
+    lippmann_schwinger_isotropic,
 )
 
 jax.config.update("jax_enable_x64", True)

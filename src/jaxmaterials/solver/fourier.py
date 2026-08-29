@@ -3,11 +3,13 @@
 See discussion in Section :ref:`sec:fourier` for details.
 """
 
-import numpy as np
-import jax
-from jax import numpy as jnp
-from jaxmaterials.common import GridSpec
 from typing import cast
+
+import jax
+import numpy as np
+from jax import numpy as jnp
+
+from jaxmaterials.common import GridSpec
 
 __all__ = [
     "fourier_solve_anisotropic",

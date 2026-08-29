@@ -1,10 +1,12 @@
 """Utility functions for profiling and saving results to disk"""
 
+import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-import time
 from typing import Any
+
 import numpy as np
+
 from jaxmaterials.common import GridSpec
 
 __all__ = ["measure_time", "save_to_vtk"]

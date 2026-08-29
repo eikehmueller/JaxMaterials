@@ -1,30 +1,30 @@
-import numpy as np
-import pytest
-import jax
-from jax import numpy as jnp
-from jax.test_util import check_vjp
 import functools
 
-from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
-from jaxmaterials.solver.lippmann_schwinger import (
-    lippmann_schwinger,
-    lippmann_schwinger_isotropic,
-    lippmann_schwinger_anisotropic,
+import jax
+import numpy as np
+import pytest
+from fixtures import (
+    grid_spec,
+    grid_spec_small,
+    initialise_isotropic_material,
+    perturbed_parameters,
+    reference_parameters,
+    rng,
 )
+from jax import numpy as jnp
+from jax.test_util import check_vjp
+
 from jaxmaterials.solver._backend import (
     _lippmann_schwinger_adjoint_jax,
     _lippmann_schwinger_jax,
     solve,
 )
-from fixtures import (
-    initialise_isotropic_material,
-    reference_parameters,
-    perturbed_parameters,
-    grid_spec,
-    grid_spec_small,
-    rng,
+from jaxmaterials.solver.hooke import compute_sigma_anisotropic, compute_sigma_isotropic
+from jaxmaterials.solver.lippmann_schwinger import (
+    lippmann_schwinger,
+    lippmann_schwinger_anisotropic,
+    lippmann_schwinger_isotropic,
 )
-
 
 jax.config.update("jax_enable_x64", True)
 

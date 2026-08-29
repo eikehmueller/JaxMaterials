@@ -14,7 +14,7 @@ a `jax.pytree <https://docs.jax.dev/en/latest/pytrees.html>`_ with the parameter
 import jax
 from jax import numpy as jnp
 
-__all__ = ["compute_sigma_isotropic", "compute_sigma_anisotropic"]
+__all__ = ["compute_sigma_anisotropic", "compute_sigma_isotropic"]
 
 
 def compute_sigma_isotropic(

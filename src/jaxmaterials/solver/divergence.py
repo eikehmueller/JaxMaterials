@@ -3,10 +3,10 @@
 See discussion in Section :ref:`sec:stopping_criterion` on how the relative divergence is used to check whether the Lippmann Schwinger solver has converged.
 """
 
-import numpy as np
 import jax
-from jax.typing import ArrayLike
+import numpy as np
 from jax import numpy as jnp
+
 from jaxmaterials.common import GridSpec
 from jaxmaterials.solver.derivatives import backward_divergence
 

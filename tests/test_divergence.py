@@ -1,11 +1,11 @@
-import numpy as np
 import jax
+import numpy as np
 
-from jaxmaterials.solver.fourier import get_xi
 from jaxmaterials.solver.divergence import (
     relative_divergence,
     relative_divergence_fourier,
 )
+from jaxmaterials.solver.fourier import get_xi
 
 jax.config.update("jax_enable_x64", True)
 

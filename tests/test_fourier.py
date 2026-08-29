@@ -1,18 +1,16 @@
-import pytest
+import jax
 import numpy as np
 import pytest
-import jax
+from fixtures import grid_spec, rng
 from jax import numpy as jnp
 
 from jaxmaterials.solver.fourier import (
-    get_xizero,
-    get_inverse_anisotropic_acoustic_tensor,
-    get_anisotropic_acoustic_tensor,
-    fourier_solve_isotropic,
     fourier_solve_anisotropic,
+    fourier_solve_isotropic,
+    get_anisotropic_acoustic_tensor,
+    get_inverse_anisotropic_acoustic_tensor,
+    get_xizero,
 )
-
-from fixtures import grid_spec, rng
 
 jax.config.update("jax_enable_x64", True)
 

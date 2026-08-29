@@ -6,24 +6,26 @@ The methods should not be called directly; use the interface routines in
 """
 
 from collections.abc import Callable
-from typing import Any, TypeAlias
 from functools import partial
+from typing import Any, TypeAlias
+
 import jax
 from jax import numpy as jnp
+
 from jaxmaterials.common import GridSpec
-from jaxmaterials.solver.fourier import (
-    get_xizero,
-    get_xi,
-    fourier_solve_isotropic,
-)
 from jaxmaterials.solver.divergence import (
     relative_divergence_fourier,
+)
+from jaxmaterials.solver.fourier import (
+    fourier_solve_isotropic,
+    get_xi,
+    get_xizero,
 )
 from jaxmaterials.solver.hooke import compute_sigma_isotropic
 
 __all__ = ["solve"]
 
-PyTree: TypeAlias = Any
+type PyTree = Any
 
 
 @jax.jit(

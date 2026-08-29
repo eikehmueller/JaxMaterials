@@ -1,7 +1,8 @@
 """Common definitions required throughout the code"""
 
-import numpy as np
 import typing
+
+import numpy as np
 
 __all__ = ["GridSpec", "get_grid_spec"]
 

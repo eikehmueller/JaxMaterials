@@ -1,13 +1,13 @@
-import numpy as np
 import jax
+import numpy as np
 from jax import numpy as jnp
 
 from jaxmaterials.common import get_grid_spec
-from jaxmaterials.utilities import measure_time
 from jaxmaterials.solver.lippmann_schwinger import (
-    lippmann_schwinger_isotropic,
     lippmann_schwinger_anisotropic,
+    lippmann_schwinger_isotropic,
 )
+from jaxmaterials.utilities import measure_time
 
 jax.config.update("jax_enable_x64", True)
 

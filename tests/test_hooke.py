@@ -1,11 +1,9 @@
-import pytest
+import jax
 import numpy as np
 import pytest
-import jax
+from fixtures import grid_spec, initialise_isotropic_material, rng
 
-from fixtures import initialise_isotropic_material, grid_spec, rng
-from jaxmaterials.solver.hooke import compute_sigma_isotropic, compute_sigma_anisotropic
-
+from jaxmaterials.solver.hooke import compute_sigma_anisotropic, compute_sigma_isotropic
 
 jax.config.update("jax_enable_x64", True)
 
