@@ -1,6 +1,7 @@
 [![Automated testing](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml)
 [![Type checking](https://github.com/eikehmueller/JaxMaterials/actions/workflows/check-typing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/check-typing.yml)
-[![Documentation](https://github.com/eikehmueller/JaxMaterials/actions/workflows/generate_documentation.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/generate_documentation.yml)
+[![Documentation](https://github.com/eikehmueller/JaxMaterials/actions/workflows/generate-documentation.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/generate-documentation.yml)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 # JaxMaterials
 

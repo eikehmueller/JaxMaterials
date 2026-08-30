@@ -1,4 +1,4 @@
-name: Check typing
+name: Check typing with Mypy
 
 on:
   push:
