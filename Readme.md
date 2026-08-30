@@ -1,4 +1,6 @@
 [![Automated testing](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/automated-testing.yml)
+[![Type checking](https://github.com/eikehmueller/JaxMaterials/actions/workflows/check-typing.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/check-typing.yml)
+[![Documentation](https://github.com/eikehmueller/JaxMaterials/actions/workflows/generate_documentation.yml/badge.svg)](https://github.com/eikehmueller/JaxMaterials/actions/workflows/generate_documentation.yml)
 
 # JaxMaterials
 
