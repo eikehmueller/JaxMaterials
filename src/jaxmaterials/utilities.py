@@ -91,7 +91,7 @@ def save_to_vtk(
                 " ".join([f"{x:12.8f}" for x in np.linspace(0, extent, num=n + 1)]),
                 file=f,
             )
-        print("", file=f)
+        print(file=f)
         print(f"CELL_DATA {nx * ny * nz}", file=f)
         for key, value in data.items():
             print(f"SCALARS {key} float 1", file=f)

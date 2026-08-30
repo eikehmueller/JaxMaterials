@@ -7,7 +7,7 @@ The methods should not be called directly; use the interface routines in
 
 from collections.abc import Callable
 from functools import partial
-from typing import Any, TypeAlias
+from typing import Any
 
 import jax
 from jax import numpy as jnp
