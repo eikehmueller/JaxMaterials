@@ -14,7 +14,7 @@ def pytest_runtest_logreport(report):
     if report.when != "call":
         return
     outcome = report.outcome.upper()
-    with open(OUTPUT_FILE, "a") as f:
-        f.write(f"\n==== {report.nodeid} : {outcome} ====\n")
-        if report.capstdout:
+    if report.capstdout:
+        with open(OUTPUT_FILE, "a") as f:
+            f.write(f"\n==== {report.nodeid} : {outcome} ====\n")
             f.write(report.capstdout)
