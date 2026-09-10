@@ -533,9 +533,9 @@ def _lippmann_schwinger_adjoint_jax(
             increment_nrm / (nrm + 1.0e-20),
             ordered=True,
         )
-    if dynamic_stopping:
+    if not dynamic_stopping:
         jax.lax.cond(
-            its >= maxits,
+            its < maxits,
             lambda x: jax.debug.print(
                 "JAX adjoint solver failed to converge after {:6d} iterations",
                 x,
