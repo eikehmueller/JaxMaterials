@@ -511,9 +511,17 @@ def _lippmann_schwinger_adjoint_jax(
     increment_nrm, its = loop_result[-2:]
     if verbose > 0:
         nrm = jnp.linalg.norm(Lambda)
-        jax.debug.callback(
-            _print_if_converged_or_stopped, "adjoint", its, maxits, dynamic_stopping
-        )
+        if dynamic_stopping:
+            jax.debug.print(
+                "JAX adjoint solve: {:6d} of {:6d} iterations, converged = {:}",
+                its,
+                maxits,
+                its < maxits,
+            )
+        else:
+            jax.debug.print(
+                "JAX adjoint solve stopped after {:6d} of {:6d} iterations", its, maxits
+            )
         jax.debug.print(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
@@ -521,7 +529,7 @@ def _lippmann_schwinger_adjoint_jax(
             ordered=True,
         )
     if dynamic_stopping:
-        jax.debug.callback(_raise_if_not_converged, "adjoint", its, maxits)
+        Lambda = jnp.where(its >= maxits, jnp.full_like(Lambda, jnp.nan), Lambda)
 
     return Lambda, its
 
