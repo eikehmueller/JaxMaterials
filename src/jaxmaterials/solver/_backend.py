@@ -514,18 +514,19 @@ def _lippmann_schwinger_adjoint_jax(
             its,
             maxits,
         )
-        jax.lax.cond(
-            (its >= maxits) & jnp.logical_not(dynamic_stopping),
-            lambda x, y: jax.debug.print(
-                "JAX adjoint solver stopped after {:6d} of {:6d} iterations",
-                x,
-                y,
-                ordered=True,
-            ),
-            lambda x, y: None,
-            its,
-            maxits,
-        )
+        if not dynamic_stopping:
+            jax.lax.cond(
+                (its >= maxits),
+                lambda x, y: jax.debug.print(
+                    "JAX adjoint solver stopped after {:6d} of {:6d} iterations",
+                    x,
+                    y,
+                    ordered=True,
+                ),
+                lambda x, y: None,
+                its,
+                maxits,
+            )
         jax.debug.print(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
