@@ -502,30 +502,20 @@ def _lippmann_schwinger_adjoint_jax(
     increment_nrm, its = loop_result[-2:]
     if verbose > 0:
         nrm = jnp.linalg.norm(Lambda)
-        jax.lax.cond(
-            (its < maxits),
-            lambda x, y: jax.debug.print(
-                "JAX adjoint solver converged after {:6d} of {:6d} iterations",
-                x,
-                y,
-                ordered=True,
-            ),
-            lambda x, y: None,
-            its,
-            maxits,
-        )
-        if not dynamic_stopping:
-            jax.lax.cond(
-                (its >= maxits),
-                lambda x, y: jax.debug.print(
-                    "JAX adjoint solver stopped after {:6d} of {:6d} iterations",
-                    x,
-                    y,
-                    ordered=True,
-                ),
-                lambda x, y: None,
+        if dynamic_stopping:
+            jax.debug.print(
+                "JAX adjoint solver: iterations {:6d} of {:6d}, converged = {:}",
                 its,
                 maxits,
+                its < maxits,
+                ordered=True,
+            )
+        else:
+            jax.debug.print(
+                "JAX adjoint solver stopped after {:6d} of {:6d} iterations",
+                its,
+                maxits,
+                ordered=True,
             )
         jax.debug.print(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
@@ -533,18 +523,6 @@ def _lippmann_schwinger_adjoint_jax(
             increment_nrm / (nrm + 1.0e-20),
             ordered=True,
         )
-    if not dynamic_stopping:
-        jax.lax.cond(
-            its < maxits,
-            lambda x: jax.debug.print(
-                "JAX adjoint solver failed to converge after {:6d} iterations",
-                x,
-                ordered=True,
-            ),
-            lambda x: None,
-            maxits,
-        )
-
     return Lambda, its
 
 
