@@ -28,6 +28,45 @@ __all__ = ["solve"]
 type PyTree = Any
 
 
+def _raise_if_not_converged(label: str, its: int, maxits: int) -> None:
+    """Callback for raising exception if solver has not converged
+
+    Parameters
+    ==========
+    label :
+        solver label, should be 'forward' or 'adjoint'
+    its :
+        actual number of iterations
+    maxits :
+        maximum number of iterations
+    """
+    if its >= maxits:
+        raise ValueError(
+            f"JAX {label} solver failed to converge after {maxits:6d} iterations"
+        )
+
+
+def _print_if_converged_or_stopped(
+    label: str, its: int, maxits: int, dynamic_stopping: bool
+) -> None:
+    """Callback for printing message if solver has converged
+
+    Parameters
+    ==========
+    label :
+        solver label, should be 'forward' or 'adjoint'
+    its :
+        actual number of iterations
+    maxits :
+        maximum number of iterations
+    dynamic_stopping :
+        use dynamic stopping criterion?
+    """
+    action = "converged" if dynamic_stopping else "stopped"
+    if its < maxits or not (dynamic_stopping):
+        print(f"JAX {label} solver {action} after {its:6d} of {maxits:6d} iterations")
+
+
 @jax.jit(
     static_argnames=[
         "compute_sigma",
@@ -258,29 +297,8 @@ def _lippmann_schwinger_jax(
 
     epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = loop_result
     if verbose > 0:
-        jax.lax.cond(
-            (its < maxits),
-            lambda x, y: jax.debug.print(
-                "JAX forward solver converged after {:6d} of {:6d} iterations",
-                x,
-                y,
-                ordered=True,
-            ),
-            lambda x, y: None,
-            its,
-            maxits,
-        )
-        jax.lax.cond(
-            (its >= maxits) & jnp.logical_not(dynamic_stopping),
-            lambda x, y: jax.debug.print(
-                "JAX forward stopped after {:6d} of {:6d} iterations",
-                x,
-                y,
-                ordered=True,
-            ),
-            lambda x, y: None,
-            its,
-            maxits,
+        jax.debug.callback(
+            _print_if_converged_or_stopped, "forward", its, maxits, dynamic_stopping
         )
         jax.debug.print(
             "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
@@ -289,16 +307,7 @@ def _lippmann_schwinger_jax(
             ordered=True,
         )
     if dynamic_stopping:
-        jax.lax.cond(
-            its >= maxits,
-            lambda x: jax.debug.print(
-                "JAX forward solver failed to converge after {:6d} iterations",
-                x,
-                ordered=True,
-            ),
-            lambda x: None,
-            maxits,
-        )
+        jax.debug.callback(_raise_if_not_converged, "forward", its, maxits)
 
     return epsilon[0, ...], sigma
 
@@ -502,27 +511,18 @@ def _lippmann_schwinger_adjoint_jax(
     increment_nrm, its = loop_result[-2:]
     if verbose > 0:
         nrm = jnp.linalg.norm(Lambda)
-        if dynamic_stopping:
-            jax.debug.print(
-                "JAX adjoint solver: iterations {:6d} of {:6d}, converged = {:}",
-                its,
-                maxits,
-                its < maxits,
-                ordered=True,
-            )
-        else:
-            jax.debug.print(
-                "JAX adjoint solver stopped after {:6d} of {:6d} iterations",
-                its,
-                maxits,
-                ordered=True,
-            )
+        jax.debug.callback(
+            _print_if_converged_or_stopped, "adjoint", its, maxits, dynamic_stopping
+        )
         jax.debug.print(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
             increment_nrm / (nrm + 1.0e-20),
             ordered=True,
         )
+    if dynamic_stopping:
+        jax.debug.callback(_raise_if_not_converged, "adjoint", its, maxits)
+
     return Lambda, its
 
 
