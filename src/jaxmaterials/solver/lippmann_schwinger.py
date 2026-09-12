@@ -107,7 +107,7 @@ def _resolve_cuda_symbol(lib: ctypes.CDLL, names: list[str]) -> Any:
 
 
 def _expand_delta_epsilon_initial(
-    epsilon_bar: jax.Array, delta_epsilon_initial: jax.Array | None
+    delta_epsilon_initial: jax.Array | None, dtype: jax.typing.DTypeLike
 ):
     """Proceess :math:`\\delta{\\epsilon}`
 
@@ -117,30 +117,21 @@ def _expand_delta_epsilon_initial(
 
     Parameters
     ==========
-    epsilon_bar :
-        Average strain :math:`\\overline{\\varepsilon}`
     delta_epsilon_initial :
         Correction :math:`\\delta{\\epsilon}` to initial value of :math:`\\varepsilon`
+    dtype :
+        Data type of returned array
 
     Returns
     =======
     jax.Array
         Zero array if ``delta_epsilon_initial`` is ``None``, ``delta_epsilon_initial`` otherwise
     """
-    dtype = epsilon_bar.dtype
     if delta_epsilon_initial is None:
         _delta_epsilon_initial = jnp.zeros(shape=(6, 1, 1, 1), dtype=dtype)
     else:
         _delta_epsilon_initial = jnp.astype(delta_epsilon_initial, dtype)
-        delta = 1.0e-12 if np.dtype(dtype) == np.float64 else 1.0e-6
-        if (
-            jnp.linalg.norm(jnp.average(_delta_epsilon_initial, axis=(1, 2, 3)))
-            / jnp.linalg.norm(epsilon_bar)
-            > delta
-        ):
-            raise RuntimeError(
-                "|| <delta(epsilon)> || / || bar(epsilon) || > tolerance"
-            )
+
     return _delta_epsilon_initial
 
 
@@ -220,7 +211,7 @@ def lippmann_schwinger(
         compute_sigma,
         params,
         epsilon_bar,
-        _expand_delta_epsilon_initial(epsilon_bar, delta_epsilon_initial),
+        _expand_delta_epsilon_initial(delta_epsilon_initial, epsilon_bar.dtype),
         ref_params,
         grid_spec,
         tol=tol,
@@ -305,9 +296,7 @@ def lippmann_schwinger_isotropic(
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
-    _delta_epsilon_initial = _expand_delta_epsilon_initial(
-        epsilon_bar, delta_epsilon_initial
-    )
+    _delta_epsilon_initial = _expand_delta_epsilon_initial(delta_epsilon_initial, dtype)
     if use_cuda:
         if depth > 0:
             warnings.warn("Parameter depth ignored for CUDA implementations")
@@ -458,9 +447,7 @@ def lippmann_schwinger_anisotropic(
     assert depth >= 0
     assert maxits > 0
     assert tol > 0
-    _delta_epsilon_initial = _expand_delta_epsilon_initial(
-        epsilon_bar, delta_epsilon_initial
-    )
+    _delta_epsilon_initial = _expand_delta_epsilon_initial(delta_epsilon_initial, dtype)
     if use_cuda:
         if depth > 0:
             warnings.warn("Parameter depth ignored for CUDA implementations")
