@@ -293,15 +293,15 @@ __global__ void fourier_solve_kernel(cufftComplex *__restrict__ dev_tau_hat,
         rho.x = xi[0] * xi[0] * tau_hat[0].x +
                 xi[1] * xi[1] * tau_hat[1].x +
                 xi[2] * xi[2] * tau_hat[2].x +
-                2 * (xi[0] * xi[1] * tau_hat[3].x +
-                     xi[0] * xi[2] * tau_hat[4].x +
-                     xi[1] * xi[2] * tau_hat[5].x);
+                2.0f * (xi[0] * xi[1] * tau_hat[3].x +
+                        xi[0] * xi[2] * tau_hat[4].x +
+                        xi[1] * xi[2] * tau_hat[5].x);
         rho.y = xi[0] * xi[0] * tau_hat[0].y +
                 xi[1] * xi[1] * tau_hat[1].y +
                 xi[2] * xi[2] * tau_hat[2].y +
-                2 * (xi[0] * xi[1] * tau_hat[3].y +
-                     xi[0] * xi[2] * tau_hat[4].y +
-                     xi[1] * xi[2] * tau_hat[5].y);
+                2.0f * (xi[0] * xi[1] * tau_hat[3].y +
+                        xi[0] * xi[2] * tau_hat[4].y +
+                        xi[1] * xi[2] * tau_hat[5].y);
         epsilon_hat[0].x = C_A * xi[0] * (xi[0] * tau_hat[0].x + xi[2] * tau_hat[4].x + xi[1] * tau_hat[3].x) +
                            C_B * rho.x * xi[0] * xi[0];
         epsilon_hat[0].y = C_A * xi[0] * (xi[0] * tau_hat[0].y + xi[2] * tau_hat[4].y + xi[1] * tau_hat[3].y) +
@@ -314,12 +314,12 @@ __global__ void fourier_solve_kernel(cufftComplex *__restrict__ dev_tau_hat,
                            C_B * rho.x * xi[2] * xi[2];
         epsilon_hat[2].y = C_A * xi[2] * (xi[2] * tau_hat[2].y + xi[1] * tau_hat[5].y + xi[0] * tau_hat[4].y) +
                            C_B * rho.y * xi[2] * xi[2];
-        epsilon_hat[3].x = 0.5 * C_A * (xi[0] * xi[1] * (tau_hat[0].x + tau_hat[1].x) + (xi[0] * xi[0] + xi[1] * xi[1]) * tau_hat[3].x + xi[2] * (xi[0] * tau_hat[5].x + xi[1] * tau_hat[4].x)) + C_B * rho.x * xi[0] * xi[1];
-        epsilon_hat[3].y = 0.5 * C_A * (xi[0] * xi[1] * (tau_hat[0].y + tau_hat[1].y) + (xi[0] * xi[0] + xi[1] * xi[1]) * tau_hat[3].y + xi[2] * (xi[0] * tau_hat[5].y + xi[1] * tau_hat[4].y)) + C_B * rho.y * xi[0] * xi[1];
-        epsilon_hat[4].x = 0.5 * C_A * (xi[0] * xi[2] * (tau_hat[0].x + tau_hat[2].x) + (xi[0] * xi[0] + xi[2] * xi[2]) * tau_hat[4].x + xi[1] * (xi[0] * tau_hat[5].x + xi[2] * tau_hat[3].x)) + C_B * rho.x * xi[0] * xi[2];
-        epsilon_hat[4].y = 0.5 * C_A * (xi[0] * xi[2] * (tau_hat[0].y + tau_hat[2].y) + (xi[0] * xi[0] + xi[2] * xi[2]) * tau_hat[4].y + xi[1] * (xi[0] * tau_hat[5].y + xi[2] * tau_hat[3].y)) + C_B * rho.y * xi[0] * xi[2];
-        epsilon_hat[5].x = 0.5 * C_A * (xi[1] * xi[2] * (tau_hat[1].x + tau_hat[2].x) + (xi[1] * xi[1] + xi[2] * xi[2]) * tau_hat[5].x + xi[0] * (xi[1] * tau_hat[4].x + xi[2] * tau_hat[3].x)) + C_B * rho.x * xi[1] * xi[2];
-        epsilon_hat[5].y = 0.5 * C_A * (xi[1] * xi[2] * (tau_hat[1].y + tau_hat[2].y) + (xi[1] * xi[1] + xi[2] * xi[2]) * tau_hat[5].y + xi[0] * (xi[1] * tau_hat[4].y + xi[2] * tau_hat[3].y)) + C_B * rho.y * xi[1] * xi[2];
+        epsilon_hat[3].x = 0.5f * C_A * (xi[0] * xi[1] * (tau_hat[0].x + tau_hat[1].x) + (xi[0] * xi[0] + xi[1] * xi[1]) * tau_hat[3].x + xi[2] * (xi[0] * tau_hat[5].x + xi[1] * tau_hat[4].x)) + C_B * rho.x * xi[0] * xi[1];
+        epsilon_hat[3].y = 0.5f * C_A * (xi[0] * xi[1] * (tau_hat[0].y + tau_hat[1].y) + (xi[0] * xi[0] + xi[1] * xi[1]) * tau_hat[3].y + xi[2] * (xi[0] * tau_hat[5].y + xi[1] * tau_hat[4].y)) + C_B * rho.y * xi[0] * xi[1];
+        epsilon_hat[4].x = 0.5f * C_A * (xi[0] * xi[2] * (tau_hat[0].x + tau_hat[2].x) + (xi[0] * xi[0] + xi[2] * xi[2]) * tau_hat[4].x + xi[1] * (xi[0] * tau_hat[5].x + xi[2] * tau_hat[3].x)) + C_B * rho.x * xi[0] * xi[2];
+        epsilon_hat[4].y = 0.5f * C_A * (xi[0] * xi[2] * (tau_hat[0].y + tau_hat[2].y) + (xi[0] * xi[0] + xi[2] * xi[2]) * tau_hat[4].y + xi[1] * (xi[0] * tau_hat[5].y + xi[2] * tau_hat[3].y)) + C_B * rho.y * xi[0] * xi[2];
+        epsilon_hat[5].x = 0.5f * C_A * (xi[1] * xi[2] * (tau_hat[1].x + tau_hat[2].x) + (xi[1] * xi[1] + xi[2] * xi[2]) * tau_hat[5].x + xi[0] * (xi[1] * tau_hat[4].x + xi[2] * tau_hat[3].x)) + C_B * rho.x * xi[1] * xi[2];
+        epsilon_hat[5].y = 0.5f * C_A * (xi[1] * xi[2] * (tau_hat[1].y + tau_hat[2].y) + (xi[1] * xi[1] + xi[2] * xi[2]) * tau_hat[5].y + xi[0] * (xi[1] * tau_hat[4].y + xi[2] * tau_hat[3].y)) + C_B * rho.y * xi[1] * xi[2];
         // copy back into solution vector
         for (int mu = 0; mu < 6; ++mu)
             dev_epsilon_hat[FIDX(nx, ny, nz_half, mu, k_a, k_b, k_c)] = epsilon_hat[mu];
