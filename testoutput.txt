@@ -1,0 +1,886 @@
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-0-float32] : PASSED ====
+||delta(Lambda)|| = 4.87e-04 ||delta(Lambda)||/||Lambda|| = 6.28e-07
+JAX adjoint solver converged after      7 of     32 iterations
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-0-float64] : PASSED ====
+JAX adjoint solver converged after     15 of     32 iterations
+||delta(Lambda)|| = 2.71e-10 ||delta(Lambda)||/||Lambda|| = 3.50e-13
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-1-float32] : PASSED ====
+JAX adjoint solver converged after      7 of     32 iterations
+||delta(Lambda)|| = 4.82e-04 ||delta(Lambda)||/||Lambda|| = 6.22e-07
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-1-float64] : PASSED ====
+JAX adjoint solver converged after     15 of     32 iterations
+||delta(Lambda)|| = 2.66e-10 ||delta(Lambda)||/||Lambda|| = 3.43e-13
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-2-float32] : PASSED ====
+JAX adjoint solver converged after      7 of     32 iterations
+||delta(Lambda)|| = 9.87e-05 ||delta(Lambda)||/||Lambda|| = 1.27e-07
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-2-float64] : PASSED ====
+JAX adjoint solver converged after     13 of     32 iterations||delta(Lambda)|| = 3.92e-10 ||delta(Lambda)||/||Lambda|| = 5.06e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-4-float32] : PASSED ====
+JAX adjoint solver converged after      6 of     32 iterations
+||delta(Lambda)|| = 5.87e-04 ||delta(Lambda)||/||Lambda|| = 7.57e-07
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-4-float64] : PASSED ====
+JAX adjoint solver converged after     13 of     32 iterations
+||delta(Lambda)|| = 1.05e-10 ||delta(Lambda)||/||Lambda|| = 1.36e-13
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-8-float32] : PASSED ====
+JAX adjoint solver converged after      6 of     32 iterations
+||delta(Lambda)|| = 5.87e-04 ||delta(Lambda)||/||Lambda|| = 7.57e-07
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[even-8-float64] : PASSED ====
+JAX adjoint solver converged after     12 of     32 iterations
+||delta(Lambda)|| = 4.19e-10 ||delta(Lambda)||/||Lambda|| = 5.41e-13
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-0-float32] : PASSED ====
+JAX adjoint solver converged after      7 of     32 iterations
+||delta(Lambda)|| = 4.50e-04 ||delta(Lambda)||/||Lambda|| = 6.05e-07
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-0-float64] : PASSED ====
+JAX adjoint solver converged after     15 of     32 iterations||delta(Lambda)|| = 2.34e-10 ||delta(Lambda)||/||Lambda|| = 3.14e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-1-float32] : PASSED ====
+JAX adjoint solver converged after      7 of     32 iterations
+||delta(Lambda)|| = 4.45e-04 ||delta(Lambda)||/||Lambda|| = 5.98e-07
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-1-float64] : PASSED ====
+JAX adjoint solver converged after     15 of     32 iterations
+||delta(Lambda)|| = 2.30e-10 ||delta(Lambda)||/||Lambda|| = 3.09e-13
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-2-float32] : PASSED ====
+JAX adjoint solver converged after      6 of     32 iterations||delta(Lambda)|| = 7.44e-04 ||delta(Lambda)||/||Lambda|| = 9.99e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-2-float64] : PASSED ====
+JAX adjoint solver converged after     13 of     32 iterations||delta(Lambda)|| = 3.42e-10 ||delta(Lambda)||/||Lambda|| = 4.60e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-4-float32] : PASSED ====
+JAX adjoint solver converged after      6 of     32 iterations||delta(Lambda)|| = 5.44e-04 ||delta(Lambda)||/||Lambda|| = 7.31e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-4-float64] : PASSED ====
+JAX adjoint solver converged after     13 of     32 iterations||delta(Lambda)|| = 9.18e-11 ||delta(Lambda)||/||Lambda|| = 1.23e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-8-float32] : PASSED ====
+JAX adjoint solver converged after      6 of     32 iterations||delta(Lambda)|| = 5.44e-04 ||delta(Lambda)||/||Lambda|| = 7.31e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_isotropic[odd-8-float64] : PASSED ====
+JAX adjoint solver converged after     12 of     32 iterations||delta(Lambda)|| = 3.70e-10 ||delta(Lambda)||/||Lambda|| = 4.97e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-0-float32] : PASSED ====
+JAX adjoint solver converged after      9 of     32 iterations||delta(Lambda)|| = 7.47e-04 ||delta(Lambda)||/||Lambda|| = 9.57e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-0-float64] : PASSED ====
+JAX adjoint solver converged after     20 of     32 iterations||delta(Lambda)|| = 6.54e-10 ||delta(Lambda)||/||Lambda|| = 8.38e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-1-float32] : PASSED ====
+JAX adjoint solver converged after      9 of     32 iterations
+||delta(Lambda)|| = 7.24e-04 ||delta(Lambda)||/||Lambda|| = 9.27e-07
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-1-float64] : PASSED ====
+JAX adjoint solver converged after     20 of     32 iterations
+||delta(Lambda)|| = 6.24e-10 ||delta(Lambda)||/||Lambda|| = 8.00e-13
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-2-float32] : PASSED ====
+JAX adjoint solver converged after      8 of     32 iterations
+||delta(Lambda)|| = 4.26e-04 ||delta(Lambda)||/||Lambda|| = 5.46e-07
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-2-float64] : PASSED ====
+JAX adjoint solver converged after     17 of     32 iterations
+||delta(Lambda)|| = 5.75e-10 ||delta(Lambda)||/||Lambda|| = 7.36e-13
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-4-float32] : PASSED ====
+JAX adjoint solver converged after      8 of     32 iterations
+||delta(Lambda)|| = 2.81e-04 ||delta(Lambda)||/||Lambda|| = 3.60e-07
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-4-float64] : PASSED ====
+JAX adjoint solver converged after     16 of     32 iterations||delta(Lambda)|| = 5.20e-10 ||delta(Lambda)||/||Lambda|| = 6.66e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-8-float32] : PASSED ====
+JAX adjoint solver converged after      8 of     32 iterations
+||delta(Lambda)|| = 2.36e-04 ||delta(Lambda)||/||Lambda|| = 3.03e-07
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[even-8-float64] : PASSED ====
+JAX adjoint solver converged after     16 of     32 iterations
+||delta(Lambda)|| = 1.67e-10 ||delta(Lambda)||/||Lambda|| = 2.14e-13
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-0-float32] : PASSED ====
+JAX adjoint solver converged after      9 of     32 iterations
+||delta(Lambda)|| = 6.92e-04 ||delta(Lambda)||/||Lambda|| = 9.23e-07
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-0-float64] : PASSED ====
+JAX adjoint solver converged after     20 of     32 iterations
+||delta(Lambda)|| = 6.11e-10 ||delta(Lambda)||/||Lambda|| = 8.15e-13
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-1-float32] : PASSED ====
+JAX adjoint solver converged after      9 of     32 iterations||delta(Lambda)|| = 6.68e-04 ||delta(Lambda)||/||Lambda|| = 8.91e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-1-float64] : PASSED ====
+JAX adjoint solver converged after     20 of     32 iterations
+||delta(Lambda)|| = 5.86e-10 ||delta(Lambda)||/||Lambda|| = 7.82e-13
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-2-float32] : PASSED ====
+JAX adjoint solver converged after      8 of     32 iterations||delta(Lambda)|| = 4.01e-04 ||delta(Lambda)||/||Lambda|| = 5.34e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-2-float64] : PASSED ====
+JAX adjoint solver converged after     17 of     32 iterations||delta(Lambda)|| = 5.35e-10 ||delta(Lambda)||/||Lambda|| = 7.13e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-4-float32] : PASSED ====
+||delta(Lambda)|| = 2.66e-04 ||delta(Lambda)||/||Lambda|| = 3.55e-07
+JAX adjoint solver converged after      8 of     32 iterations
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-4-float64] : PASSED ====
+JAX adjoint solver converged after     16 of     32 iterations||delta(Lambda)|| = 4.93e-10 ||delta(Lambda)||/||Lambda|| = 6.57e-13
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-8-float32] : PASSED ====
+JAX adjoint solver converged after      8 of     32 iterations||delta(Lambda)|| = 2.24e-04 ||delta(Lambda)||/||Lambda|| = 2.99e-07
+
+
+==== tests/test_adjoint.py::test_adjoint_anisotropic[odd-8-float64] : PASSED ====
+JAX adjoint solver converged after     16 of     32 iterations||delta(Lambda)|| = 1.53e-10 ||delta(Lambda)||/||Lambda|| = 2.04e-13
+
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[even-0-float32] : PASSED ====
+JAX forward solver converged after      7 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.61e-07 E/E_0 = 2.06e-06
+JAX forward solver converged after      7 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.61e-07 E/E_0 = 2.06e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.96e-07 E/E_0 = 2.43e-06
+JAX forward solver converged after      7 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 4.60e-07 E/E_0 = 1.25e-06
+JAX adjoint solver converged after      5 of   1000 iterations
+||delta(Lambda)|| = 7.45e-04 ||delta(Lambda)||/||Lambda|| = 8.14e-07
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[even-0-float64] : PASSED ====
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.09e-13 E/E_0 = 8.37e-13
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.09e-13 E/E_0 = 8.37e-13
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.07e-13 E/E_0 = 8.32e-13
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.11e-13 E/E_0 = 8.41e-13
+JAX adjoint solver converged after     13 of   1000 iterations
+||delta(Lambda)|| = 2.77e-10 ||delta(Lambda)||/||Lambda|| = 3.03e-13
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[even-4-float32] : PASSED ====
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.61e-07 E/E_0 = 2.06e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.61e-07 E/E_0 = 2.06e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.93e-07 E/E_0 = 2.42e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.74e-07 E/E_0 = 1.83e-06
+JAX adjoint solver converged after      5 of   1000 iterations
+||delta(Lambda)|| = 2.96e-04 ||delta(Lambda)||/||Lambda|| = 3.24e-07
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[even-4-float64] : PASSED ====
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.69e-13 E/E_0 = 4.59e-13
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.69e-13 E/E_0 = 4.59e-13
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.69e-13 E/E_0 = 4.58e-13
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.70e-13 E/E_0 = 4.60e-13
+JAX adjoint solver converged after     11 of   1000 iterations
+||delta(Lambda)|| = 2.52e-10 ||delta(Lambda)||/||Lambda|| = 2.76e-13
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[odd-0-float32] : PASSED ====
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 9.19e-07 E/E_0 = 2.91e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 9.19e-07 E/E_0 = 2.91e-06
+JAX forward solver converged after      7 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.26e-07 E/E_0 = 1.98e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 9.69e-07 E/E_0 = 3.07e-06
+JAX adjoint solver converged after      6 of   1000 iterations
+||delta(Lambda)|| = 3.58e-06 ||delta(Lambda)||/||Lambda|| = 1.77e-07
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[odd-0-float64] : PASSED ====
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.77e-13 E/E_0 = 1.19e-12
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.77e-13 E/E_0 = 1.19e-12
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.77e-13 E/E_0 = 1.19e-12
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.76e-13 E/E_0 = 1.19e-12
+JAX adjoint solver converged after     13 of   1000 iterations
+||delta(Lambda)|| = 9.11e-12 ||delta(Lambda)||/||Lambda|| = 4.51e-13
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[odd-4-float32] : PASSED ====
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.40e-07 E/E_0 = 1.71e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.40e-07 E/E_0 = 1.71e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 4.97e-07 E/E_0 = 1.57e-06
+JAX forward solver converged after      6 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.64e-07 E/E_0 = 1.78e-06
+JAX adjoint solver converged after      5 of   1000 iterations
+||delta(Lambda)|| = 8.16e-06 ||delta(Lambda)||/||Lambda|| = 4.04e-07
+
+==== tests/test_adjoint.py::test_vjp_isotropic_finite_difference[odd-4-float64] : PASSED ====
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.21e-13 E/E_0 = 3.84e-13
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.21e-13 E/E_0 = 3.84e-13
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.21e-13 E/E_0 = 3.83e-13
+JAX forward solver converged after     12 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.21e-13 E/E_0 = 3.84e-13
+JAX adjoint solver converged after     11 of   1000 iterations
+||delta(Lambda)|| = 5.99e-12 ||delta(Lambda)||/||Lambda|| = 2.97e-13
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[even-0-float32] : PASSED ====
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.85e-05 E/E_0 = 1.59e-04
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.85e-05 E/E_0 = 1.59e-04
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.84e-05 E/E_0 = 1.59e-04
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.85e-05 E/E_0 = 1.59e-04
+JAX adjoint solver converged after      4 of   1000 iterations
+||delta(Lambda)|| = 4.07e-02 ||delta(Lambda)||/||Lambda|| = 3.01e-05
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[even-0-float64] : PASSED ====
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.89e-13 E/E_0 = 2.07e-12
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.89e-13 E/E_0 = 2.07e-12
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.87e-13 E/E_0 = 2.06e-12
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.90e-13 E/E_0 = 2.07e-12
+JAX adjoint solver converged after     17 of   1000 iterations
+||delta(Lambda)|| = 4.31e-10 ||delta(Lambda)||/||Lambda|| = 3.18e-13
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[even-4-float32] : PASSED ====
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.79e-05 E/E_0 = 4.17e-05
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.79e-05 E/E_0 = 4.17e-05
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.79e-05 E/E_0 = 4.16e-05
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.79e-05 E/E_0 = 4.17e-05
+JAX adjoint solver converged after      4 of   1000 iterations
+||delta(Lambda)|| = 2.74e-02 ||delta(Lambda)||/||Lambda|| = 2.03e-05
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[even-4-float64] : PASSED ====
+JAX forward solver converged after     15 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.34e-13 E/E_0 = 5.44e-13
+JAX forward solver converged after     15 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.34e-13 E/E_0 = 5.44e-13
+JAX forward solver converged after     15 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.34e-13 E/E_0 = 5.43e-13
+JAX forward solver converged after     15 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.34e-13 E/E_0 = 5.44e-13
+JAX adjoint solver converged after     13 of   1000 iterations
+||delta(Lambda)|| = 1.23e-09 ||delta(Lambda)||/||Lambda|| = 9.07e-13
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[odd-0-float32] : PASSED ====
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.07e-05 E/E_0 = 1.41e-04
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.07e-05 E/E_0 = 1.41e-04
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.06e-05 E/E_0 = 1.41e-04
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.08e-05 E/E_0 = 1.41e-04
+JAX adjoint solver converged after      4 of   1000 iterations
+||delta(Lambda)|| = 7.23e-02 ||delta(Lambda)||/||Lambda|| = 3.75e-05
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[odd-0-float64] : PASSED ====
+JAX forward solver converged after     19 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.22e-13 E/E_0 = 8.97e-13
+JAX forward solver converged after     19 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.22e-13 E/E_0 = 8.97e-13
+JAX forward solver converged after     19 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.21e-13 E/E_0 = 8.93e-13
+JAX forward solver converged after     19 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 3.24e-13 E/E_0 = 9.02e-13
+JAX adjoint solver converged after     17 of   1000 iterations
+||delta(Lambda)|| = 1.83e-09 ||delta(Lambda)||/||Lambda|| = 9.52e-13
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[odd-4-float32] : PASSED ====
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.44e-05 E/E_0 = 4.01e-05
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.44e-05 E/E_0 = 4.01e-05
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.44e-05 E/E_0 = 4.01e-05
+JAX forward solver converged after      5 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 1.45e-05 E/E_0 = 4.03e-05
+JAX adjoint solver converged after      4 of   1000 iterations
+||delta(Lambda)|| = 4.66e-02 ||delta(Lambda)||/||Lambda|| = 2.42e-05
+
+==== tests/test_adjoint.py::test_vjp_anisotropic_finite_difference[odd-4-float64] : PASSED ====
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.75e-13 E/E_0 = 2.44e-12
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.75e-13 E/E_0 = 2.44e-12
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.73e-13 E/E_0 = 2.43e-12
+JAX forward solver converged after     14 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.78e-13 E/E_0 = 2.44e-12
+JAX adjoint solver converged after     14 of   1000 iterations
+||delta(Lambda)|| = 3.63e-10 ||delta(Lambda)||/||Lambda|| = 1.88e-13
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[even-0-float32] : PASSED ====
+JAX forward solver converged after     20 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.56e-07 E/E_0 = 2.20e-06
+JAX forward solver converged after     20 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.56e-07 E/E_0 = 2.20e-06
+JAX forward solver converged after     20 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.88e-07 E/E_0 = 2.28e-06
+JAX forward solver converged after     20 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.24e-07 E/E_0 = 2.12e-06
+JAX adjoint solver converged after     15 of   1000 iterations
+||delta(Lambda)|| = 3.13e-04 ||delta(Lambda)||/||Lambda|| = 5.83e-07
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[even-0-float64] : PASSED ====
+JAX forward solver converged after     46 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.00e-13 E/E_0 = 1.54e-12
+JAX forward solver converged after     46 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.00e-13 E/E_0 = 1.54e-12
+JAX forward solver converged after     46 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.99e-13 E/E_0 = 1.54e-12
+JAX forward solver converged after     46 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.02e-13 E/E_0 = 1.55e-12
+JAX adjoint solver converged after     40 of   1000 iterations
+||delta(Lambda)|| = 3.85e-10 ||delta(Lambda)||/||Lambda|| = 7.18e-13
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[even-4-float32] : PASSED ====
+JAX forward solver converged after      9 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 9.65e-07 E/E_0 = 2.48e-06
+JAX forward solver converged after      9 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 9.65e-07 E/E_0 = 2.48e-06
+JAX forward solver converged after     10 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.11e-07 E/E_0 = 1.83e-06
+JAX forward solver converged after      9 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.84e-07 E/E_0 = 2.27e-06
+JAX adjoint solver converged after      8 of   1000 iterations
+||delta(Lambda)|| = 1.01e-04 ||delta(Lambda)||/||Lambda|| = 1.88e-07
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[even-4-float64] : PASSED ====
+JAX forward solver converged after     21 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.54e-13 E/E_0 = 1.42e-12
+JAX forward solver converged after     21 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.54e-13 E/E_0 = 1.42e-12
+JAX forward solver converged after     21 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.52e-13 E/E_0 = 1.42e-12
+JAX forward solver converged after     21 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 5.56e-13 E/E_0 = 1.43e-12
+JAX adjoint solver converged after     17 of   1000 iterations
+||delta(Lambda)|| = 3.96e-10 ||delta(Lambda)||/||Lambda|| = 7.37e-13
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[odd-0-float32] : PASSED ====
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.21e-07 E/E_0 = 2.60e-06
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.21e-07 E/E_0 = 2.60e-06
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.62e-07 E/E_0 = 2.73e-06
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 9.39e-07 E/E_0 = 2.97e-06
+JAX adjoint solver converged after     14 of   1000 iterations
+||delta(Lambda)|| = 9.75e-06 ||delta(Lambda)||/||Lambda|| = 8.21e-07
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[odd-0-float64] : PASSED ====
+JAX forward solver converged after     42 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.62e-13 E/E_0 = 2.09e-12
+JAX forward solver converged after     42 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.62e-13 E/E_0 = 2.09e-12
+JAX forward solver converged after     42 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.61e-13 E/E_0 = 2.09e-12
+JAX forward solver converged after     42 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 6.62e-13 E/E_0 = 2.09e-12
+JAX adjoint solver converged after     38 of   1000 iterations
+||delta(Lambda)|| = 7.41e-12 ||delta(Lambda)||/||Lambda|| = 6.24e-13
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[odd-4-float32] : PASSED ====
+JAX forward solver converged after      8 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.62e-07 E/E_0 = 2.41e-06
+JAX forward solver converged after      8 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.62e-07 E/E_0 = 2.41e-06
+JAX forward solver converged after      8 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 7.27e-07 E/E_0 = 2.30e-06
+JAX forward solver converged after      8 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 8.45e-07 E/E_0 = 2.67e-06
+JAX adjoint solver converged after      7 of   1000 iterations
+||delta(Lambda)|| = 1.14e-05 ||delta(Lambda)||/||Lambda|| = 9.58e-07
+
+==== tests/test_adjoint.py::test_vjp_inelastic_finite_difference[odd-4-float64] : PASSED ====
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.17e-13 E/E_0 = 6.86e-13
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.17e-13 E/E_0 = 6.86e-13
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.16e-13 E/E_0 = 6.83e-13
+JAX forward solver converged after     18 of   1000 iterations
+E = ||div(sigma)||/||sigma|| = 2.18e-13 E/E_0 = 6.90e-13
+JAX adjoint solver converged after     17 of   1000 iterations
+||delta(Lambda)|| = 4.81e-12 ||delta(Lambda)||/||Lambda|| = 4.05e-13
+
+==== tests/test_adjoint.py::test_vjp_isotropic[even-0-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.30e-07 E/E_0 = 1.98e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 4.63e-05 ||delta(Lambda)||/||Lambda|| = 2.87e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.30e-07 E/E_0 = 1.98e-06
+||x|| =  2057.6978 ||y|| =  2057.6978
+||x|| =  1609.7427 ||y|| =  1609.7428
+||x|| =  22216.68 ||y|| =  22216.678
+
+==== tests/test_adjoint.py::test_vjp_isotropic[even-0-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 1.53e-15 E/E_0 = 4.15e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 8.19e-14 ||delta(Lambda)||/||Lambda|| = 5.08e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 1.53e-15 E/E_0 = 4.15e-15
+||x|| =  2057.6978983168533 ||y|| =  2057.6978983168533
+||x|| =  1609.7427727206089 ||y|| =  1609.7427727206086
+||x|| =  22216.68138570242 ||y|| =  22216.681385702428
+
+==== tests/test_adjoint.py::test_vjp_isotropic[even-4-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 8.55e-07 E/E_0 = 2.32e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 4.58e-05 ||delta(Lambda)||/||Lambda|| = 2.84e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 8.55e-07 E/E_0 = 2.32e-06
+||x|| =  2057.6978 ||y|| =  2057.6978
+||x|| =  1609.7427 ||y|| =  1609.7427
+||x|| =  22216.68 ||y|| =  22216.68
+
+==== tests/test_adjoint.py::test_vjp_isotropic[even-4-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.27e-16 E/E_0 = 1.97e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 1.37e-13 ||delta(Lambda)||/||Lambda|| = 8.49e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.27e-16 E/E_0 = 1.97e-15
+||x|| =  2057.697898316849 ||y|| =  2057.69789831685
+||x|| =  1609.7427727206057 ||y|| =  1609.7427727206193
+||x|| =  22216.681385702403 ||y|| =  22216.681385702388
+
+==== tests/test_adjoint.py::test_vjp_isotropic[odd-0-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 6.30e-07 E/E_0 = 1.99e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 3.65e-05 ||delta(Lambda)||/||Lambda|| = 3.08e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 6.30e-07 E/E_0 = 1.99e-06
+||x|| =  1520.4136 ||y|| =  1520.4136
+||x|| =  1195.549 ||y|| =  1195.549
+||x|| =  12099.0205 ||y|| =  12099.022
+
+==== tests/test_adjoint.py::test_vjp_isotropic[odd-0-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 8.47e-16 E/E_0 = 2.68e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 6.30e-14 ||delta(Lambda)||/||Lambda|| = 5.31e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 8.47e-16 E/E_0 = 2.68e-15
+||x|| =  1520.413790029732 ||y|| =  1520.4137900297321
+||x|| =  1195.5490900430486 ||y|| =  1195.5490900430489
+||x|| =  12099.022657380949 ||y|| =  12099.022657380954
+
+==== tests/test_adjoint.py::test_vjp_isotropic[odd-4-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 3.23e-07 E/E_0 = 1.02e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 3.58e-05 ||delta(Lambda)||/||Lambda|| = 3.02e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 3.23e-07 E/E_0 = 1.02e-06
+||x|| =  1520.4138 ||y|| =  1520.4137
+||x|| =  1195.5491 ||y|| =  1195.549
+||x|| =  12099.021 ||y|| =  12099.022
+
+==== tests/test_adjoint.py::test_vjp_isotropic[odd-4-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.88e-16 E/E_0 = 2.49e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 1.06e-13 ||delta(Lambda)||/||Lambda|| = 8.96e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.88e-16 E/E_0 = 2.49e-15
+||x|| =  1520.4137900297314 ||y|| =  1520.4137900297376
+||x|| =  1195.5490900430486 ||y|| =  1195.5490900430254
+||x|| =  12099.022657380949 ||y|| =  12099.022657380936
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[even-0-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.26e-07 E/E_0 = 1.69e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 4.61e-05 ||delta(Lambda)||/||Lambda|| = 2.86e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 7.26e-07 E/E_0 = 1.69e-06
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[even-0-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 8.86e-16 E/E_0 = 2.06e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 8.96e-14 ||delta(Lambda)||/||Lambda|| = 5.56e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 8.86e-16 E/E_0 = 2.06e-15
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[even-4-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 5.13e-07 E/E_0 = 1.19e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 4.59e-05 ||delta(Lambda)||/||Lambda|| = 2.85e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 5.13e-07 E/E_0 = 1.19e-06
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[even-4-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 6.95e-16 E/E_0 = 1.62e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 1.24e-13 ||delta(Lambda)||/||Lambda|| = 7.70e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 6.95e-16 E/E_0 = 1.62e-15
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[odd-0-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 5.05e-07 E/E_0 = 1.41e-06
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 3.36e-05 ||delta(Lambda)||/||Lambda|| = 2.84e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 5.05e-07 E/E_0 = 1.41e-06
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[odd-0-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 6.73e-16 E/E_0 = 1.87e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 6.21e-14 ||delta(Lambda)||/||Lambda|| = 5.25e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 6.73e-16 E/E_0 = 1.87e-15
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[odd-4-float32] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 2.23e-07 E/E_0 = 6.21e-07
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 3.22e-05 ||delta(Lambda)||/||Lambda|| = 2.72e-08
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 2.23e-07 E/E_0 = 6.21e-07
+
+==== tests/test_adjoint.py::test_vjp_anisotropic[odd-4-float64] : PASSED ====
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 1.13e-15 E/E_0 = 3.15e-15
+JAX adjoint solver stopped after    128 of    128 iterations
+||delta(Lambda)|| = 1.07e-13 ||delta(Lambda)||/||Lambda|| = 9.04e-17
+JAX forward solver stopped after    128 of    128 iterations
+E = ||div(sigma)||/||sigma|| = 1.13e-15 E/E_0 = 3.15e-15
+
+==== tests/test_adjoint.py::test_vjp_inelastic[even-0-float32] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 4.00e-07 E/E_0 = 1.03e-06
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 2.31e-05 ||delta(Lambda)||/||Lambda|| = 2.44e-08
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 4.00e-07 E/E_0 = 1.03e-06
+
+==== tests/test_adjoint.py::test_vjp_inelastic[even-0-float64] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 6.69e-16 E/E_0 = 1.72e-15
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 4.15e-14 ||delta(Lambda)||/||Lambda|| = 4.39e-17
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 6.69e-16 E/E_0 = 1.72e-15
+
+==== tests/test_adjoint.py::test_vjp_inelastic[even-4-float32] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 2.70e-07 E/E_0 = 6.93e-07
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 2.25e-05 ||delta(Lambda)||/||Lambda|| = 2.37e-08
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 2.70e-07 E/E_0 = 6.93e-07
+
+==== tests/test_adjoint.py::test_vjp_inelastic[even-4-float64] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 9.76e-16 E/E_0 = 2.51e-15
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 9.56e-14 ||delta(Lambda)||/||Lambda|| = 1.01e-16
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 9.76e-16 E/E_0 = 2.51e-15
+
+==== tests/test_adjoint.py::test_vjp_inelastic[odd-0-float32] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 4.69e-07 E/E_0 = 1.48e-06
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 1.64e-05 ||delta(Lambda)||/||Lambda|| = 2.36e-08
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 4.69e-07 E/E_0 = 1.48e-06
+
+==== tests/test_adjoint.py::test_vjp_inelastic[odd-0-float64] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 7.99e-16 E/E_0 = 2.53e-15
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 3.18e-14 ||delta(Lambda)||/||Lambda|| = 4.56e-17
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 7.99e-16 E/E_0 = 2.53e-15
+
+==== tests/test_adjoint.py::test_vjp_inelastic[odd-4-float32] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 2.49e-07 E/E_0 = 7.88e-07
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 1.61e-05 ||delta(Lambda)||/||Lambda|| = 2.30e-08
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 2.49e-07 E/E_0 = 7.88e-07
+
+==== tests/test_adjoint.py::test_vjp_inelastic[odd-4-float64] : PASSED ====
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 4.78e-16 E/E_0 = 1.51e-15
+JAX adjoint solver stopped after    256 of    256 iterations
+||delta(Lambda)|| = 8.96e-14 ||delta(Lambda)||/||Lambda|| = 1.28e-16
+JAX forward solver stopped after    256 of    256 iterations
+E = ||div(sigma)||/||sigma|| = 4.78e-16 E/E_0 = 1.51e-15
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[even-float32-0] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.77e-06 E/E_0 = 2.17e-06
+
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.43e-06 E/E_0 = 2.38e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[even-float32-2] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.77e-06 E/E_0 = 2.17e-06
+
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.43e-06 E/E_0 = 2.38e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[even-float32-4] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.77e-06 E/E_0 = 2.17e-06
+
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.43e-06 E/E_0 = 2.38e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[even-float64-0] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[even-float64-2] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[even-float64-4] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[odd-float32-0] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 9.14e-06 E/E_0 = 3.15e-06
+
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.23e-06 E/E_0 = 2.84e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[odd-float32-2] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.54e-06 E/E_0 = 2.94e-06
+
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.23e-06 E/E_0 = 2.84e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[odd-float32-4] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 9.14e-06 E/E_0 = 3.15e-06
+
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.23e-06 E/E_0 = 2.84e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[odd-float64-0] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[odd-float64-2] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_anisotropic_solve[odd-float64-4] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[even-float32-0] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.77e-06 E/E_0 = 2.17e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[even-float32-2] : PASSED ====
+JAX forward solver converged after      6 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.66e-06 E/E_0 = 2.14e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[even-float32-4] : PASSED ====
+JAX forward solver converged after      6 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.28e-06 E/E_0 = 2.34e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[even-float64-0] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[even-float64-2] : PASSED ====
+JAX forward solver converged after     14 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.42e-13 E/E_0 = 4.54e-14
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[even-float64-4] : PASSED ====
+JAX forward solver converged after     13 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 2.65e-13 E/E_0 = 8.49e-14
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[odd-float32-0] : PASSED ====
+JAX forward solver converged after      7 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.54e-06 E/E_0 = 2.94e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[odd-float32-2] : PASSED ====
+JAX forward solver converged after      6 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.91e-06 E/E_0 = 3.07e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[odd-float32-4] : PASSED ====
+JAX forward solver converged after      6 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.97e-06 E/E_0 = 2.75e-06
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[odd-float64-0] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[odd-float64-2] : PASSED ====
+JAX forward solver converged after     13 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.56e-13 E/E_0 = 2.95e-13
+
+
+==== tests/test_lippmann_schwinger.py::test_convergence[odd-float64-4] : PASSED ====
+JAX forward solver converged after     13 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 2.14e-13 E/E_0 = 7.37e-14
+
+
+==== tests/test_lippmann_schwinger.py::test_epsilon_initialisation[even-0-False] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 2.37e-13
+
+JAX forward solver converged after      4 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 4.47e-04 E/E_0 = 1.43e-04
+
+JAX forward solver converged after     11 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 7.39e-13 E/E_0 = 1.65e-09
+
+
+==== tests/test_lippmann_schwinger.py::test_epsilon_initialisation[even-2-False] : PASSED ====
+JAX forward solver converged after     14 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.42e-13 E/E_0 = 4.54e-14
+
+JAX forward solver converged after      4 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.73e-04 E/E_0 = 5.56e-05
+
+JAX forward solver converged after      9 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 5.23e-13 E/E_0 = 3.02e-09
+
+
+==== tests/test_lippmann_schwinger.py::test_epsilon_initialisation[even-4-False] : PASSED ====
+JAX forward solver converged after     13 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 2.65e-13 E/E_0 = 8.49e-14
+
+JAX forward solver converged after      4 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.73e-04 E/E_0 = 5.55e-05
+
+JAX forward solver converged after      9 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 2.10e-13 E/E_0 = 1.22e-09
+
+
+==== tests/test_lippmann_schwinger.py::test_epsilon_initialisation[odd-0-False] : PASSED ====
+JAX forward solver converged after     15 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 2.13e-13
+
+JAX forward solver converged after      4 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 4.06e-04 E/E_0 = 1.40e-04
+
+JAX forward solver converged after     11 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 6.18e-13 E/E_0 = 1.52e-09
+
+
+==== tests/test_lippmann_schwinger.py::test_epsilon_initialisation[odd-2-False] : PASSED ====
+JAX forward solver converged after     13 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 8.56e-13 E/E_0 = 2.95e-13
+
+JAX forward solver converged after      4 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.57e-04 E/E_0 = 5.42e-05
+
+JAX forward solver converged after      9 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 4.36e-13 E/E_0 = 2.77e-09
+
+
+==== tests/test_lippmann_schwinger.py::test_epsilon_initialisation[odd-4-False] : PASSED ====
+JAX forward solver converged after     13 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 2.14e-13 E/E_0 = 7.38e-14
+
+JAX forward solver converged after      4 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.57e-04 E/E_0 = 5.40e-05
+
+JAX forward solver converged after      9 of     32 iterations
+E = ||div(sigma)||/||sigma|| = 1.65e-13 E/E_0 = 1.06e-09
+
