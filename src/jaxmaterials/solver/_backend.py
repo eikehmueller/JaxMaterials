@@ -13,6 +13,7 @@ import jax
 from jax import numpy as jnp
 
 from jaxmaterials.common import GridSpec
+from jaxmaterials.solver.dfft import fftn3, ifftn3
 from jaxmaterials.solver.divergence import (
     relative_divergence_fourier,
 )
@@ -160,7 +161,7 @@ def _lippmann_schwinger_jax(
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     sigma = compute_sigma(epsilon[0, ...], params)
     # Fourier transform sigma
-    sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
+    sigma_hat = fftn3(sigma)
     rel_error = relative_divergence_fourier(sigma_hat, xi)
     rel_error_0 = rel_error
     if verbose > 1:
@@ -245,7 +246,7 @@ def _lippmann_schwinger_jax(
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
         r_hat = fourier_solve_isotropic(sigma_hat, xizero, ref_params)
-        r = jnp.real(jnp.fft.ifftn(r_hat, axes=[-3, -2, -1]))
+        r = jnp.real(ifftn3(r_hat))
         if depth > 0:
             residual = jnp.roll(residual, 1, axis=0)
             residual = residual.at[0, ...].set(r)
@@ -273,7 +274,7 @@ def _lippmann_schwinger_jax(
         epsilon = epsilon.at[0, ...].set(jnp.astype(epsilon_tilde, dtype))
         sigma = compute_sigma(epsilon[0, ...], params)
         # Fourier transform sigma
-        sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
+        sigma_hat = fftn3(sigma)
         rel_error = relative_divergence_fourier(sigma_hat, xi)
         its += 1
         return (
@@ -451,9 +452,9 @@ def _lippmann_schwinger_adjoint_jax(
             current iteration state ``Lambda, residual, A_anderson, u_rhs, increment_nrm, its``
         """
         Lambda, residual, A_anderson, u_rhs, increment_nrm, its = state
-        Lambda_hat = jnp.fft.fftn(Lambda[0, ...], axes=(-3, -2, -1))
+        Lambda_hat = fftn3(Lambda[0, ...])
         Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
-        Theta = jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
+        Theta = jnp.real(ifftn3(Theta_hat))
         # Convert Voigt-dual Theta to Euclidean cotangent for vjp, then map back.
         dSigma_depsilon, _ = sigma_vjp(voigt_weights_bcast * Theta)
         dSigma_depsilon = dSigma_depsilon / voigt_weights_bcast
@@ -743,10 +744,10 @@ def _solve_bwd(
         verbose=verbose,
     )
 
-    Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
+    Lambda_hat = fftn3(Lambda)
     Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
     S_star = g_sigma - voigt_weights_bcast * jnp.real(
-        jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1))
+        ifftn3(Theta_hat)
     )
     # Convert back to dual vector with respect to Euclidean inner product.
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
