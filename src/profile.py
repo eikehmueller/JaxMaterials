@@ -12,6 +12,7 @@ from jax.sharding import PartitionSpec as P
 from jaxmaterials.common import get_grid_spec
 from jaxmaterials.solver.dfft import distributed_fft
 from jaxmaterials.solver.lippmann_schwinger import (
+    lippmann_schwinger,
     lippmann_schwinger_anisotropic,
     lippmann_schwinger_isotropic,
 )
@@ -102,6 +103,18 @@ def make_array(func, shape, dtype, leading=0):
         shape,
         sharding,
         lambda idx: np.asarray(func(tuple(idx[leading:])), dtype=dtype),
+    )
+
+
+def compute_sigma_custom(epsilon, params):
+    """User-defined isotropic linear elasticity, passed to lippmann_schwinger()
+
+    :arg epsilon: strain
+    :arg params: dictionary with Lame parameters {"lambda": lambda, "mu": mu}
+    """
+    tr_epsilon = epsilon[0] + epsilon[1] + epsilon[2]
+    return 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
+        3 * [tr_epsilon] + 3 * [jnp.zeros_like(tr_epsilon)]
     )
 
 
@@ -234,6 +247,53 @@ for dtype in [jnp.dtype(d).type for d in args.dtypes]:
                 return jnp.sum(sigma**2)
 
             g = jax.grad(loss_fn, argnums=(0, 1))(stiffness_tensor, epsilon_bar)
+            jax.block_until_ready(g)
+
+        run(body)
+    print()
+
+    ref_params = {"mu": mu_ref, "lambda": lmbda_ref}
+    with measure_time(
+        f"evaluation (custom, {precision})", repeat=repeat, warmup=True
+    ) as (run, it):
+
+        def body():
+            epsilon_custom, sigma = lippmann_schwinger(
+                compute_sigma_custom,
+                {"mu": mu, "lambda": lmbda},
+                epsilon_bar,
+                ref_params,
+                grid_spec,
+                verbose=it() == 0,
+            )
+            epsilon_custom.block_until_ready()
+            return epsilon_custom
+
+        epsilon_custom = run(body)
+    print(
+        "difference = ",
+        jnp.linalg.norm(epsilon_custom - epsilon_isotropic)
+        / jnp.linalg.norm(epsilon_isotropic),
+    )
+    print()
+
+    with measure_time(
+        f"gradient (custom, {precision})", repeat=repeat, warmup=True
+    ) as (run, it):
+
+        def body():
+            def loss_fn(mu, lmbda, epsilon_bar):
+                epsilon, sigma = lippmann_schwinger(
+                    compute_sigma_custom,
+                    {"mu": mu, "lambda": lmbda},
+                    epsilon_bar,
+                    ref_params,
+                    grid_spec,
+                    verbose=it() == 0,
+                )
+                return jnp.sum(sigma**2)
+
+            g = jax.grad(loss_fn, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
             jax.block_until_ready(g)
 
         run(body)
