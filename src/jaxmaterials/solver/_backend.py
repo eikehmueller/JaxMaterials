@@ -28,6 +28,14 @@ __all__ = ["solve"]
 
 type PyTree = Any
 
+# Ordered effects are not supported by JAX when running on more than one device
+
+
+def _ordered_print() -> bool:
+    # Evaluated lazily: querying devices at import time would initialise the
+    # backend before jax.distributed.initialize() can be called.
+    return jax.device_count() == 1
+
 
 def _raise_if_not_converged(label: str, its: int, maxits: int) -> None:
     """Callback for raising exception if solver has not converged
@@ -165,9 +173,9 @@ def _lippmann_schwinger_jax(
     rel_error = relative_divergence_fourier(sigma_hat, xi)
     rel_error_0 = rel_error
     if verbose > 1:
-        jax.debug.print("==== JAX forward solve ====", ordered=True)
+        jax.debug.print("==== JAX forward solve ====", ordered=_ordered_print())
         jax.debug.print(
-            "  iteration  E = ||div(sigma)||/||sigma||  E/E_0", ordered=True
+            "  iteration  E = ||div(sigma)||/||sigma||  E/E_0", ordered=_ordered_print()
         )
 
     def exit_condition(
@@ -212,7 +220,7 @@ def _lippmann_schwinger_jax(
                 its,
                 rel_error,
                 rel_error / (rel_error_0 + 1.0e-20),
-                ordered=True,
+                ordered=_ordered_print(),
             )
 
         return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
@@ -305,7 +313,7 @@ def _lippmann_schwinger_jax(
             "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
             rel_error,
             rel_error / (rel_error_0 + 1.0e-20),
-            ordered=True,
+            ordered=_ordered_print(),
         )
     if dynamic_stopping:
         jax.debug.callback(_raise_if_not_converged, "forward", its, maxits)
@@ -315,7 +323,6 @@ def _lippmann_schwinger_jax(
 
 @jax.jit(
     static_argnames=[
-        "sigma_vjp",
         "grid_spec",
         "maxits",
         "depth",
@@ -401,10 +408,10 @@ def _lippmann_schwinger_adjoint_jax(
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     increment_nrm = jnp.linalg.norm(Lambda)
     if verbose > 1:
-        jax.debug.print("==== JAX adjoint solve ====", ordered=True)
+        jax.debug.print("==== JAX adjoint solve ====", ordered=_ordered_print())
         jax.debug.print(
             "  iteration  E = ||delta(Lambda)||  ||delta(Lambda)||/||Lambda||",
-            ordered=True,
+            ordered=_ordered_print(),
         )
 
     def exit_condition(
@@ -436,7 +443,7 @@ def _lippmann_schwinger_adjoint_jax(
                 its,
                 increment_nrm,
                 increment_nrm / (nrm + 1.0e-20),
-                ordered=True,
+                ordered=_ordered_print(),
             )
 
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
@@ -527,7 +534,7 @@ def _lippmann_schwinger_adjoint_jax(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
             increment_nrm / (nrm + 1.0e-20),
-            ordered=True,
+            ordered=_ordered_print(),
         )
     if dynamic_stopping:
         Lambda = jnp.where(its >= maxits, jnp.full_like(Lambda, jnp.nan), Lambda)

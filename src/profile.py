@@ -1,8 +1,16 @@
+import argparse
+import contextlib
+import os
+import sys
+
 import jax
 import numpy as np
 from jax import numpy as jnp
+from jax.sharding import Mesh, NamedSharding
+from jax.sharding import PartitionSpec as P
 
 from jaxmaterials.common import get_grid_spec
+from jaxmaterials.solver.dfft import distributed_fft
 from jaxmaterials.solver.lippmann_schwinger import (
     lippmann_schwinger_anisotropic,
     lippmann_schwinger_isotropic,
@@ -12,29 +20,116 @@ from jaxmaterials.utilities import measure_time
 jax.config.update("jax_enable_x64", True)
 
 
+'''
+How to run the profiling scripts:
+
+python src/profile.py --mode single --grid 256 256 256
+python src/profile.py --mode multi-gpu --grid 256 256 256 [--mesh 2 2]
+srun --ntasks=N --gpus-per-task=1 python src/profile.py --mode multi-node --grid 256 256 256
+'''
+
+parser = argparse.ArgumentParser(description="Profile the Lippmann-Schwinger solver")
+parser.add_argument(
+    "--mode",
+    choices=["single", "multi-gpu", "multi-node"],
+    default="single",
+    help="single: one device; multi-gpu: all local devices of one process; "
+    "multi-node: all devices of all processes (calls jax.distributed.initialize())",
+)
+parser.add_argument(
+    "--mesh",
+    type=int,
+    nargs="+",
+    default=None,
+    help="mesh shape: one entry (slab) or two entries (pencil); "
+    "default: slab over all devices",
+)
+parser.add_argument("--grid", type=int, nargs=3, default=[64, 64, 48])
+parser.add_argument("--repeat", type=int, default=10)
+parser.add_argument("--dtypes", nargs="+", default=["float32", "float64"])
+args = parser.parse_args()
+
+if args.mode == "multi-node":
+    # Cluster details are auto-detected under SLURM/Open MPI; otherwise set
+    # JAX_COORDINATOR_ADDRESS, JAX_NUM_PROCESSES and JAX_PROCESS_ID.
+    if "JAX_COORDINATOR_ADDRESS" in os.environ:
+        jax.distributed.initialize(
+            coordinator_address=os.environ["JAX_COORDINATOR_ADDRESS"],
+            num_processes=int(os.environ["JAX_NUM_PROCESSES"]),
+            process_id=int(os.environ["JAX_PROCESS_ID"]),
+        )
+    else:
+        jax.distributed.initialize()
+
+is_root = jax.process_index() == 0
+if not is_root:
+    sys.stdout = open(os.devnull, "w")
+
+mesh = None
+if args.mode == "single":
+    spec_axes = None
+else:
+    devices = np.array(jax.devices())
+    mesh_shape = tuple(args.mesh) if args.mesh else (len(devices),)
+    if len(mesh_shape) not in (1, 2) or np.prod(mesh_shape) != len(devices):
+        raise ValueError(
+            f"mesh shape {mesh_shape} must have 1 or 2 entries and "
+            f"multiply to the number of devices ({len(devices)})"
+        )
+    spec_axes = ("a", "b")[: len(mesh_shape)]
+    mesh = Mesh(devices.reshape(mesh_shape), spec_axes)
+print(
+    f"mode = {args.mode}, processes = {jax.process_count()}, "
+    f"devices = {jax.device_count()} ({jax.devices()[0].platform}), "
+    f"mesh = {None if mesh is None else dict(mesh.shape)}"
+)
+
+
+def make_array(func, shape, dtype, leading=0):
+    """Create a (possibly distributed) array from a function of the grid indices
+
+    Each process only evaluates the shards of its own devices.
+
+    :arg func: function mapping a tuple of three index slices to a numpy array
+    :arg shape: global shape of the grid
+    :arg dtype: data type
+    :arg leading: number of unsharded leading axes of the array
+    """
+    if mesh is None:
+        return jnp.array(func(tuple(slice(None) for _ in range(3))), dtype=dtype)
+    sharding = NamedSharding(mesh, P(*(leading * [None]), *spec_axes))
+    return jax.make_array_from_callback(
+        shape,
+        sharding,
+        lambda idx: np.asarray(func(tuple(idx[leading:])), dtype=dtype),
+    )
+
+
 def initialise_material(grid_spec, fibre_radius=0.2, dtype=jnp.float64):
     """Material coefficients lambda and mu evaluated at voxel centres
 
-    Returns two arrays of shape (nx,ny,nz)
+    Returns two arrays of shape (nx,ny,nz), sharded over the mesh (if any)
 
     :arg grid_spec: grid specification
     :arg fibre_radius: radius of fibre
     :arg dtype: data type
     """
-    X, Y, Z = np.meshgrid(
-        grid_spec.Lx / grid_spec.nx * (1 / 2 + np.arange(grid_spec.nx)),
-        grid_spec.Ly / grid_spec.ny * (1 / 2 + np.arange(grid_spec.ny)),
-        grid_spec.Lz / grid_spec.nz * (1 / 2 + np.arange(grid_spec.nz)),
-        indexing="ij",
-    )
-    mu = np.ones(shape=(grid_spec.nx, grid_spec.ny, grid_spec.nz)) + 0.5 * (
-        (X - 0.5) ** 2 + (Y - 0.5) ** 2 + (Z - 0.5) ** 2 < fibre_radius**2
-    )
+    n = (grid_spec.nx, grid_spec.ny, grid_spec.nz)
+    L = (grid_spec.Lx, grid_spec.Ly, grid_spec.Lz)
 
-    lmbda = np.ones(shape=(grid_spec.nx, grid_spec.ny, grid_spec.nz)) + 0.5 * (
-        (X - 0.5) ** 2 + (Y - 0.5) ** 2 + (Z - 0.5) ** 2 < fibre_radius**2
+    def coefficient(idx):
+        X, Y, Z = np.meshgrid(
+            *[L[d] / n[d] * (1 / 2 + np.arange(n[d])[idx[d]]) for d in range(3)],
+            indexing="ij",
+        )
+        return 1 + 0.5 * (
+            (X - 0.5) ** 2 + (Y - 0.5) ** 2 + (Z - 0.5) ** 2 < fibre_radius**2
+        )
+
+    return (
+        make_array(coefficient, n, dtype),
+        make_array(coefficient, n, dtype),
     )
-    return jnp.array(mu, dtype=dtype), jnp.array(lmbda, dtype=dtype)
 
 
 # Domain size in all three spatial direction
@@ -42,19 +137,21 @@ Lx = 1.2
 Ly = 1.1
 Lz = 0.7
 # Number of grid cells in all three spatial directions
-nx = 64
-ny = 64
-nz = 48
+nx, ny, nz = args.grid
 
-repeat = 10
+repeat = args.repeat
 grid_spec = get_grid_spec(Lx, Ly, Lz, nx=nx, ny=ny, nz=nz)
 
-for dtype in (jnp.float32, jnp.float64):
+# Distributed FFTs are selected at trace time; keep the context open for the whole run
+_stack = contextlib.ExitStack()
+_stack.enter_context(distributed_fft(mesh, spec_axes))
+
+for dtype in [jnp.dtype(d).type for d in args.dtypes]:
     precision = "single precision" if dtype == jnp.float32 else "double precision"
     mu, lmbda = initialise_material(grid_spec, dtype=dtype)
-    mu_ref = 1 / 2 * (np.min(mu) + np.max(mu))
-    lmbda_ref = 1 / 2 * (np.min(lmbda) + np.max(lmbda))
-    zeros = jnp.zeros(mu.shape, dtype=dtype)
+    mu_ref = float(1 / 2 * (jnp.min(mu) + jnp.max(mu)))
+    lmbda_ref = float(1 / 2 * (jnp.min(lmbda) + jnp.max(lmbda)))
+    zeros = jnp.zeros_like(mu)
     stiffness_tensor = jnp.stack(
         3 * [2 * mu + lmbda] + 3 * [mu] + 3 * [lmbda] + 12 * [zeros]
     )
@@ -116,7 +213,7 @@ for dtype in (jnp.float32, jnp.float64):
                 return jnp.sum(sigma**2)
 
             g = jax.grad(loss_fn, argnums=(0, 1, 2))(mu, lmbda, epsilon_bar)
-            g[0][0].block_until_ready()
+            jax.block_until_ready(g)
 
         run(body)
     print()
@@ -137,10 +234,12 @@ for dtype in (jnp.float32, jnp.float64):
                 return jnp.sum(sigma**2)
 
             g = jax.grad(loss_fn, argnums=(0, 1))(stiffness_tensor, epsilon_bar)
-            g[0][0].block_until_ready()
+            jax.block_until_ready(g)
 
         run(body)
     print()
+
+_stack.close()
 
 gpu_available = False
 if gpu_available:

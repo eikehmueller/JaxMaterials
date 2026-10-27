@@ -355,7 +355,7 @@ def lippmann_schwinger_isotropic(
         return jnp.asarray(epsilon_cuda), jnp.asarray(sigma_cuda)
     else:
         ref_params = {
-            field: 1 / 2 * (np.min(params[field]) + np.max(params[field]))
+            field: 1 / 2 * (jnp.min(params[field]) + jnp.max(params[field]))
             for field in params
         }
         epsilon_jax, sigma_jax = solve(
