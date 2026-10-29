@@ -8,6 +8,8 @@ from jax import numpy as jnp
 from jaxmaterials.common import GridSpec
 from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger
 
+jax.config.update("jax_enable_x64", True)
+
 
 def compute_sigma(epsilon, params):
     """Custom implementation of linear elasticity for an isotropic material
@@ -27,7 +29,7 @@ nx = 32
 ny = 32
 nz = 16
 
-grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
+grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz)
 
 # Create random Lame parameters mu, lambda and mean strain vector epsilon_bar
 rng = np.random.default_rng(seed=47273)
