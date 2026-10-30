@@ -155,18 +155,34 @@ def _lippmann_schwinger_jax(
     residual = jnp.zeros(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
     )
+    # Shard arrays if necessary
+    mesh = jax.sharding.get_abstract_mesh()
+    if not mesh.empty:
+        xizero = jax.device_put(xizero, jax.P(None, *mesh.axis_names))
+        xi = jax.device_put(xi, jax.P(None, *mesh.axis_names))
+        epsilon = jax.device_put(epsilon, jax.P(None, None, *mesh.axis_names))
+        residual = jax.device_put(
+            residual,
+            jax.P(None, None, *mesh.axis_names),
+        )
+
     # Anderson matrix and vectors
     A_anderson = jnp.eye(depth + 1, dtype=jnp.float64)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     sigma = compute_sigma(epsilon[0, ...], params)
+
     # Fourier transform sigma
     sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
     rel_error = relative_divergence_fourier(sigma_hat, xi)
     rel_error_0 = rel_error
     if verbose > 1:
-        jax.debug.print("==== JAX forward solve ====", ordered=True)
         jax.debug.print(
-            "  iteration  E = ||div(sigma)||/||sigma||  E/E_0", ordered=True
+            "==== JAX forward solve ====",
+            ordered=mesh.empty,
+        )
+        jax.debug.print(
+            "  iteration  E = ||div(sigma)||/||sigma||  E/E_0",
+            ordered=mesh.empty,
         )
 
     def exit_condition(
@@ -211,7 +227,7 @@ def _lippmann_schwinger_jax(
                 its,
                 rel_error,
                 rel_error / (rel_error_0 + 1.0e-20),
-                ordered=True,
+                ordered=mesh.empty,
             )
 
         return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
@@ -304,7 +320,7 @@ def _lippmann_schwinger_jax(
             "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
             rel_error,
             rel_error / (rel_error_0 + 1.0e-20),
-            ordered=True,
+            ordered=mesh.empty,
         )
     if dynamic_stopping:
         jax.debug.callback(_raise_if_not_converged, "forward", its, maxits)
@@ -381,6 +397,7 @@ def _lippmann_schwinger_adjoint_jax(
     """
     rtol = tol
     atol = 1.0e-20
+    mesh = jax.sharding.get_abstract_mesh()
     # Fourier vectors
     dtype = f_rhs.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
@@ -388,22 +405,30 @@ def _lippmann_schwinger_adjoint_jax(
     voigt_weights_bcast = voigt_weights[:, None, None, None]
     # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
     Lambda = jnp.zeros(
-        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
-        dtype=dtype,
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
     )
-    Lambda = Lambda.at[0, ...].set(f_rhs)
     residual = jnp.zeros(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
     )
+    # Shard arrays
+    mesh = jax.sharding.get_abstract_mesh()
+    if not mesh.empty:
+        xizero = jax.device_put(xizero, jax.P(None, *mesh.axis_names))
+        Lambda = jax.device_put(Lambda, jax.P(None, None, *mesh.axis_names))
+        residual = jax.device_put(residual, jax.P(None, None, *mesh.axis_names))
+    Lambda = Lambda.at[0, ...].set(f_rhs)
     # Anderson matrix and vectors
     A_anderson = jnp.eye(depth + 1, dtype=jnp.float64)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     increment_nrm = jnp.linalg.norm(Lambda)
     if verbose > 1:
-        jax.debug.print("==== JAX adjoint solve ====", ordered=True)
+        jax.debug.print(
+            "==== JAX adjoint solve ====",
+            ordered=mesh.empty,
+        )
         jax.debug.print(
             "  iteration  E = ||delta(Lambda)||  ||delta(Lambda)||/||Lambda||",
-            ordered=True,
+            ordered=mesh.empty,
         )
 
     def exit_condition(
@@ -435,7 +460,7 @@ def _lippmann_schwinger_adjoint_jax(
                 its,
                 increment_nrm,
                 increment_nrm / (nrm + 1.0e-20),
-                ordered=True,
+                ordered=mesh.empty,
             )
 
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
@@ -517,16 +542,20 @@ def _lippmann_schwinger_adjoint_jax(
                 its,
                 maxits,
                 its < maxits,
+                ordered=mesh.empty,
             )
         else:
             jax.debug.print(
-                "JAX adjoint solve stopped after {:6d} of {:6d} iterations", its, maxits
+                "JAX adjoint solve stopped after {:6d} of {:6d} iterations",
+                its,
+                maxits,
+                ordered=mesh.empty,
             )
         jax.debug.print(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
             increment_nrm / (nrm + 1.0e-20),
-            ordered=True,
+            ordered=mesh.empty,
         )
     if dynamic_stopping:
         Lambda = jnp.where(its >= maxits, jnp.full_like(Lambda, jnp.nan), Lambda)

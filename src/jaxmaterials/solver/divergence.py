@@ -82,7 +82,29 @@ def relative_divergence_fourier(sigma_hat: jax.Array, xi: np.ndarray) -> jax.Arr
         ]
     )
     dsigma_nrm = jnp.sqrt(jnp.sum(jnp.abs(dsigma_hat) ** 2))
-    sigma_hat_zero = jnp.real(sigma_hat[:, 0, 0, 0])
+
+    def zero_component(u):
+        mesh = jax.sharding.get_abstract_mesh()
+        if mesh.empty:
+            return u[:, 0, 0, 0]
+        else:
+
+            @jax.shard_map(
+                in_specs=jax.typeof(sigma_hat).sharding.spec,
+                out_specs=jax.P(None),
+            )
+            def _reduce_zero(local_u):
+                idx = jnp.stack([jax.lax.axis_index(axis) for axis in mesh.axis_names])
+                value = jnp.where(
+                    jnp.all(idx == 0),
+                    local_u[:, 0, 0, 0],
+                    jnp.zeros_like(local_u[:, 0, 0, 0]),
+                )
+                return jax.lax.psum(jnp.real(value), mesh.axis_names)
+
+            return _reduce_zero(u)
+
+    sigma_hat_zero = jnp.real(zero_component(sigma_hat))
     sigma_hat_zero_nrm = jnp.sqrt(
         jnp.sum(sigma_hat_zero[:3] ** 2) + 2 * jnp.sum(sigma_hat_zero[3:] ** 2)
     )
