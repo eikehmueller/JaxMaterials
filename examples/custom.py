@@ -19,7 +19,7 @@ def compute_sigma(epsilon, params):
     """
     tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
     sigma = 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
-        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
+        3 * [tr_epsilon] + 3 * [jnp.zeros_like(epsilon[0, ...])]
     )
     return sigma
 
