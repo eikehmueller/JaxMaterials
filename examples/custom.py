@@ -31,9 +31,9 @@ nz = 16
 
 grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz)
 
-px = 2
-py = 2
-pz = 1
+px = 4
+py = 4
+pz = 2
 jax.config.update("jax_num_cpu_devices", px * py * pz)
 mesh = jax.make_mesh((px, py, pz), ("X", "Y", "Z"))
 jax.set_mesh(mesh)
