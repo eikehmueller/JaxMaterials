@@ -12,6 +12,8 @@ from jax import numpy as jnp
 from jaxmaterials.common import GridSpec
 
 __all__ = [
+    "distributed_fft3",
+    "distributed_ifft3",
     "fourier_solve_anisotropic",
     "fourier_solve_isotropic",
     "get_anisotropic_acoustic_tensor",
@@ -21,7 +23,79 @@ __all__ = [
 ]
 
 
-def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> np.ndarray:
+def distributed_transform(x, op, opn):
+    mesh = jax.sharding.get_abstract_mesh()
+    if mesh.empty:
+        return opn(x, axes=(-3, -2, -1))
+    else:
+        n_axes = len(mesh.axis_names)
+        if n_axes == 2:
+            # pencil decomposition
+            px, py = mesh.axis_sizes
+            nz = x.shape[-1]
+            assert nz % px == 0, (
+                "Number of voxels in z-direction needs to be divisible by number of processors in x-direction"
+            )
+            assert nz % py == 0, (
+                "Number of voxels in z-direction needs to be divisible by number of processors in y-direction"
+            )
+            _x, _y = mesh.axis_names
+            specs = jax.typeof(x).sharding.spec
+
+            @jax.shard_map(mesh=mesh, in_specs=specs, out_specs=specs)
+            def _sharded_transform(u):
+                # input has local shape (Nx/px, Ny/py, Nz)
+                # FFT in z-direction
+                u = op(u, axis=-1)
+                # Transpose to (Nx/px,Ny,Nz/py)
+                u = jax.lax.all_to_all(u, _y, -1, -2, tiled=True)
+                # FFT in y-direction
+                u = op(u, axis=-2)
+                # Transpose to (Nx/px,Ny/py,Nz)
+                u = jax.lax.all_to_all(u, _y, -2, -1, tiled=True)
+                # Transpose to (Nx,Ny/px,Nz/px)
+                u = jax.lax.all_to_all(u, _x, -1, -3, tiled=True)
+                # FFT in x-direction
+                u = op(u, axis=-3)
+                # Transpose back to (Nx/px,Ny/py,Nz)
+                u = jax.lax.all_to_all(u, _x, -3, -1, tiled=True)
+
+                return u
+        else:
+            # slab decomposition
+            (pz,) = mesh.axis_sizes
+            nx = x.shape[-2]
+            assert nx % pz == 0, (
+                "Number of voxels in x-direction needs to be divisible by number of processors in z-direction"
+            )
+            (_z,) = mesh.axis_names
+            specs = jax.typeof(x).sharding.spec
+
+            @jax.shard_map(mesh=mesh, in_specs=specs, out_specs=specs)
+            def _sharded_transform(u):
+                # input has local shape (Nx, Ny, Nz/nz)
+                # FFT in x- and y-direction
+                u = opn(u, axes=(-3, -2))
+                # Transpose to (Nx/pz,Ny,Nz)
+                u = jax.lax.all_to_all(u, _z, -1, -3, tiled=True)
+                # FFT in y-direction
+                u = op(u, axis=-1)
+                # Transpose back to (Nx,Ny,Nz/pz)
+                u = jax.lax.all_to_all(u, _z, -1, -3, tiled=True)
+                return u
+
+        return _sharded_transform(x)
+
+
+def distributed_fft3(u):
+    return distributed_transform(u, op=jnp.fft.fft, opn=jnp.fft.fftn)
+
+
+def distributed_ifft3(u):
+    return distributed_transform(u, op=jnp.fft.ifft, opn=jnp.fft.ifftn)
+
+
+def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> jax.Array:
     """Construct un-normalised Fourier momentum vectors :math:`\\widetilde{\\boldsymbol{\\xi}}`
 
     Let :math:`\\boldsymbol{k} = (k_0,k_1,k_2)` with :math:`k_i = 0,1,...,N_i-1` be a three-dimensional Fourier index. The normalised momentum vector is :math:`\\xi_i = 2 \\pi k_i / N_i`, with :math:`0 \\le \\xi_i < 2\\pi`.
@@ -46,36 +120,48 @@ def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> np.n
 
     Returns
     =======
-    numpy.ndarray
+    jax.numpy.ndarray
         Tensor of shape ``(3,N_0,N_1,N_2)`` and type ``dtype`` with :math:`\\widetilde{\\boldsymbol{\\xi}}` for all Fourier modes.
     """
-    # Normalised momentum vectors in all three spatial directions
-    K = [
-        2 * np.pi * np.arange(n) / n for n in (grid_spec.nx, grid_spec.ny, grid_spec.nz)
-    ]
-    # Grid with normalised momentum vectors
-    xi_grid = np.meshgrid(*K, indexing="ij")
+
+    mesh = jax.sharding.get_abstract_mesh()
+    if mesh.empty:
+        spec = jax.P(None, None, None)
+    elif len(mesh.axis_names) == 2:
+        # Pencil decomposition
+        spec = jax.P(*mesh.axis_names, None)
+    else:
+        spec = jax.P(None, None, *mesh.axis_names)
+    sin_k = []
+    cos_k = []
+    for n, axis in zip(grid_spec.extents, spec):
+        k = 2 * jnp.pi * jnp.arange(n, dtype=dtype) / n
+        if not mesh.empty:
+            k = jax.sharding.reshard(k, jax.P(axis))
+        sin_k.append(jnp.sin(k / 2))
+        cos_k.append(jnp.cos(k / 2))
+
     # Grid with tilde(xi)
-    xi = np.stack(
+    xi = jnp.stack(
         [
             2
             * grid_spec.nx
             / grid_spec.Lx
-            * np.sin(xi_grid[0] / 2)
-            * np.cos(xi_grid[1] / 2)
-            * np.cos(xi_grid[2] / 2),
+            * sin_k[0][:, None, None]
+            * cos_k[1][None, :, None]
+            * cos_k[2][None, None, :],
             2
             * grid_spec.ny
             / grid_spec.Ly
-            * np.cos(xi_grid[0] / 2)
-            * np.sin(xi_grid[1] / 2)
-            * np.cos(xi_grid[2] / 2),
+            * cos_k[0][:, None, None]
+            * sin_k[1][None, :, None]
+            * cos_k[2][None, None, :],
             2
             * grid_spec.nz
             / grid_spec.Lz
-            * np.cos(xi_grid[0] / 2)
-            * np.cos(xi_grid[1] / 2)
-            * np.sin(xi_grid[2] / 2),
+            * cos_k[0][:, None, None]
+            * cos_k[1][None, :, None]
+            * sin_k[2][None, None, :],
         ]
     )
     return xi.astype(dtype)
@@ -83,7 +169,7 @@ def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> np.n
 
 def get_xizero(
     grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64
-) -> np.ndarray:
+) -> jax.Array:
     """Construct the normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}`
 
     Computes
@@ -113,15 +199,15 @@ def get_xizero(
     """
     xi_tilde = get_xi(grid_spec, dtype=dtype)
     # Normalise tilde(xi) to obtain xi^0
-    xi_nrm = np.linalg.norm(xi_tilde, axis=0)
+    xi_nrm = jnp.linalg.norm(xi_tilde, axis=0)
     tolerance = 1.0e-12 if np.dtype(dtype) == np.float64 else 1.0e-6
-    xi_nrm[xi_nrm < tolerance] = 1  # avoid division by zero
-    return cast(np.ndarray, (xi_tilde / xi_nrm).astype(dtype))
+    xi_nrm = jnp.where(xi_nrm < tolerance, 1, xi_nrm)  # avoid division by zero
+    return cast(jax.Array, (xi_tilde / xi_nrm).astype(dtype))
 
 
 def get_anisotropic_acoustic_tensor(
-    xizero: np.ndarray, stiffness_tensor0: np.ndarray
-) -> np.ndarray:
+    xizero: jax.Array, stiffness_tensor0: np.ndarray
+) -> jax.Array:
     """Acoustic tensor :math:`K^0` for a homogeneous anisotropic reference material
 
     Assemble the :math:`3\\times3` acoustic tensor :math:`K^0` for a homogeneous isotropic reference material characterised by the stiffness tensor :math:`C^0` as described in :ref:`appendix_Gamma0_anisotropic`.
@@ -138,9 +224,9 @@ def get_anisotropic_acoustic_tensor(
     numpy.ndarray
         Acoustic tensor :math:`K^0` with shape ``(3,3,Nx,Ny,Nz)`` for all Fourier modes
     """
-    return np.stack(
+    return jnp.stack(
         [
-            np.stack(
+            jnp.stack(
                 [
                     stiffness_tensor0[0] * xizero[0] ** 2
                     + stiffness_tensor0[3] * xizero[1] ** 2
@@ -168,7 +254,7 @@ def get_anisotropic_acoustic_tensor(
                     + stiffness_tensor0[20] * xizero[1] * xizero[2],
                 ]
             ),
-            np.stack(
+            jnp.stack(
                 [
                     stiffness_tensor0[3] * xizero[0] * xizero[1]
                     + stiffness_tensor0[6] * xizero[0] * xizero[1]
@@ -196,7 +282,7 @@ def get_anisotropic_acoustic_tensor(
                     + stiffness_tensor0[20] * xizero[0] * xizero[2],
                 ]
             ),
-            np.stack(
+            jnp.stack(
                 [
                     stiffness_tensor0[4] * xizero[0] * xizero[2]
                     + stiffness_tensor0[7] * xizero[0] * xizero[2]
@@ -229,8 +315,8 @@ def get_anisotropic_acoustic_tensor(
 
 
 def get_inverse_anisotropic_acoustic_tensor(
-    xizero: np.ndarray, stiffness_tensor0: np.ndarray
-) -> np.ndarray:
+    xizero: jax.Array, stiffness_tensor0: np.ndarray
+) -> jax.Array:
     """Inverse :math:`N^0 = (K^0)^{-1}` of the acoustic tensor :math:`K^0` for homogeneous anisotropic reference material
 
     Assemble the :math:`3\\times3` acoustic tensor :math:`K^0` for a homogeneous isotropic reference material characterised with :py:func:`get_anisotropic_acoustic_tensor` and invert it for each Fourier mode.
@@ -248,13 +334,13 @@ def get_inverse_anisotropic_acoustic_tensor(
         Inverse acoustic tensor :math:`N^0 = (K^0)^{-1}` with shape ``(3,3,Nx,Ny,Nz)`` for all Fourier modes
     """
     K0 = get_anisotropic_acoustic_tensor(xizero, stiffness_tensor0)
-    K0_transpose = np.transpose(K0, axes=(2, 3, 4, 0, 1))
+    K0_transpose = jnp.transpose(K0, axes=(2, 3, 4, 0, 1))
     xi_nrm = (xizero[0] ** 2 + xizero[1] ** 2 + xizero[2] ** 2) > 1.0e-8
     # Avoid inverting a singular zero-frequency block, which can produce NaN gradients.
-    eye3 = np.eye(3, dtype=K0_transpose.dtype)
-    K0_safe = np.where(xi_nrm[..., None, None], K0_transpose, eye3)
-    N0_transpose = np.linalg.inv(K0_safe)
-    return cast(np.ndarray, xi_nrm * np.transpose(N0_transpose, axes=(3, 4, 0, 1, 2)))
+    eye3 = jnp.eye(3, dtype=K0_transpose.dtype)
+    K0_safe = jnp.where(xi_nrm[..., None, None], K0_transpose, eye3)
+    N0_transpose = jnp.linalg.inv(K0_safe)
+    return cast(jnp.ndarray, xi_nrm * np.transpose(N0_transpose, axes=(3, 4, 0, 1, 2)))
 
 
 def fourier_solve_isotropic(

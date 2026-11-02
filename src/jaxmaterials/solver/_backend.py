@@ -17,6 +17,8 @@ from jaxmaterials.solver.divergence import (
     relative_divergence_fourier,
 )
 from jaxmaterials.solver.fourier import (
+    distributed_fft3,
+    distributed_ifft3,
     fourier_solve_isotropic,
     get_xi,
     get_xizero,
@@ -141,9 +143,13 @@ def _lippmann_schwinger_jax(
     xizero = get_xizero(grid_spec, dtype=dtype)
     xi = get_xi(grid_spec, dtype=dtype)
     # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
+    xi_sharding = jax.typeof(xi).sharding
+    # construct sharding of epsilon and residual
+    sharding = xi_sharding.update(spec=jax.P(None, None, *xi_sharding.spec[1:]))
     epsilon = jnp.zeros(
         (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
         dtype=dtype,
+        out_sharding=sharding,
     )
     epsilon = epsilon.at[0, ...].set(
         jnp.astype(
@@ -153,18 +159,10 @@ def _lippmann_schwinger_jax(
         )
     )
     residual = jnp.zeros(
-        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
+        dtype=dtype,
+        out_sharding=sharding,
     )
-    # Shard arrays if necessary
-    mesh = jax.sharding.get_abstract_mesh()
-    if not mesh.empty:
-        xizero = jax.device_put(xizero, jax.P(None, *mesh.axis_names))
-        xi = jax.device_put(xi, jax.P(None, *mesh.axis_names))
-        epsilon = jax.device_put(epsilon, jax.P(None, None, *mesh.axis_names))
-        residual = jax.device_put(
-            residual,
-            jax.P(None, None, *mesh.axis_names),
-        )
 
     # Anderson matrix and vectors
     A_anderson = jnp.eye(depth + 1, dtype=jnp.float64)
@@ -172,9 +170,10 @@ def _lippmann_schwinger_jax(
     sigma = compute_sigma(epsilon[0, ...], params)
 
     # Fourier transform sigma
-    sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
+    sigma_hat = distributed_fft3(sigma)
     rel_error = relative_divergence_fourier(sigma_hat, xi)
     rel_error_0 = rel_error
+    mesh = jax.sharding.get_abstract_mesh()
     if verbose > 1:
         jax.debug.print(
             "==== JAX forward solve ====",
@@ -261,7 +260,7 @@ def _lippmann_schwinger_jax(
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
         r_hat = fourier_solve_isotropic(sigma_hat, xizero, ref_params)
-        r = jnp.real(jnp.fft.ifftn(r_hat, axes=[-3, -2, -1]))
+        r = jnp.real(distributed_ifft3(r_hat))
         if depth > 0:
             residual = jnp.roll(residual, 1, axis=0)
             residual = residual.at[0, ...].set(r)
@@ -289,7 +288,7 @@ def _lippmann_schwinger_jax(
         epsilon = epsilon.at[0, ...].set(jnp.astype(epsilon_tilde, dtype))
         sigma = compute_sigma(epsilon[0, ...], params)
         # Fourier transform sigma
-        sigma_hat = jnp.fft.fftn(sigma, axes=[-3, -2, -1])
+        sigma_hat = distributed_fft3(sigma)
         rel_error = relative_divergence_fourier(sigma_hat, xi)
         its += 1
         return (
@@ -330,7 +329,7 @@ def _lippmann_schwinger_jax(
 
 @jax.jit(
     static_argnames=[
-        "sigma_vjp",
+        "compute_sigma",
         "grid_spec",
         "maxits",
         "depth",
@@ -339,10 +338,9 @@ def _lippmann_schwinger_jax(
     ]
 )
 def _lippmann_schwinger_adjoint_jax(
-    sigma_vjp: Callable[
-        [jax.Array],
-        tuple[jax.Array, PyTree],
-    ],
+    compute_sigma: Callable[[jax.Array], jax.Array],
+    epsilon: jax.Array,
+    params: PyTree,
     f_rhs: jax.Array,
     ref_params: dict[str, float],
     grid_spec: GridSpec,
@@ -395,32 +393,35 @@ def _lippmann_schwinger_adjoint_jax(
     tuple[jax.Array, int]
         Adjoint state :math:`\\Lambda` and number of iterations
     """
+    _, sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
     rtol = tol
     atol = 1.0e-20
-    mesh = jax.sharding.get_abstract_mesh()
     # Fourier vectors
     dtype = f_rhs.dtype
     xizero = get_xizero(grid_spec, dtype=dtype)
     voigt_weights = jnp.array([1, 1, 1, 2, 2, 2], dtype=dtype)
     voigt_weights_bcast = voigt_weights[:, None, None, None]
     # storage for solution and residual, arrays of shape (d+1,6,Nx,Ny,Nz)
+    xi_sharding = jax.typeof(xizero).sharding
+    # construct sharding of epsilon and residual
+    sharding = xi_sharding.update(spec=jax.P(None, None, *xi_sharding.spec[1:]))
+
     Lambda = jnp.zeros(
-        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
+        dtype=dtype,
+        out_sharding=sharding,
     )
     residual = jnp.zeros(
-        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz), dtype=dtype
+        (depth + 1, 6, grid_spec.nx, grid_spec.ny, grid_spec.nz),
+        dtype=dtype,
+        out_sharding=sharding,
     )
-    # Shard arrays
-    mesh = jax.sharding.get_abstract_mesh()
-    if not mesh.empty:
-        xizero = jax.device_put(xizero, jax.P(None, *mesh.axis_names))
-        Lambda = jax.device_put(Lambda, jax.P(None, None, *mesh.axis_names))
-        residual = jax.device_put(residual, jax.P(None, None, *mesh.axis_names))
     Lambda = Lambda.at[0, ...].set(f_rhs)
     # Anderson matrix and vectors
     A_anderson = jnp.eye(depth + 1, dtype=jnp.float64)
     u_rhs = jnp.zeros(depth + 1, dtype=dtype)
     increment_nrm = jnp.linalg.norm(Lambda)
+    mesh = jax.sharding.get_abstract_mesh()
     if verbose > 1:
         jax.debug.print(
             "==== JAX adjoint solve ====",
@@ -476,9 +477,9 @@ def _lippmann_schwinger_adjoint_jax(
             current iteration state ``Lambda, residual, A_anderson, u_rhs, increment_nrm, its``
         """
         Lambda, residual, A_anderson, u_rhs, increment_nrm, its = state
-        Lambda_hat = jnp.fft.fftn(Lambda[0, ...], axes=(-3, -2, -1))
+        Lambda_hat = distributed_fft3(Lambda[0, ...])
         Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
-        Theta = jnp.real(jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1)))
+        Theta = jnp.real(distributed_ifft3(Theta_hat))
         # Convert Voigt-dual Theta to Euclidean cotangent for vjp, then map back.
         dSigma_depsilon, _ = sigma_vjp(voigt_weights_bcast * Theta)
         dSigma_depsilon = dSigma_depsilon / voigt_weights_bcast
@@ -761,7 +762,9 @@ def _solve_bwd(
     _, sigma_vjp = jax.vjp(compute_sigma, epsilon, params)
     f_rhs = -(g_epsilon + sigma_vjp(g_sigma)[0]) / voigt_weights_bcast
     Lambda, _ = _lippmann_schwinger_adjoint_jax(
-        sigma_vjp,
+        compute_sigma,
+        epsilon,
+        params,
         f_rhs,
         ref_params,
         grid_spec,
@@ -772,11 +775,9 @@ def _solve_bwd(
         verbose=verbose,
     )
 
-    Lambda_hat = jnp.fft.fftn(Lambda, axes=(-3, -2, -1))
+    Lambda_hat = distributed_fft3(Lambda)
     Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
-    S_star = g_sigma - voigt_weights_bcast * jnp.real(
-        jnp.fft.ifftn(Theta_hat, axes=(-3, -2, -1))
-    )
+    S_star = g_sigma - voigt_weights_bcast * jnp.real(distributed_ifft3(Theta_hat))
     # Convert back to dual vector with respect to Euclidean inner product.
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
     # Derivative with respect to parameters
