@@ -24,7 +24,7 @@ py = 3
 
 grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz, px=px, py=py)
 
-mesh = jax.make_mesh((2, 3), axis_names=("x", "y"))
+mesh = jax.make_mesh((px, py), axis_names=("x", "y"))
 sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
 jax.set_mesh(mesh)
 
