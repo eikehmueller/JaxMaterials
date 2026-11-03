@@ -5,7 +5,7 @@ from jax.experimental.multihost_utils import process_allgather
 from jaxmaterials.common import get_grid_spec
 from jaxmaterials.solver.fourier import sharded_fft3
 import pytest
-from fixtures import get_parallel_gridspec, jax_distributed
+from fixtures import get_parallel_gridspec
 
 jax.config.update("jax_enable_x64", True)
 
@@ -43,8 +43,9 @@ def test_inverse_sequential():
 
 @pytest.mark.parallel(nprocs=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_distributed(jax_distributed, parallel_decomposition):
+def test_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
+    jax.distributed.initialize(cluster_detection_method="mpi4py")
 
     grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
     jax.set_mesh(sharding.mesh)
@@ -65,13 +66,14 @@ def test_distributed(jax_distributed, parallel_decomposition):
         jnp.linalg.norm(data_k - reference_data_k) / jnp.linalg.norm(reference_data_k)
         < tolerance
     )
+    jax.distributed.shutdown()
 
 
 @pytest.mark.parallel(nprocs=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_inverse_distributed(jax_distributed, parallel_decomposition):
+def test_inverse_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
-
+    jax.distributed.initialize(cluster_detection_method="mpi4py")
     grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
     jax.set_mesh(sharding.mesh)
 
@@ -92,3 +94,4 @@ def test_inverse_distributed(jax_distributed, parallel_decomposition):
         / jnp.linalg.norm(distributed_data)
         < tolerance
     )
+    jax.distributed.shutdown()
