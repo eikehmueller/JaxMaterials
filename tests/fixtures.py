@@ -114,6 +114,14 @@ def perturbed_parameters(rng, params, delta=0.1):
     }
 
 
+@pytest.fixture(scope="session")
+def jax_distributed():
+    """Initialise JAX's distributed runtime once per (MPI) process"""
+    jax.distributed.initialize()
+    yield
+    jax.distributed.shutdown()
+
+
 def get_parallel_gridspec(
     parallel_decomposition: str,
 ) -> tuple[GridSpec, jax.sharding.NamedSharding]:

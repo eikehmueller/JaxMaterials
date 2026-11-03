@@ -12,7 +12,7 @@ from jaxmaterials.solver.fourier import get_xi, sharded_fft3
 
 jax.config.update("jax_enable_x64", True)
 
-from fixtures import grid_spec, rng, get_parallel_gridspec
+from fixtures import grid_spec, rng, get_parallel_gridspec, jax_distributed
 
 
 def test_relative_divergence(grid_spec, rng):
@@ -34,14 +34,13 @@ def test_relative_divergence(grid_spec, rng):
 
 @pytest.mark.parallel(nprocs=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_relative_divergence_sharded(parallel_decomposition, rng):
+def test_relative_divergence_sharded(jax_distributed, parallel_decomposition, rng):
     """Verify that the relative divergence used for exit criterion is computed
     consistently in real space and Fourier space for distributed arrays
 
     :arg parallel_decomposition: parallel decomposition, must by "slab" or "pencil"
     :arg rng: random number generator
     """
-    jax.distributed.initialize()
     grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
     jax.set_mesh(sharding.mesh)
     sigma_sharding = sharding.update(spec=jax.P(None, *sharding.spec))
@@ -55,4 +54,3 @@ def test_relative_divergence_sharded(parallel_decomposition, rng):
     rel_div_fourier = relative_divergence_fourier(sigma_hat, xi)
     tolerance = 1.0e-5
     assert abs((rel_div_real - rel_div_fourier) / rel_div_real) < tolerance
-    jax.distributed.shutdown()
