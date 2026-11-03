@@ -3,8 +3,7 @@ from jax import numpy as jnp
 import jax
 from jax.experimental.multihost_utils import process_allgather
 from jaxmaterials.common import get_grid_spec
-from jaxmaterials.solver.distributed_fft import distributed_fft3
-from jaxmaterials.solver.fourier import get_xi, get_xizero
+from jaxmaterials.solver.fourier import get_xizero, sharded_fft3
 
 jax.config.update("jax_enable_x64", True)
 
@@ -41,7 +40,7 @@ if rank == 0:
     print(jax.typeof(data))
 
 
-data_t = distributed_fft3(data)
+data_t = sharded_fft3(data, direction="forward")
 global_data_t = process_allgather(data_t, tiled=True)
 
 global_data = process_allgather(data, tiled=True)

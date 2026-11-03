@@ -3,20 +3,20 @@ from jax import numpy as jnp
 import jax
 from jax.experimental.multihost_utils import process_allgather
 from jaxmaterials.common import get_grid_spec
-from jaxmaterials.solver.fourier import distributed_fft3
+from jaxmaterials.solver.fourier import sharded_fft3
 import pytest
 
 jax.config.update("jax_enable_x64", True)
 
 
-def test_dfft_sequential():
+def test_sequential():
     """Test the FFT in sequential mode"""
     grid_spec = get_grid_spec(nx=24, ny=12, nz=6)
     rng = np.random.default_rng(seed=52523)
     local_data = rng.normal(size=grid_spec.extents)
     data = jnp.asarray(local_data)
 
-    data_k = distributed_fft3(data)
+    data_k = sharded_fft3(data, direction="forward")
 
     reference_data_k = jnp.fft.fftn(data, axes=(2, 1, 0))
     tolerance = 1.0e-12
@@ -46,7 +46,7 @@ def get_parallel_config(parallel_decomposition):
 
 @pytest.mark.mpi(ranks=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_dfft_distributed(parallel_decomposition):
+def test_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
     jax.distributed.initialize()
 
@@ -59,7 +59,7 @@ def test_dfft_distributed(parallel_decomposition):
         sharding, local_data, global_shape=grid_spec.extents
     )
 
-    distributed_data_k = distributed_fft3(distributed_data)
+    distributed_data_k = sharded_fft3(distributed_data, direction="forward")
     data_k = process_allgather(distributed_data_k, tiled=True)
     data = process_allgather(distributed_data, tiled=True)
 

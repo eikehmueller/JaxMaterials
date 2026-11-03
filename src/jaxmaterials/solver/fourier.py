@@ -12,27 +12,74 @@ from jax import numpy as jnp
 from jaxmaterials.common import GridSpec
 
 __all__ = [
-    "distributed_fft3",
-    "distributed_ifft3",
     "fourier_solve_anisotropic",
     "fourier_solve_isotropic",
     "get_anisotropic_acoustic_tensor",
     "get_inverse_anisotropic_acoustic_tensor",
     "get_xi",
     "get_xizero",
+    "sharded_fft3",
 ]
 
 
-def distributed_transform(x, op, opn):
+def sharded_fft3(u: jax.Array, direction: str = "forward") -> jax.Array:
+    """Computational routine for distributed (inverse) 3d-Fourier transformation.
+
+    Apply a forward or backward Fourier transform to the final three dimensions
+    of the input tensor and return the result.
+
+    For sharded arrays, the field is transposed between the applications as follows.
+    The returned array has the same sharding as the input array.
+
+    Case I: Pencil decomposition
+
+        Input array is sharded as :math:`(*,N_x/p_x,N_y/p_y,N_z)`
+
+        1. Apply 1d-FFT in z-direction
+        2. Transpose to :math:`(*,N_x/p_x,N_y,N_z/p_y)`
+        3. Apply 1d-FFT in y-direction
+        4. Transpose to :math:`(*,N_x/p_x,N_y/p_y,N_z)`
+        5. Transpose to :math:`(*,N_x,N_y/p_y,N_z/N_x)`
+        6. Apply 1d-FFT in x-direction
+        7. Transpose back to :math:`(*,N_x/p_x,N_y/p_y,N_z)`
+
+    Case II: Slab decomposition
+
+        Input array is sharded as :math:`(*,N_x,N_y,N_z/p_z)`
+
+        1. Apply 2d-FFT in x- and y- direction
+        2. Transpose to :math:`(*,N_x/p_z,N_y,N_z)`
+        3. Apply 1d-FFT in z- direction
+        4. Transpose back to :math:`(*,N_x,N_y,N_z/p_z)`
+
+    Parameters
+    ==========
+    x : jax.Array
+        tensor to be transformed, rank must be at least 3
+    direction : str
+        direction of transform, must be "forward" or "backward"
+
+    Returns
+    =======
+    jax.Array
+        transformed tensor with same shape/sharding as the input field
+    """
+    if direction == "forward":
+        op = jnp.fft.fft
+        opn = jnp.fft.fftn
+    else:
+        op = jnp.fft.ifft
+        opn = jnp.fft.ifftn
     mesh = jax.sharding.get_abstract_mesh()
     if mesh.empty:
-        return opn(x, axes=(-3, -2, -1))
+        # Unsharded array. Just apply the 3d FFT
+        return opn(u, axes=(-3, -2, -1))
     else:
         n_axes = len(mesh.axis_names)
         if n_axes == 2:
-            # pencil decomposition
+            # Case I: pencil decomposition
             px, py = mesh.axis_sizes
-            nz = x.shape[-1]
+            nz = u.shape[-1]
             assert nz % px == 0, (
                 "Number of voxels in z-direction needs to be divisible by number of processors in x-direction"
             )
@@ -40,59 +87,51 @@ def distributed_transform(x, op, opn):
                 "Number of voxels in z-direction needs to be divisible by number of processors in y-direction"
             )
             _x, _y = mesh.axis_names
-            specs = jax.typeof(x).sharding.spec
+            specs = jax.typeof(u).sharding.spec
 
             @jax.shard_map(mesh=mesh, in_specs=specs, out_specs=specs)
-            def _sharded_transform(u):
-                # input has local shape (Nx/px, Ny/py, Nz)
+            def _sharded_transform(v):
+                # input has local shape (*,Nx/px, Ny/py, Nz)
                 # FFT in z-direction
-                u = op(u, axis=-1)
-                # Transpose to (Nx/px,Ny,Nz/py)
-                u = jax.lax.all_to_all(u, _y, -1, -2, tiled=True)
+                v = op(v, axis=-1)
+                # Transpose to (*,Nx/px,Ny,Nz/py)
+                v = jax.lax.all_to_all(v, _y, -1, -2, tiled=True)
                 # FFT in y-direction
-                u = op(u, axis=-2)
-                # Transpose to (Nx/px,Ny/py,Nz)
-                u = jax.lax.all_to_all(u, _y, -2, -1, tiled=True)
-                # Transpose to (Nx,Ny/px,Nz/px)
-                u = jax.lax.all_to_all(u, _x, -1, -3, tiled=True)
+                v = op(v, axis=-2)
+                # Transpose to (*,Nx/px,Ny/py,Nz)
+                v = jax.lax.all_to_all(v, _y, -2, -1, tiled=True)
+                # Transpose to (*,Nx,Ny/px,Nz/px)
+                v = jax.lax.all_to_all(v, _x, -1, -3, tiled=True)
                 # FFT in x-direction
-                u = op(u, axis=-3)
-                # Transpose back to (Nx/px,Ny/py,Nz)
-                u = jax.lax.all_to_all(u, _x, -3, -1, tiled=True)
+                v = op(v, axis=-3)
+                # Transpose back to (*,Nx/px,Ny/py,Nz)
+                v = jax.lax.all_to_all(v, _x, -3, -1, tiled=True)
 
-                return u
+                return v
         else:
-            # slab decomposition
+            # Case II: Slab decomposition
             (pz,) = mesh.axis_sizes
-            nx = x.shape[-2]
+            nx = u.shape[-2]
             assert nx % pz == 0, (
                 "Number of voxels in x-direction needs to be divisible by number of processors in z-direction"
             )
             (_z,) = mesh.axis_names
-            specs = jax.typeof(x).sharding.spec
+            specs = jax.typeof(u).sharding.spec
 
             @jax.shard_map(mesh=mesh, in_specs=specs, out_specs=specs)
-            def _sharded_transform(u):
+            def _sharded_transform(v):
                 # input has local shape (Nx, Ny, Nz/nz)
                 # FFT in x- and y-direction
-                u = opn(u, axes=(-3, -2))
+                v = opn(v, axes=(-3, -2))
                 # Transpose to (Nx/pz,Ny,Nz)
-                u = jax.lax.all_to_all(u, _z, -1, -3, tiled=True)
+                v = jax.lax.all_to_all(v, _z, -1, -3, tiled=True)
                 # FFT in y-direction
-                u = op(u, axis=-1)
+                v = op(v, axis=-1)
                 # Transpose back to (Nx,Ny,Nz/pz)
-                u = jax.lax.all_to_all(u, _z, -1, -3, tiled=True)
-                return u
+                v = jax.lax.all_to_all(v, _z, -1, -3, tiled=True)
+                return v
 
-        return _sharded_transform(x)
-
-
-def distributed_fft3(u):
-    return distributed_transform(u, op=jnp.fft.fft, opn=jnp.fft.fftn)
-
-
-def distributed_ifft3(u):
-    return distributed_transform(u, op=jnp.fft.ifft, opn=jnp.fft.ifftn)
+        return _sharded_transform(u)
 
 
 def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> jax.Array:
