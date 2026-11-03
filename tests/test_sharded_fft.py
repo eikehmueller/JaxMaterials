@@ -2,15 +2,43 @@ import numpy as np
 from jax import numpy as jnp
 import jax
 from jax.experimental.multihost_utils import process_allgather
-from jaxmaterials.common import get_grid_spec
+from jaxmaterials.common import GridSpec, get_grid_spec
 from jaxmaterials.solver.fourier import sharded_fft3
 import pytest
 
 jax.config.update("jax_enable_x64", True)
 
 
+def get_parallel_config(
+    parallel_decomposition: str,
+) -> tuple[GridSpec, jax.sharding.NamedSharding]:
+    """Return the specification of the grid, mesh and sharding
+
+    Parameters
+    ==========
+    parallel_decomposition : str
+        Type of decomposition, must be either "slab" or "pencil"
+
+    Returns
+    =======
+    tuple of grid specification sharding
+    """
+    if parallel_decomposition == "pencil":
+        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, px=2, py=3)
+        mesh = jax.make_mesh((2, 3), axis_names=("x", "y"))
+        sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
+    elif parallel_decomposition == "slab":
+        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, pz=6)
+        mesh = jax.make_mesh((6,), axis_names=("z",))
+        sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
+    else:
+        raise RuntimeError(f"Unknown parallel decomposition: {parallel_decomposition}")
+
+    return grid_spec, sharding
+
+
 def test_sequential():
-    """Test the FFT in sequential mode"""
+    """Check that for an unsharded array the FFT is the same as the jax native FFT"""
     grid_spec = get_grid_spec(nx=24, ny=12, nz=6)
     rng = np.random.default_rng(seed=52523)
     local_data = rng.normal(size=grid_spec.extents)
@@ -25,23 +53,19 @@ def test_sequential():
         < tolerance
     )
 
-    jax.distributed.shutdown()
 
+def test_inverse_sequential():
+    """Check that applying the FFT followed by its inverse returns the original array"""
+    grid_spec = get_grid_spec(nx=24, ny=12, nz=6)
+    rng = np.random.default_rng(seed=52523)
+    local_data = rng.normal(size=grid_spec.extents)
+    data = jnp.asarray(local_data)
 
-def get_parallel_config(parallel_decomposition):
-    """Return the specification of the grid, mesh and sharding"""
-    if parallel_decomposition == "pencil":
-        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, px=2, py=3)
-        mesh = jax.make_mesh((2, 3), axis_names=("x", "y"))
-        sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
-    elif parallel_decomposition == "slab":
-        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, pz=6)
-        mesh = jax.make_mesh((6,), axis_names=("z",))
-        sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
-    else:
-        raise RuntimeError(f"Unknown parallel decomposition: {parallel_decomposition}")
+    data_k = sharded_fft3(data, direction="forward")
+    data_transformed = jnp.real(sharded_fft3(data_k, direction="backward"))
 
-    return grid_spec, mesh, sharding
+    tolerance = 1.0e-12
+    assert jnp.linalg.norm(data - data_transformed) / jnp.linalg.norm(data) < tolerance
 
 
 @pytest.mark.parallel(nprocs=6)
@@ -50,8 +74,8 @@ def test_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
     jax.distributed.initialize()
 
-    grid_spec, mesh, sharding = get_parallel_config(parallel_decomposition)
-    jax.set_mesh(mesh)
+    grid_spec, sharding = get_parallel_config(parallel_decomposition)
+    jax.set_mesh(sharding.mesh)
 
     rng = np.random.default_rng(seed=52523 + jax.process_index())
     local_data = rng.normal(size=grid_spec.local_extents)
@@ -67,6 +91,36 @@ def test_distributed(parallel_decomposition):
     tolerance = 1.0e-12
     assert (
         jnp.linalg.norm(data_k - reference_data_k) / jnp.linalg.norm(reference_data_k)
+        < tolerance
+    )
+
+    jax.distributed.shutdown()
+
+
+@pytest.mark.parallel(nprocs=6)
+@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
+def test_inverse_distributed(parallel_decomposition):
+    """Test the FFT with slab- and pencil decomposition"""
+    jax.distributed.initialize()
+
+    grid_spec, sharding = get_parallel_config(parallel_decomposition)
+    jax.set_mesh(sharding.mesh)
+
+    rng = np.random.default_rng(seed=52523 + jax.process_index())
+    local_data = rng.normal(size=grid_spec.local_extents)
+    distributed_data = jax.make_array_from_process_local_data(
+        sharding, local_data, global_shape=grid_spec.extents
+    )
+
+    distributed_data_k = sharded_fft3(distributed_data, direction="forward")
+    distributed_data_transformed = jnp.real(
+        sharded_fft3(distributed_data_k, direction="backward")
+    )
+
+    tolerance = 1.0e-12
+    assert (
+        jnp.linalg.norm(distributed_data - distributed_data_transformed)
+        / jnp.linalg.norm(distributed_data)
         < tolerance
     )
 
