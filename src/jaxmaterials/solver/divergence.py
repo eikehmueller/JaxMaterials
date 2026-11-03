@@ -45,7 +45,7 @@ def relative_divergence(sigma: jax.Array, grid_spec: GridSpec) -> jax.Array:
     return dsigma_nrm / (jnp.sqrt(grid_spec.number_of_voxels) * sigma_avg_nrm)
 
 
-def relative_divergence_fourier(sigma_hat: jax.Array, xi: np.ndarray) -> jax.Array:
+def relative_divergence_fourier(sigma_hat: jax.Array, xi: jax.Array) -> jax.Array:
     """Relative divergence of stress :math:`\\sigma` in Fourier space
 
     Computes the ratio

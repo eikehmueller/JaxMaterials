@@ -134,7 +134,7 @@ def sharded_fft3(u: jax.Array, direction: str = "forward") -> jax.Array:
         return _sharded_transform(u)
 
 
-def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> jax.Array:
+def get_xi(grid_spec: GridSpec, dtype: jax.typing.DTypeLike = np.float64) -> jax.Array:
     """Construct un-normalised Fourier momentum vectors :math:`\\widetilde{\\boldsymbol{\\xi}}`
 
     Let :math:`\\boldsymbol{k} = (k_0,k_1,k_2)` with :math:`k_i = 0,1,...,N_i-1` be a three-dimensional Fourier index. The normalised momentum vector is :math:`\\xi_i = 2 \\pi k_i / N_i`, with :math:`0 \\le \\xi_i < 2\\pi`.
@@ -207,7 +207,7 @@ def get_xi(grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64) -> jax.
 
 
 def get_xizero(
-    grid_spec: GridSpec, dtype: np.typing.DTypeLike = np.float64
+    grid_spec: GridSpec, dtype: jax.typing.DTypeLike = np.float64
 ) -> jax.Array:
     """Construct the normalised Fourier momentum vectors :math:`\\mathring{\\widetilde{\\boldsymbol{\\xi}}}`
 
@@ -383,7 +383,7 @@ def get_inverse_anisotropic_acoustic_tensor(
 
 
 def fourier_solve_isotropic(
-    tau_hat: jax.Array, xizero: np.ndarray, ref_params: dict[str, float]
+    tau_hat: jax.Array, xizero: jax.Array, ref_params: dict[str, float]
 ) -> jax.Array:
     """Solve residual equation for homogeneous isotropic reference material in Fourier space
 
@@ -478,7 +478,7 @@ def fourier_solve_isotropic(
 
 
 def fourier_solve_anisotropic(
-    tau_hat: jax.Array, N_reference: jax.Array, xizero: np.ndarray
+    tau_hat: jax.Array, N_reference: jax.Array, xizero: jax.Array
 ) -> jax.Array:
     """Solve residual equation for homogeneous anisotropic reference material in Fourier space
 
