@@ -45,7 +45,7 @@ jobs:
       env:
           PYTEST_ADDOPTS: "--color=yes --disable-warnings"
       run: |
-        mpiexec -n 6 pytest -v -m 'parallel[match]' --capture=fd --cov=jaxmaterials
+        mpiexec --oversubscribe  -n 6 pytest -v -m 'parallel[match]' --capture=fd --cov=jaxmaterials
         echo ""
         echo "**** detailled log ****"
         echo ""
