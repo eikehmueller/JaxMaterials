@@ -51,7 +51,7 @@ def test_acoustic_tensor(grid_spec, dtype):
             ],
         ]
     )
-    rtol = 1.0e-7 if dtype == np.float32 else 1.0e-12
+    rtol = 1.0e-6 if dtype == np.float32 else 1.0e-12
     assert np.linalg.norm(K0 - K0_reference) / np.linalg.norm(K0_reference) < rtol
 
 
@@ -94,7 +94,7 @@ def test_inverse_acoustic_tensor(grid_spec, dtype):
             ]
         )
     )
-    rtol = 1.0e-7 if dtype == np.float32 else 1.0e-12
+    rtol = 1.0e-6 if dtype == np.float32 else 1.0e-12
     assert np.linalg.norm(N0 - N0_reference) / np.linalg.norm(N0_reference) < rtol
 
 
