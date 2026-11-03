@@ -44,7 +44,7 @@ def get_parallel_config(parallel_decomposition):
     return grid_spec, mesh, sharding
 
 
-@pytest.mark.mpi(ranks=6)
+@pytest.mark.parallel(nprocs=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
 def test_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""

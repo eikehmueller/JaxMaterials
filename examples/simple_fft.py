@@ -5,9 +5,9 @@ from jax.experimental.multihost_utils import process_allgather
 from jaxmaterials.common import get_grid_spec
 from jaxmaterials.solver.fourier import get_xizero, sharded_fft3
 
+jax.distributed.initialize()
 jax.config.update("jax_enable_x64", True)
 
-jax.distributed.initialize()
 rank = jax.process_index()
 if rank == 0:
     print(f"Running on {jax.process_count()} processes")

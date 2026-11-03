@@ -3,12 +3,13 @@ requires = ["setuptools >= 80.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "jaxmaterials"
-version = "1.0"
 dependencies = [
   "numpy",
-  "jax"
+  "jax",
+  "mpi-pytest"
 ]
+name = "jaxmaterials"
+version = "1.0"
 requires-python = ">=3.12"
 authors = [
   { name = "Eike Mueller", email = "e.mueller@bath.ac.uk" }

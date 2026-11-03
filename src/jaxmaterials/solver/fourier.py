@@ -124,7 +124,7 @@ def sharded_fft3(u: jax.Array, direction: str = "forward") -> jax.Array:
                 # FFT in x- and y-direction
                 v = opn(v, axes=(-3, -2))
                 # Transpose to (Nx/pz,Ny,Nz)
-                v = jax.lax.all_to_all(v, _z, -1, -3, tiled=True)
+                v = jax.lax.all_to_all(v, _z, -3, -1, tiled=True)
                 # FFT in y-direction
                 v = op(v, axis=-1)
                 # Transpose back to (Nx,Ny,Nz/pz)
