@@ -478,7 +478,7 @@ def fourier_solve_isotropic(
 
 
 def fourier_solve_anisotropic(
-    tau_hat: jax.Array, N_reference: np.ndarray, xizero: np.ndarray
+    tau_hat: jax.Array, N_reference: jax.Array, xizero: np.ndarray
 ) -> jax.Array:
     """Solve residual equation for homogeneous anisotropic reference material in Fourier space
 
