@@ -117,7 +117,7 @@ def perturbed_parameters(rng, params, delta=0.1):
 @pytest.fixture(scope="session")
 def jax_distributed():
     """Initialise JAX's distributed runtime once per (MPI) process"""
-    jax.distributed.initialize()
+    jax.distributed.initialize(cluster_detection_method="mpi4py")
     yield
     jax.distributed.shutdown()
 
