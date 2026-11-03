@@ -1,10 +1,10 @@
 """Fixtures and common functionality used by all tests"""
 
 import pytest
+import jax
 import numpy as np
-import pytest
 
-from jaxmaterials.common import get_grid_spec
+from jaxmaterials.common import GridSpec, get_grid_spec
 
 
 @pytest.fixture(params=[[64, 48, 32], [57, 43, 37]], ids=["even", "odd"])
@@ -112,3 +112,31 @@ def perturbed_parameters(rng, params, delta=0.1):
             ]
         ).astype(mu.dtype)
     }
+
+
+def get_parallel_gridspec(
+    parallel_decomposition: str,
+) -> tuple[GridSpec, jax.sharding.NamedSharding]:
+    """Return the specification of the grid and sharding
+
+    Parameters
+    ==========
+    parallel_decomposition : str
+        Type of decomposition, must be either "slab" or "pencil"
+
+    Returns
+    =======
+    tuple of grid specification sharding
+    """
+    if parallel_decomposition == "pencil":
+        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, px=2, py=3)
+        mesh = jax.make_mesh((2, 3), axis_names=("x", "y"))
+        sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
+    elif parallel_decomposition == "slab":
+        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, pz=6)
+        mesh = jax.make_mesh((6,), axis_names=("z",))
+        sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
+    else:
+        raise RuntimeError(f"Unknown parallel decomposition: {parallel_decomposition}")
+
+    return grid_spec, sharding

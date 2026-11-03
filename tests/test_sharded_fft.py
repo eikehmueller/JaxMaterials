@@ -2,39 +2,12 @@ import numpy as np
 from jax import numpy as jnp
 import jax
 from jax.experimental.multihost_utils import process_allgather
-from jaxmaterials.common import GridSpec, get_grid_spec
+from jaxmaterials.common import get_grid_spec
 from jaxmaterials.solver.fourier import sharded_fft3
 import pytest
+from fixtures import get_parallel_gridspec
 
 jax.config.update("jax_enable_x64", True)
-
-
-def get_parallel_config(
-    parallel_decomposition: str,
-) -> tuple[GridSpec, jax.sharding.NamedSharding]:
-    """Return the specification of the grid, mesh and sharding
-
-    Parameters
-    ==========
-    parallel_decomposition : str
-        Type of decomposition, must be either "slab" or "pencil"
-
-    Returns
-    =======
-    tuple of grid specification sharding
-    """
-    if parallel_decomposition == "pencil":
-        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, px=2, py=3)
-        mesh = jax.make_mesh((2, 3), axis_names=("x", "y"))
-        sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
-    elif parallel_decomposition == "slab":
-        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, pz=6)
-        mesh = jax.make_mesh((6,), axis_names=("z",))
-        sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
-    else:
-        raise RuntimeError(f"Unknown parallel decomposition: {parallel_decomposition}")
-
-    return grid_spec, sharding
 
 
 def test_sequential():
@@ -74,7 +47,7 @@ def test_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
     jax.distributed.initialize()
 
-    grid_spec, sharding = get_parallel_config(parallel_decomposition)
+    grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
     jax.set_mesh(sharding.mesh)
 
     rng = np.random.default_rng(seed=52523 + jax.process_index())
@@ -103,7 +76,7 @@ def test_inverse_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
     jax.distributed.initialize()
 
-    grid_spec, sharding = get_parallel_config(parallel_decomposition)
+    grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
     jax.set_mesh(sharding.mesh)
 
     rng = np.random.default_rng(seed=52523 + jax.process_index())
