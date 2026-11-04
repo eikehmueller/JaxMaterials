@@ -1,6 +1,7 @@
 # pytest configuration script
 # Generated with the help of ChatGPT, reviewed by Eike Mueller
 import pytest
+import jax
 
 OUTPUT_FILE = "testoutput.txt"
 
@@ -18,3 +19,7 @@ def pytest_runtest_logreport(report):
         with open(OUTPUT_FILE, "a") as f:
             f.write(f"\n==== {report.nodeid} : {outcome} ====\n")
             f.write(report.capstdout)
+
+
+def pytest_configure(config):
+    jax.config.update("jax_platforms", "cpu")

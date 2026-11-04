@@ -11,8 +11,10 @@ from fixtures import (
     perturbed_parameters,
     reference_parameters,
     rng,
+    get_parallel_gridspec,
 )
 from jax import numpy as jnp
+from jax.experimental.multihost_utils import process_allgather
 
 from jaxmaterials.solver._backend import _lippmann_schwinger_jax
 from jaxmaterials.solver.divergence import relative_divergence
@@ -152,6 +154,74 @@ def test_anisotropic_solve(grid_spec, rng, depth, dtype):
         < tol
     )
     assert abs(its_isotropic - its_anisotropic) <= 1
+
+
+@pytest.mark.parallel(nprocs=6)
+@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
+@pytest.mark.parametrize("depth", [0])  # , 2, 4])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_distributed_solve(rng, parallel_decomposition, depth, dtype):
+    """Verify that the solver works when run in a distributed memory configuration
+
+    Compare the results of a sequential run and a run on 6 cores in a distributed
+    memory configuration.
+
+    :arg depth: depth of Anderson acceleration
+    :arg dtype: data type (single or double precision)
+    :arg rng: random number generator
+    """
+    try:
+        jax.distributed.initialize(cluster_detection_method="mpi4py")
+
+        tol = 1.0e-5 if dtype == np.float32 else 1.0e-12
+        epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+        grid_spec_sequential, _ = get_parallel_gridspec(None)
+        params_sequential = initialise_isotropic_material(
+            grid_spec_sequential, rng, dtype
+        )
+
+        # ==== Sequential run ====
+        epsilon_sequential, sigma_sequential = lippmann_schwinger_isotropic(
+            params_sequential,
+            epsilon_bar,
+            grid_spec_sequential,
+            tol=tol,
+            depth=depth,
+            verbose=1,
+        )
+        grid_spec_distributed, sharding = get_parallel_gridspec(parallel_decomposition)
+        # ==== Parallel run ====
+        with jax.set_mesh(sharding.mesh):
+            params_distributed = {
+                key: jax.make_array_from_callback(
+                    value.shape, sharding, lambda index, value=value: value[index]
+                )
+                for key, value in params_sequential.items()
+            }
+            epsilon_distributed, sigma_distributed = lippmann_schwinger_isotropic(
+                params_distributed,
+                epsilon_bar,
+                grid_spec_distributed,
+                tol=tol,
+                depth=depth,
+                verbose=1,
+            )
+            epsilon = process_allgather(epsilon_distributed, tiled=True)
+            sigma = process_allgather(sigma_distributed, tiled=True)
+
+        assert not epsilon_distributed.is_fully_addressable
+        assert not sigma_distributed.is_fully_addressable
+        assert (
+            np.linalg.norm(epsilon - epsilon_sequential)
+            / np.linalg.norm(epsilon_sequential)
+            < tol
+        )
+        assert (
+            np.linalg.norm(sigma - sigma_sequential) / np.linalg.norm(sigma_sequential)
+            < tol
+        )
+    finally:
+        jax.distributed.shutdown()
 
 
 @pytest.mark.parametrize("depth", [0, 2, 4])

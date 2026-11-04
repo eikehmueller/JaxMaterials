@@ -45,53 +45,62 @@ def test_inverse_sequential():
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
 def test_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
-    jax.distributed.initialize(cluster_detection_method="mpi4py")
+    try:
+        jax.distributed.initialize(cluster_detection_method="mpi4py")
+        grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
+        jax.set_mesh(sharding.mesh)
 
-    grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
-    jax.set_mesh(sharding.mesh)
+        rng = np.random.default_rng(seed=52523 + jax.process_index())
+        local_data = rng.normal(size=grid_spec.local_extents)
+        distributed_data = jax.make_array_from_process_local_data(
+            sharding, local_data, global_shape=grid_spec.extents
+        )
 
-    rng = np.random.default_rng(seed=52523 + jax.process_index())
-    local_data = rng.normal(size=grid_spec.local_extents)
-    distributed_data = jax.make_array_from_process_local_data(
-        sharding, local_data, global_shape=grid_spec.extents
-    )
+        distributed_data_k = sharded_fft3(distributed_data, direction="forward")
+        data_k = process_allgather(distributed_data_k, tiled=True)
+        data = process_allgather(distributed_data, tiled=True)
 
-    distributed_data_k = sharded_fft3(distributed_data, direction="forward")
-    data_k = process_allgather(distributed_data_k, tiled=True)
-    data = process_allgather(distributed_data, tiled=True)
-
-    reference_data_k = jnp.fft.fftn(data, axes=(2, 1, 0))
-    tolerance = 1.0e-12
-    assert (
-        jnp.linalg.norm(data_k - reference_data_k) / jnp.linalg.norm(reference_data_k)
-        < tolerance
-    )
-    jax.distributed.shutdown()
+        reference_data_k = jnp.fft.fftn(data, axes=(2, 1, 0))
+        tolerance = 1.0e-12
+        assert not distributed_data.is_fully_addressable
+        assert not distributed_data_k.is_fully_addressable
+        assert (
+            jnp.linalg.norm(data_k - reference_data_k)
+            / jnp.linalg.norm(reference_data_k)
+            < tolerance
+        )
+    finally:
+        jax.distributed.shutdown()
 
 
 @pytest.mark.parallel(nprocs=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
 def test_inverse_distributed(parallel_decomposition):
     """Test the FFT with slab- and pencil decomposition"""
-    jax.distributed.initialize(cluster_detection_method="mpi4py")
-    grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
-    jax.set_mesh(sharding.mesh)
+    try:
+        jax.distributed.initialize(cluster_detection_method="mpi4py")
+        grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
+        jax.set_mesh(sharding.mesh)
 
-    rng = np.random.default_rng(seed=52523 + jax.process_index())
-    local_data = rng.normal(size=grid_spec.local_extents)
-    distributed_data = jax.make_array_from_process_local_data(
-        sharding, local_data, global_shape=grid_spec.extents
-    )
+        rng = np.random.default_rng(seed=52523 + jax.process_index())
+        local_data = rng.normal(size=grid_spec.local_extents)
+        distributed_data = jax.make_array_from_process_local_data(
+            sharding, local_data, global_shape=grid_spec.extents
+        )
 
-    distributed_data_k = sharded_fft3(distributed_data, direction="forward")
-    distributed_data_transformed = jnp.real(
-        sharded_fft3(distributed_data_k, direction="backward")
-    )
+        distributed_data_k = sharded_fft3(distributed_data, direction="forward")
+        distributed_data_transformed = jnp.real(
+            sharded_fft3(distributed_data_k, direction="backward")
+        )
 
-    tolerance = 1.0e-12
-    assert (
-        jnp.linalg.norm(distributed_data - distributed_data_transformed)
-        / jnp.linalg.norm(distributed_data)
-        < tolerance
-    )
-    jax.distributed.shutdown()
+        tolerance = 1.0e-12
+        assert not distributed_data.is_fully_addressable
+        assert not distributed_data_k.is_fully_addressable
+        assert not distributed_data_transformed.is_fully_addressable
+        assert (
+            jnp.linalg.norm(distributed_data - distributed_data_transformed)
+            / jnp.linalg.norm(distributed_data)
+            < tolerance
+        )
+    finally:
+        jax.distributed.shutdown()

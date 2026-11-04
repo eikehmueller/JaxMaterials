@@ -115,14 +115,14 @@ def perturbed_parameters(rng, params, delta=0.1):
 
 
 def get_parallel_gridspec(
-    parallel_decomposition: str,
+    parallel_decomposition: str | None,
 ) -> tuple[GridSpec, jax.sharding.NamedSharding]:
     """Return the specification of the grid and sharding
 
     Parameters
     ==========
-    parallel_decomposition : str
-        Type of decomposition, must be either "slab" or "pencil"
+    parallel_decomposition : str | None
+        Type of decomposition, must be either "slab", "pencil" or None
 
     Returns
     =======
@@ -136,6 +136,9 @@ def get_parallel_gridspec(
         grid_spec = get_grid_spec(nx=24, ny=12, nz=6, pz=6)
         mesh = jax.make_mesh((6,), axis_names=("z",))
         sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
+    elif parallel_decomposition is None:
+        grid_spec = get_grid_spec(nx=24, ny=12, nz=6)
+        sharding = None
     else:
         raise RuntimeError(f"Unknown parallel decomposition: {parallel_decomposition}")
 
