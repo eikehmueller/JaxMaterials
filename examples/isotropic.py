@@ -10,35 +10,19 @@ from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
 
 jax.config.update("jax_enable_x64", True)
 
-jax.distributed.initialize()
-
 
 # Construct specifications of computational grid
 nx = 48
 ny = 48
 nz = 24
 
-px = 2
-py = 3
-
-
-grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz, px=px, py=py)
-
-mesh = jax.make_mesh((px, py), axis_names=("x", "y"))
-sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
-jax.set_mesh(mesh)
+grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz)
 
 # Create random Lame parameters mu, lambda and mean strain vector epsilon_bar
 rng = np.random.default_rng(seed=47273)
 
-local_mu = rng.uniform(low=0.8, high=1.1, size=grid_spec.local_extents)
-local_lmbda = rng.uniform(low=0.6, high=0.7, size=grid_spec.local_extents)
-mu = jax.make_array_from_process_local_data(
-    sharding, local_mu, global_shape=grid_spec.extents
-)
-lmbda = jax.make_array_from_process_local_data(
-    sharding, local_lmbda, global_shape=grid_spec.extents
-)
+mu = rng.uniform(low=0.8, high=1.1, size=grid_spec.extents)
+lmbda = rng.uniform(low=0.6, high=0.7, size=grid_spec.extents)
 
 params = {"lambda": lmbda, "mu": mu}
 
@@ -58,5 +42,3 @@ def loss_fn(params, epsilon_bar):
 
 grad_fn = jax.grad(loss_fn, argnums=(0, 1))
 g_params, g_epsilon_bar = grad_fn(params, epsilon_bar)
-
-jax.distributed.shutdown()

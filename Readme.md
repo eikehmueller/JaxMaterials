@@ -84,7 +84,7 @@ nx = 32
 ny = 32
 nz = 16
 
-grid_spec = GridSpec(nx, ny, nz, Lx=1.0, Ly=1.0, Lz=0.5)
+grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz)
 ```
 
 ### Forward solve
@@ -95,8 +95,8 @@ The forward solve for given random Lame parameters $\mu$, $\lambda$ and mean str
 ```Python
 rng = np.random.default_rng(seed=47273)
 
-mu = rng.uniform(low=0.8, high=1.1, size=(nx, ny, nz)).astype(np.float32)
-lmbda = rng.uniform(low=0.6, high=0.7, size=(nx, ny, nz)).astype(np.float32)
+mu = rng.uniform(low=0.8, high=1.1, size=grid_spec.extents).astype(np.float32)
+lmbda = rng.uniform(low=0.6, high=0.7, size=grid_spec.extents).astype(np.float32)
 params = {"lambda": lmbda, "mu": mu}
 epsilon_bar = rng.normal(size=6).astype(np.float32)
 
@@ -117,7 +117,7 @@ def compute_sigma(epsilon, params):
     """
     tr_epsilon = epsilon[0, ...] + epsilon[1, ...] + epsilon[2, ...]
     sigma = 2 * params["mu"] * epsilon + params["lambda"] * jnp.stack(
-        3 * [tr_epsilon] + 3 * [jnp.zeros(epsilon.shape[-3:], dtype=epsilon.dtype)]
+        3 * [tr_epsilon] + 3 * [jnp.zeros_like(epsilon[0, ...])]
     )
     return sigma
 ```
@@ -168,6 +168,65 @@ def loss_fn(params, epsilon_bar):
 
 grad_fn = jax.grad(loss_fn, argnums=(0, 1))
 g_params, g_epsilon_bar = grad_fn(params, epsilon_bar)
+```
+
+### Distributed memory
+The code can be run in parallel across different devices with separate memory spaces. As in the [JaxDecomp](https://jaxdecomp.readthedocs.io/en/latest/#) library described in [Kabalan, Lanusse, Boucaud and Aubourg, 2026. Journal of Open Source Software, 11(121), p.8852.](https://joss.theoj.org/papers/10.21105/joss.08852), the global computational grid of size $n_x\times n_y\times n_z$ can be partitioned in two ways:
+
+* **Stencil mode**: the local grids are of size
+  $$\frac{n_x}{p_x}\times \frac{n_y}{p_y}\times n_z$$
+  ```Python
+  grid_spec = GridSpec(nx=nx, ny=ny, nz=nz, px=px, py=py)
+  mesh = jax.make_mesh((px, py), axis_names=("x", "y"))
+  sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
+  ```
+* **Slab mode**: the local grids are of size
+  $$n_x\times n_y\times \frac{n_z}{p_z}$$
+  ```Python
+  grid_spec = GridSpec(nx=nx, ny=ny, nz=nz, pz=pz)
+  mesh = jax.make_mesh((pz,), axis_names=("y",))
+  sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
+  ```
+
+Obviously, the total number of MPI ranks needs to be either $p=p_x\cdot p_y$ (in stencil mode) or $p=p_z$ (in slab mode). The number of voxels in each direction also needs to be divisible by the corresponding number processors. Since then data is transposed during the Fourier transforms, in addition $n_z$ needs to be divisible by both $p_x$ and $p_y$ in stencil mode and $p_x$ needs to be divisible by $p_z$ in slab mode.
+
+The code can then be used in exactly the same way, but it is up to the user to provide the correct sharding of the input parameters. For example, for an isotropic material and set the active mesh to the one constructed above:
+
+```Python
+# Create global Lame parameters
+rng = np.random.default_rng(seed=47273)
+mu_global = rng.uniform(low=0.8, high=1.1, size=grid_spec.extents).astype(np.float32)
+lmbda_global = rng.uniform(low=0.6, high=0.7, size=grid_spec.extents).astype(np.float32)
+params_global = {"mu": mu_global, "lambda": lmbda_global}
+
+with jax.set_mesh(mesh):
+    # Distribute to different processes
+    params = {
+        key: jax.make_array_from_callback(
+            value.shape, sharding, lambda index, value=value: value[index]
+        )
+        for key, value in params_global.items()
+    }
+
+    # Forward solve
+    epsilon, sigma = lippmann_schwinger_isotropic(
+        params, epsilon_bar, grid_spec, verbose=2
+    )
+```
+
+The resulting strain `epsilon` and stress `sigma` will also be distributed across the devices and (if this is required) can be gathered with
+
+```Python
+from jax.experimental.multihost_utils import process_allgather
+
+epsilon_global = process_allgather(epsilon, tiled=True)
+sigma_global = process_allgather(sigma, tiled=True)
+```
+
+The user also needs to ensure that the distributed Jax environment is set up at the beginning of the run with `jax.distributed.initialize()` and shut down at the end with `jax.distributed.shutdown()`. The code can then be run with
+
+```
+mpiexec -n p script.py
 ```
 
 ## Contents
