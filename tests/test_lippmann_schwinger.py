@@ -158,7 +158,7 @@ def test_anisotropic_solve(grid_spec, rng, depth, dtype):
 
 @pytest.mark.parallel(nprocs=6)
 @pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-@pytest.mark.parametrize("depth", [0])  # , 2, 4])
+@pytest.mark.parametrize("depth", [0, 2, 4])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_distributed_solve(rng, parallel_decomposition, depth, dtype):
     """Verify that the solver works when run in a distributed memory configuration

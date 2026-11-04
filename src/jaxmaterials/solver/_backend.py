@@ -273,6 +273,7 @@ def _lippmann_schwinger_jax(
                     jnp.astype(r, jnp.float64),
                     jnp.astype(residual, jnp.float64),
                     dotproduct_scaling,
+                    out_sharding=None if mesh.empty else jax.P(None),
                 )
             )
             A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
@@ -501,6 +502,7 @@ def _lippmann_schwinger_adjoint_jax(
                     jnp.astype(r, jnp.float64),
                     jnp.astype(residual, jnp.float64),
                     dotproduct_scaling,
+                    out_sharding=None if mesh.empty else jax.P(None),
                 )
             )
             A_anderson = A_anderson.at[:, 0].set(A_anderson[0, :])
