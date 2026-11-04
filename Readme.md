@@ -188,7 +188,7 @@ The code can be run in parallel across different devices with separate memory sp
   sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
   ```
 
-Obviously, the total number of MPI ranks needs to be either $p=p_x\cdot p_y$ (in stencil mode) or $p=p_z$ (in slab mode). The number of voxels in each direction also needs to be divisible by the corresponding number processors. Since then data is transposed during the Fourier transforms, in addition $n_z$ needs to be divisible by both $p_x$ and $p_y$ in stencil mode and $p_x$ needs to be divisible by $p_z$ in slab mode.
+Obviously, the total number of MPI ranks needs to be either $P=p_x\cdot p_y$ (in stencil mode) or $P=p_z$ (in slab mode). The number of voxels in each direction also needs to be divisible by the corresponding number processors. Since then data is transposed during the Fourier transforms, in addition $n_z$ needs to be divisible by both $p_x$ and $p_y$ in stencil mode and $p_x$ needs to be divisible by $p_z$ in slab mode.
 
 The code can then be used in exactly the same way, but it is up to the user to provide the correct sharding of the input parameters. For example, for an isotropic material and set the active mesh to the one constructed above:
 
@@ -223,10 +223,10 @@ epsilon_global = process_allgather(epsilon, tiled=True)
 sigma_global = process_allgather(sigma, tiled=True)
 ```
 
-The user also needs to ensure that the distributed Jax environment is set up at the beginning of the run with `jax.distributed.initialize()` and shut down at the end with `jax.distributed.shutdown()`. The code can then be run with
+The user also needs to ensure that the distributed Jax environment is set up at the beginning of the run with `jax.distributed.initialize()` and shut down at the end with `jax.distributed.shutdown()`. The code can then be run on $P$ processes with
 
 ```
-mpiexec -n p script.py
+mpiexec -n P script.py
 ```
 
 ## Contents
