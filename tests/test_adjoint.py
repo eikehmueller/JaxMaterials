@@ -10,8 +10,10 @@ from fixtures import (
     perturbed_parameters,
     reference_parameters,
     rng,
+    get_parallel_gridspec,
 )
 from jax import numpy as jnp
+from jax.experimental.multihost_utils import process_allgather
 from jax.test_util import check_vjp
 
 from jaxmaterials.solver._backend import (
@@ -364,3 +366,78 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
         np.linalg.norm(x - y) / np.linalg.norm(y) < rtol
         for x, y in zip(jax.tree.flatten(g_adjoint)[0], jax.tree.flatten(g_autodiff)[0])
     )
+
+
+@pytest.mark.parallel(nprocs=6)
+@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
+@pytest.mark.parametrize("depth", [0, 2, 4])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_distributed(rng, parallel_decomposition, depth, dtype):
+    """Verify that the adjoint computation works when run in a distributed memory configuration
+
+    Compare the results of a sequential run and a run on 6 cores in a distributed
+    memory configuration.
+
+    :arg rng: random number generator
+    :arg parallel_decomposition: type of parallel decomposition, must be "slab" or "pencil"
+    :arg depth: depth of Anderson acceleration
+    :arg dtype: data type (single or double precision)
+    """
+    try:
+        jax.distributed.initialize(cluster_detection_method="mpi4py")
+
+        tol = 1.0e-4 if dtype == np.float32 else 1.0e-12
+        epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
+        grid_spec_sequential, _ = get_parallel_gridspec(None)
+        params_sequential = initialise_isotropic_material(
+            grid_spec_sequential, rng, dtype
+        )
+
+        def loss_fn(params, epsilon_bar, grid_spec):
+            epsilon, sigma = lippmann_schwinger_isotropic(
+                params,
+                epsilon_bar,
+                grid_spec=grid_spec,
+                tol=0.1 * tol,
+                depth=depth,
+                verbose=1,
+            )
+            return jnp.sum(epsilon**2 + sigma**2)
+
+        # ==== Sequential run ====
+        grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+        g_params_sequential, g_epsilon_bar_sequential = grad_fn(
+            params_sequential, epsilon_bar, grid_spec_sequential
+        )
+
+        # ==== Parallel run ====
+        grid_spec_distributed, sharding = get_parallel_gridspec(parallel_decomposition)
+        with jax.set_mesh(sharding.mesh):
+            params_distributed = {
+                key: jax.make_array_from_callback(
+                    value.shape, sharding, lambda index, value=value: value[index]
+                )
+                for key, value in params_sequential.items()
+            }
+            grad_fn = jax.grad(loss_fn, argnums=(0, 1))
+            g_params_distributed, g_epsilon_bar = grad_fn(
+                params_distributed, epsilon_bar, grid_spec_distributed
+            )
+            g_params = process_allgather(g_params_distributed, tiled=True)
+
+        # Verify that gradients are in fact distributed
+        for g in g_params_distributed.values():
+            assert not g.is_fully_addressable
+        assert (
+            np.linalg.norm(g_epsilon_bar_sequential - g_epsilon_bar)
+            / np.linalg.norm(g_epsilon_bar_sequential)
+            < tol
+        )
+        for key in ("mu", "lambda"):
+            assert (
+                np.linalg.norm(g_params_sequential[key] - g_params[key])
+                / np.linalg.norm(g_params_sequential[key])
+                < tol
+            )
+    finally:
+        jax.distributed.shutdown()
