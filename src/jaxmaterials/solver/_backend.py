@@ -29,6 +29,27 @@ __all__ = ["solve"]
 type PyTree = Any
 
 
+def _print_on_master(fmt: str, *args: Any) -> None:
+    """Print on master process only
+
+    Parameters
+    ==========
+    fmt : str
+        Format string
+    *args : Any
+        values to be printed
+    ordered : bool
+        print ordered?
+    """
+
+    def _print_callback(*values: Any) -> None:
+        if jax.process_index() == 0:
+            print(fmt.format(*values), flush=True)
+
+    mesh = jax.sharding.get_abstract_mesh()
+    jax.debug.callback(ordered=mesh.empty)(_print_callback, *args)
+
+
 def _raise_if_not_converged(label: str, its: int, maxits: int) -> None:
     """Callback for raising exception if solver has not converged
 
@@ -65,7 +86,9 @@ def _print_if_converged_or_stopped(
     """
     action = "converged" if dynamic_stopping else "stopped"
     if its < maxits or not (dynamic_stopping):
-        print(f"JAX {label} solver {action} after {its:6d} of {maxits:6d} iterations")
+        _print_on_master(
+            f"JAX {label} solver {action} after {its:6d} of {maxits:6d} iterations"
+        )
 
 
 @jax.jit(
@@ -174,13 +197,10 @@ def _lippmann_schwinger_jax(
     rel_error_0 = rel_error
     mesh = jax.sharding.get_abstract_mesh()
     if verbose > 1:
-        jax.debug.print(
+        _print_on_master(
+            "{}\n{}",
             "==== JAX forward solve ====",
-            ordered=mesh.empty,
-        )
-        jax.debug.print(
             "  iteration  E = ||div(sigma)||/||sigma||  E/E_0",
-            ordered=mesh.empty,
         )
 
     def exit_condition(
@@ -220,12 +240,11 @@ def _lippmann_schwinger_jax(
         """
         its, rel_error = state[-2:]
         if verbose > 1:
-            jax.debug.print(
+            _print_on_master(
                 "  {:6d}  {:8.2e}  {:8.2e}",
                 its,
                 rel_error,
                 rel_error / (rel_error_0 + 1.0e-20),
-                ordered=mesh.empty,
             )
 
         return (rel_error > atol) & (rel_error > rtol * rel_error_0) & (its < maxits)
@@ -315,11 +334,10 @@ def _lippmann_schwinger_jax(
         jax.debug.callback(
             _print_if_converged_or_stopped, "forward", its, maxits, dynamic_stopping
         )
-        jax.debug.print(
+        _print_on_master(
             "E = ||div(sigma)||/||sigma|| = {:8.2e} E/E_0 = {:8.2e}",
             rel_error,
             rel_error / (rel_error_0 + 1.0e-20),
-            ordered=mesh.empty,
         )
     if dynamic_stopping:
         jax.debug.callback(_raise_if_not_converged, "forward", its, maxits)
@@ -423,13 +441,10 @@ def _lippmann_schwinger_adjoint_jax(
     increment_nrm = jnp.linalg.norm(Lambda)
     mesh = jax.sharding.get_abstract_mesh()
     if verbose > 1:
-        jax.debug.print(
+        _print_on_master(
+            "{}\n{}",
             "==== JAX adjoint solve ====",
-            ordered=mesh.empty,
-        )
-        jax.debug.print(
             "  iteration  E = ||delta(Lambda)||  ||delta(Lambda)||/||Lambda||",
-            ordered=mesh.empty,
         )
 
     def exit_condition(
@@ -454,14 +469,13 @@ def _lippmann_schwinger_adjoint_jax(
         Lambda = state[0]
         increment_nrm = state[4]
         its = state[5]
-        nrm = jnp.linalg.norm(Lambda[0, ...])
         if verbose > 1:
-            jax.debug.print(
+            nrm = jnp.linalg.norm(Lambda[0, ...])
+            _print_on_master(
                 "  {:6d}  {:8.2e}  {:8.2e}",
                 its,
                 increment_nrm,
                 increment_nrm / (nrm + 1.0e-20),
-                ordered=mesh.empty,
             )
 
         return (increment_nrm > atol) & (increment_nrm > rtol * nrm) & (its < maxits)
@@ -536,28 +550,25 @@ def _lippmann_schwinger_adjoint_jax(
 
     Lambda = loop_result[0][0]
     increment_nrm, its = loop_result[-2:]
+    nrm = jnp.linalg.norm(Lambda)
     if verbose > 0:
-        nrm = jnp.linalg.norm(Lambda)
         if dynamic_stopping:
-            jax.debug.print(
+            _print_on_master(
                 "JAX adjoint solve: {:6d} of {:6d} iterations, converged = {:}",
                 its,
                 maxits,
                 its < maxits,
-                ordered=mesh.empty,
             )
         else:
-            jax.debug.print(
+            _print_on_master(
                 "JAX adjoint solve stopped after {:6d} of {:6d} iterations",
                 its,
                 maxits,
-                ordered=mesh.empty,
             )
-        jax.debug.print(
+        _print_on_master(
             "||delta(Lambda)|| = {:8.2e} ||delta(Lambda)||/||Lambda|| = {:8.2e}",
             increment_nrm,
             increment_nrm / (nrm + 1.0e-20),
-            ordered=mesh.empty,
         )
     if dynamic_stopping:
         Lambda = jnp.where(its >= maxits, jnp.full_like(Lambda, jnp.nan), Lambda)
