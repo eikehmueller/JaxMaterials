@@ -469,8 +469,8 @@ def _lippmann_schwinger_adjoint_jax(
         Lambda = state[0]
         increment_nrm = state[4]
         its = state[5]
+        nrm = jnp.linalg.norm(Lambda[0, ...])
         if verbose > 1:
-            nrm = jnp.linalg.norm(Lambda[0, ...])
             _print_on_master(
                 "  {:6d}  {:8.2e}  {:8.2e}",
                 its,
