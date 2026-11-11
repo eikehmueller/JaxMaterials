@@ -1,0 +1,27 @@
+#!/bin/bash
+#SBATCH --account=VB-MA5HPC-011
+#SBATCH --job-name=cuda_build
+#SBATCH --output=cuda_build.%j.o
+#SBATCH --error=cuda_build.%j.e
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --partition=spot-nva-12
+#SBATCH --qos=spot-nva-12
+#SBATCH --time=00:05:00
+#SBATCH --gres=gpu:1
+#SBATCH --chdir=/shared/home/em459/git_workspace/jaxmaterials/cuda
+
+export OMP_NUM_THREADS=1
+
+source /apps/build/easy_build/scripts/id_instance.sh
+source /apps/build/easy_build/scripts/setup_modules.sh
+module load CUDA/12.8.0
+module load googletest
+module load CMake
+cmake -B build \
+    -DCMAKE_CUDA_ARCHITECTURES=86 \
+    -DGTest_DIR=/shared/home/em459/Software/gtest/lib64/cmake/GTest
+cmake --build build
+nvidia-smi
+./build/bin/test
+
