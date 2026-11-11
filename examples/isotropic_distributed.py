@@ -15,7 +15,7 @@ from jaxmaterials.solver.lippmann_schwinger import lippmann_schwinger_isotropic
 
 jax.config.update("jax_enable_x64", True)
 
-jax.distributed.initialize()
+jax.distributed.initialize(cluster_detection_method="mpi4py")
 
 # Construct specifications of computational grid
 nx = 48
@@ -28,7 +28,13 @@ py = 3
 
 grid_spec = GridSpec(Lx=1.0, Ly=1.0, Lz=0.5, nx=nx, ny=ny, nz=nz, px=px, py=py)
 
-mesh = jax.make_mesh((px, py), axis_names=("x", "y"))
+mesh = jax.sharding.Mesh(
+    np.array(jax.devices()).reshape(px, py),
+    axis_names=("x", "y"),
+    axis_types=(jax.sharding.AxisType.Explicit,) * 2,
+)
+
+
 sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
 
 # Create random Lame parameters mu, lambda and mean strain vector epsilon_bar
