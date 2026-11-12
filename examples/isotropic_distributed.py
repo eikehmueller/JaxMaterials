@@ -38,20 +38,29 @@ mesh = jax.sharding.Mesh(
 sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
 
 # Create random Lame parameters mu, lambda and mean strain vector epsilon_bar
-rng = np.random.default_rng(seed=47273)
-
-mu = rng.uniform(low=0.8, high=1.1, size=grid_spec.extents)
-lmbda = rng.uniform(low=0.6, high=0.7, size=grid_spec.extents)
 
 with jax.set_mesh(mesh):
+    rank = jax.process_index()
+    rng_local = np.random.default_rng(rank + 47273)
     params = {
-        key: jax.make_array_from_callback(
-            value.shape, sharding, lambda index, value=value: value[index]
-        )
-        for key, value in [["lambda", lmbda], ["mu", mu]]
+        "mu": jax.make_array_from_callback(
+            grid_spec.extents,
+            sharding,
+            lambda _: rng_local.uniform(
+                low=0.8, high=1.1, size=grid_spec.local_extents
+            ),
+        ),
+        "lambda": jax.make_array_from_callback(
+            grid_spec.extents,
+            sharding,
+            lambda _: rng_local.uniform(
+                low=0.6, high=0.7, size=grid_spec.local_extents
+            ),
+        ),
     }
 
-    epsilon_bar = rng.normal(size=6)
+    rng_global = np.random.default_rng(47273)
+    epsilon_bar = rng_global.normal(size=6)
 
     # forward solve
     epsilon, sigma = lippmann_schwinger_isotropic(
