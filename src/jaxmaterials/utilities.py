@@ -5,6 +5,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Any
 
+import jax
 import numpy as np
 
 from jaxmaterials.common import GridSpec
@@ -51,7 +52,8 @@ def measure_time(
 
     if timings:
         t_elapsed = (timings[1] - timings[0]) / repeat
-        print(f"time [{label}] = {t_elapsed:8.3f} s")
+        if jax.process_index() == 0
+            print(f"time [{label}] = {t_elapsed:8.3f} s")
 
 
 def save_to_vtk(
