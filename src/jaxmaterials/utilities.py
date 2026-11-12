@@ -52,7 +52,7 @@ def measure_time(
 
     if timings:
         t_elapsed = (timings[1] - timings[0]) / repeat
-        if jax.process_index() == 0
+        if jax.process_index() == 0:
             print(f"time [{label}] = {t_elapsed:8.3f} s")
 
 
