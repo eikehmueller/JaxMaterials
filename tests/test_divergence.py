@@ -52,7 +52,7 @@ def test_relative_divergence_sharded(parallel_decomposition, rng):
         sigma = jax.make_array_from_process_local_data(
             sigma_sharding, local_sigma, global_shape=(6, *grid_spec.extents)
         )
-        sigma_hat = sharded_fft3(sigma, direction="forward")
+        sigma_hat = sharded_fft3(sigma)
 
         rel_div_real = relative_divergence(
             process_allgather(sigma, tiled=True), grid_spec

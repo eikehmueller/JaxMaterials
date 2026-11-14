@@ -3,7 +3,7 @@ from jax import numpy as jnp
 import jax
 from jax.experimental.multihost_utils import process_allgather
 from jaxmaterials.common import get_grid_spec
-from jaxmaterials.solver.fourier import sharded_fft3
+from jaxmaterials.solver.fourier import sharded_fft3, sharded_ifft3
 import pytest
 from fixtures import get_parallel_gridspec
 
@@ -17,7 +17,7 @@ def test_sequential():
     local_data = rng.normal(size=grid_spec.extents)
     data = jnp.asarray(local_data)
 
-    data_k = sharded_fft3(data, direction="forward")
+    data_k = sharded_fft3(data)
 
     reference_data_k = jnp.fft.fftn(data, axes=(2, 1, 0))
     tolerance = 1.0e-12
@@ -34,8 +34,8 @@ def test_inverse_sequential():
     local_data = rng.normal(size=grid_spec.extents)
     data = jnp.asarray(local_data)
 
-    data_k = sharded_fft3(data, direction="forward")
-    data_transformed = jnp.real(sharded_fft3(data_k, direction="backward"))
+    data_k = sharded_fft3(data)
+    data_transformed = jnp.real(sharded_ifft3(data_k))
 
     tolerance = 1.0e-12
     assert jnp.linalg.norm(data - data_transformed) / jnp.linalg.norm(data) < tolerance
@@ -56,7 +56,7 @@ def test_distributed(parallel_decomposition):
             sharding, local_data, global_shape=grid_spec.extents
         )
 
-        distributed_data_k = sharded_fft3(distributed_data, direction="forward")
+        distributed_data_k = sharded_fft3(distributed_data)
         data_k = process_allgather(distributed_data_k, tiled=True)
         data = process_allgather(distributed_data, tiled=True)
 
@@ -88,10 +88,8 @@ def test_inverse_distributed(parallel_decomposition):
             sharding, local_data, global_shape=grid_spec.extents
         )
 
-        distributed_data_k = sharded_fft3(distributed_data, direction="forward")
-        distributed_data_transformed = jnp.real(
-            sharded_fft3(distributed_data_k, direction="backward")
-        )
+        distributed_data_k = sharded_fft3(distributed_data)
+        distributed_data_transformed = jnp.real(sharded_ifft3(distributed_data_k))
 
         tolerance = 1.0e-12
         assert not distributed_data.is_fully_addressable
