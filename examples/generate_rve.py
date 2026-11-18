@@ -63,6 +63,39 @@ def saveVolvtk_amitex(
         data.ravel(order="F").astype(numpy_type, copy=False).tofile(stream)
 
 
+def generate_fibre_distribution(filename):
+    file_path = Path(filename)
+    if not file_path.exists():
+        scale = 4
+        r_avg = scale * 7.5e-3
+        r_min = scale * 5.0e-3
+        r_max = scale * 10.0e-3
+        sigma = scale * 0.5e-3
+        volume_fraction = 0.3
+        radius_distribution = FibreRadiusDistribution(
+            r_avg=r_avg, r_min=r_min, r_max=r_max, sigma=sigma, gaussian=True
+        )
+        fibre_distribution_2d = FibreDistribution2d(
+            domain_size=[grid_spec.Lx, grid_spec.Ly],
+            volume_fraction=volume_fraction,
+            r_fibre_dist=radius_distribution,
+            seed=1874183,
+            fast_code=True,
+        )
+
+        fibre_positions, fibre_radii = next(iter(fibre_distribution_2d))
+        with open(filename, "w", encoding="utf8") as f:
+            json.dump(
+                {
+                    "positions_x": list(fibre_positions[:, 0]),
+                    "positions_y": list(fibre_positions[:, 1]),
+                    "radii": list(fibre_radii),
+                },
+                f,
+                indent=4,
+            )
+
+
 # Domain
 Lx = 1.0
 Ly = 1.0
@@ -73,46 +106,24 @@ ny = 1024
 nz = 512
 
 
-rng = np.random.default_rng(seed=5713853)
-
 grid_spec = GridSpec(Lx, Ly, Lz, nx=nx, ny=ny, nz=nz)
 
+filename = "fibre_locations.json"
 
-scale = 4
-r_avg = scale * 7.5e-3
-r_min = scale * 5.0e-3
-r_max = scale * 10.0e-3
-sigma = scale * 0.5e-3
-volume_fraction = 0.3
-radius_distribution = FibreRadiusDistribution(
-    r_avg=r_avg, r_min=r_min, r_max=r_max, sigma=sigma, gaussian=True
-)
+generate_fibre_distribution(filename)
 
-fibre_distribution_2d = FibreDistribution2d(
-    domain_size=[grid_spec.Lx, grid_spec.Ly],
-    volume_fraction=volume_fraction,
-    r_fibre_dist=radius_distribution,
-    seed=1874183,
-    fast_code=True,
-)
+with open(filename, encoding="utf8") as f:
+    fibre_locations = json.load(f)
+    fibre_positions = np.stack(
+        [fibre_locations["positions_x"], fibre_locations["positions_y"]], axis=1
+    )
+    fibre_radii = fibre_locations["radii"]
 
 voxel_centres = np.meshgrid(
     grid_spec.dx * (1 / 2 + np.arange(grid_spec.nx)),
     grid_spec.dy * (1 / 2 + np.arange(grid_spec.ny)),
     indexing="ij",
 )
-
-fibre_positions, fibre_radii = next(iter(fibre_distribution_2d))
-with open("fibre_locations.json", "w", encoding="utf8") as f:
-    json.dump(
-        {
-            "positions_x": list(fibre_positions[:, 0]),
-            "positions_y": list(fibre_positions[:, 1]),
-            "radii": list(fibre_radii),
-        },
-        f,
-        indent=4,
-    )
 
 
 X, Y = voxel_centres
