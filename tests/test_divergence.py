@@ -25,9 +25,9 @@ def test_relative_divergence(grid_spec, rng):
 
     xi = get_xi(grid_spec)
     sigma = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz))
-    sigma_hat = np.fft.fftn(sigma, axes=[-3, -2, -1])
+    sigma_hat = np.fft.rfftn(sigma, axes=[-3, -2, -1])
     rel_div_real = relative_divergence(sigma, grid_spec)
-    rel_div_fourier = relative_divergence_fourier(sigma_hat, xi)
+    rel_div_fourier = relative_divergence_fourier(sigma_hat, xi, grid_spec)
     tolerance = 1.0e-5
     assert abs((rel_div_real - rel_div_fourier) / rel_div_real) < tolerance
 
@@ -57,7 +57,7 @@ def test_relative_divergence_sharded(parallel_decomposition, rng):
         rel_div_real = relative_divergence(
             process_allgather(sigma, tiled=True), grid_spec
         )
-        rel_div_fourier = relative_divergence_fourier(sigma_hat, xi)
+        rel_div_fourier = relative_divergence_fourier(sigma_hat, xi, xi, grid_spec)
         tolerance = 1.0e-5
         assert not sigma.is_fully_addressable
         assert not sigma_hat.is_fully_addressable

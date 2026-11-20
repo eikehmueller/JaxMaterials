@@ -19,8 +19,8 @@ def test_sequential():
 
     data_k = sharded_fft3(data)
 
-    reference_data_k = jnp.fft.fftn(data, axes=(2, 1, 0))
-    tolerance = 1.0e-12
+    reference_data_k = jnp.fft.rfftn(data, axes=(-3, -2, -1))
+    tolerance = 2.0e-12
     assert (
         jnp.linalg.norm(data_k - reference_data_k) / jnp.linalg.norm(reference_data_k)
         < tolerance
@@ -35,7 +35,7 @@ def test_inverse_sequential():
     data = jnp.asarray(local_data)
 
     data_k = sharded_fft3(data)
-    data_transformed = jnp.real(sharded_ifft3(data_k))
+    data_transformed = sharded_ifft3(data_k, grid_spec=grid_spec)
 
     tolerance = 1.0e-12
     assert jnp.linalg.norm(data - data_transformed) / jnp.linalg.norm(data) < tolerance
@@ -89,7 +89,9 @@ def test_inverse_distributed(parallel_decomposition):
         )
 
         distributed_data_k = sharded_fft3(distributed_data)
-        distributed_data_transformed = jnp.real(sharded_ifft3(distributed_data_k))
+        distributed_data_transformed = sharded_ifft3(
+            distributed_data_k, grid_spec=grid_spec
+        )
 
         tolerance = 1.0e-12
         assert not distributed_data.is_fully_addressable

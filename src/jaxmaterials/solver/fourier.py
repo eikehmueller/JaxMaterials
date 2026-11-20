@@ -21,6 +21,7 @@ __all__ = [
 ]
 
 
+@jax.jit
 def sharded_fft3(u: jax.Array) -> jax.Array:
     """Three dimensional Fourier transformation
 
@@ -65,7 +66,7 @@ def sharded_fft3(u: jax.Array) -> jax.Array:
     mesh = jax.sharding.get_abstract_mesh()
     if mesh.empty:
         # Unsharded array. Just apply the 3d FFT
-        return jnp.fft.fftn(u, axes=(-3, -2, -1))
+        return jnp.fft.rfftn(u, axes=(-3, -2, -1))
     else:
         n_axes = len(mesh.axis_names)
         if n_axes == 2:
@@ -119,7 +120,8 @@ def sharded_fft3(u: jax.Array) -> jax.Array:
         return _sharded_transform(u)
 
 
-def sharded_ifft3(u: jax.Array) -> jax.Array:
+@jax.jit(static_argnames="grid_spec")
+def sharded_ifft3(u: jax.Array, grid_spec: GridSpec) -> jax.Array:
     """Three dimensional inverse Fourier transformation
 
     Apply an inverse Fourier transform to the final three dimensions
@@ -163,7 +165,7 @@ def sharded_ifft3(u: jax.Array) -> jax.Array:
     mesh = jax.sharding.get_abstract_mesh()
     if mesh.empty:
         # Unsharded array. Just apply the 3d FFT
-        return jnp.fft.ifftn(u, axes=(-3, -2, -1))
+        return jnp.fft.irfftn(u, s=grid_spec.extents, axes=(-3, -2, -1))
     else:
         n_axes = len(mesh.axis_names)
         if n_axes == 2:
@@ -243,8 +245,9 @@ def get_xi(grid_spec: GridSpec, dtype: jax.typing.DTypeLike = np.float64) -> jax
         spec = jax.P(*mesh.axis_names, None, None)
     sin_k = []
     cos_k = []
-    for n, axis in zip(grid_spec.extents, spec):
-        k = 2 * jnp.pi * jnp.arange(n, dtype=dtype) / n
+    fourier_extents = (grid_spec.nx, grid_spec.ny, grid_spec.nz // 2 + 1)
+    for n, n_fourier, axis in zip(grid_spec.extents, fourier_extents, spec):
+        k = 2 * jnp.pi * jnp.arange(n_fourier, dtype=dtype) / n
         if not mesh.empty:
             k = jax.sharding.reshard(k, jax.P(axis))
         sin_k.append(jnp.sin(k / 2))

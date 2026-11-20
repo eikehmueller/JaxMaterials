@@ -107,9 +107,9 @@ def test_solve(grid_spec, rng, dtype):
     :arg rng: random number generator
     :arg dtype: data type (single or double precision)
     """
-    sigma_hat = rng.normal(size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz)).astype(
-        dtype
-    )
+    sigma_hat = rng.normal(
+        size=(6, grid_spec.nx, grid_spec.ny, grid_spec.nz // 2 + 1)
+    ).astype(dtype)
     xizero = get_xizero(grid_spec, dtype)
     mu0, lmbda0 = 0.9, 0.4
     stiffness_tensor0 = np.stack(

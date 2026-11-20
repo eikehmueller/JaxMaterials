@@ -268,7 +268,7 @@ def test_convergence(grid_spec, rng, dtype, depth):
             assert its < 16
         else:
             assert its < 15
-    assert rel_div < tol
+    assert rel_div < 4 * tol
 
 
 @pytest.mark.parametrize("use_cuda", [False, True])

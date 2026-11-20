@@ -45,7 +45,9 @@ def relative_divergence(sigma: jax.Array, grid_spec: GridSpec) -> jax.Array:
     return dsigma_nrm / (jnp.sqrt(grid_spec.number_of_voxels) * sigma_avg_nrm)
 
 
-def relative_divergence_fourier(sigma_hat: jax.Array, xi: jax.Array) -> jax.Array:
+def relative_divergence_fourier(
+    sigma_hat: jax.Array, xi: jax.Array, grid_spec: GridSpec
+) -> jax.Array:
     """Relative divergence of stress :math:`\\sigma` in Fourier space
 
     Computes the ratio
@@ -62,6 +64,8 @@ def relative_divergence_fourier(sigma_hat: jax.Array, xi: jax.Array) -> jax.Arra
         stress :math:`\\sigma` in Fourier space, array of shape ``(6,nx,ny,nz)``
     xi :
         Fourier vectors, array of shape ``(6,nx,ny,nz)``
+    grid_spec :
+        specification of computational grid
 
     Returns
     =======
@@ -81,7 +85,12 @@ def relative_divergence_fourier(sigma_hat: jax.Array, xi: jax.Array) -> jax.Arra
             + xi[2, ...] * sigma_hat[2, ...],
         ]
     )
-    dsigma_nrm = jnp.sqrt(jnp.sum(jnp.abs(dsigma_hat) ** 2))
+    scaling_factor = 2 * np.ones(xi.shape[-1])
+    scaling_factor[0] = 1
+    scaling_factor[-1] = 1 + grid_spec.nz % 2
+    dsigma_nrm = jnp.sqrt(
+        jnp.sum(scaling_factor[None, None, None, :] * jnp.abs(dsigma_hat) ** 2)
+    )
 
     def zero_component(u):
         mesh = jax.sharding.get_abstract_mesh()
