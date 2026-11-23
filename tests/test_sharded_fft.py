@@ -17,7 +17,7 @@ def test_sequential():
     local_data = rng.normal(size=grid_spec.extents)
     data = jnp.asarray(local_data)
 
-    data_k = sharded_fft3(data)
+    data_k = sharded_fft3(data, grid_spec)
 
     reference_data_k = jnp.fft.rfftn(data, axes=(-3, -2, -1))
     tolerance = 2.0e-12
@@ -34,7 +34,7 @@ def test_inverse_sequential():
     local_data = rng.normal(size=grid_spec.extents)
     data = jnp.asarray(local_data)
 
-    data_k = sharded_fft3(data)
+    data_k = sharded_fft3(data, grid_spec)
     data_transformed = sharded_ifft3(data_k, grid_spec=grid_spec)
 
     tolerance = 1.0e-12
@@ -42,12 +42,11 @@ def test_inverse_sequential():
 
 
 @pytest.mark.parallel(nprocs=6)
-@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_distributed(parallel_decomposition):
-    """Test the FFT with slab- and pencil decomposition"""
+def test_distributed():
+    """Test the FFT with pencil decomposition"""
     try:
         jax.distributed.initialize(cluster_detection_method="mpi4py")
-        grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
+        grid_spec, sharding = get_parallel_gridspec("pencil")
         jax.set_mesh(sharding.mesh)
 
         rng = np.random.default_rng(seed=52523 + jax.process_index())
@@ -56,30 +55,29 @@ def test_distributed(parallel_decomposition):
             sharding, local_data, global_shape=grid_spec.extents
         )
 
-        distributed_data_k = sharded_fft3(distributed_data)
+        distributed_data_k = sharded_fft3(distributed_data, grid_spec)
         data_k = process_allgather(distributed_data_k, tiled=True)
         data = process_allgather(distributed_data, tiled=True)
-
-        reference_data_k = jnp.fft.fftn(data, axes=(2, 1, 0))
-        tolerance = 1.0e-12
+        nzh = grid_spec.nz // 2 + 1
+        reference_data_k = jnp.fft.fftn(data, axes=(-3, -2, -1))
         assert not distributed_data.is_fully_addressable
         assert not distributed_data_k.is_fully_addressable
-        assert (
-            jnp.linalg.norm(data_k - reference_data_k)
-            / jnp.linalg.norm(reference_data_k)
-            < tolerance
+        assert jnp.allclose(
+            data_k[..., :nzh], reference_data_k[..., :nzh], rtol=1.0e-12
         )
+        assert jnp.all(data_k[..., nzh:] == 0)
+        assert data_k.shape[-1] == grid_spec.fourier_extents[2]
+
     finally:
         jax.distributed.shutdown()
 
 
 @pytest.mark.parallel(nprocs=6)
-@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_inverse_distributed(parallel_decomposition):
-    """Test the FFT with slab- and pencil decomposition"""
+def test_inverse_distributed():
+    """Test the FFT with pencil decomposition"""
     try:
         jax.distributed.initialize(cluster_detection_method="mpi4py")
-        grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
+        grid_spec, sharding = get_parallel_gridspec("pencil")
         jax.set_mesh(sharding.mesh)
 
         rng = np.random.default_rng(seed=52523 + jax.process_index())
@@ -88,10 +86,8 @@ def test_inverse_distributed(parallel_decomposition):
             sharding, local_data, global_shape=grid_spec.extents
         )
 
-        distributed_data_k = sharded_fft3(distributed_data)
-        distributed_data_transformed = sharded_ifft3(
-            distributed_data_k, grid_spec=grid_spec
-        )
+        distributed_data_k = sharded_fft3(distributed_data, grid_spec)
+        distributed_data_transformed = sharded_ifft3(distributed_data_k, grid_spec)
 
         tolerance = 1.0e-12
         assert not distributed_data.is_fully_addressable

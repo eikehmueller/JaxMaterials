@@ -85,9 +85,12 @@ def relative_divergence_fourier(
             + xi[2, ...] * sigma_hat[2, ...],
         ]
     )
-    scaling_factor = 2 * np.ones(xi.shape[-1])
+    nzh = grid_spec.nz // 2 + 1
+    scaling_factor = np.zeros(xi.shape[-1])
     scaling_factor[0] = 1
-    scaling_factor[-1] = 1 + grid_spec.nz % 2
+    scaling_factor[1:nzh] = 2
+    if grid_spec.nz % 2 == 0:
+        scaling_factor[nzh - 1] = 1
     dsigma_nrm = jnp.sqrt(
         jnp.sum(scaling_factor[None, None, None, :] * jnp.abs(dsigma_hat) ** 2)
     )

@@ -21,8 +21,8 @@ __all__ = [
 ]
 
 
-@jax.jit
-def sharded_fft3(u: jax.Array) -> jax.Array:
+@jax.jit(static_argnames="grid_spec")
+def sharded_fft3(u: jax.Array, grid_spec: GridSpec) -> jax.Array:
     """Three dimensional Fourier transformation
 
     Apply a forward Fourier transform to the final three dimensions
@@ -31,9 +31,7 @@ def sharded_fft3(u: jax.Array) -> jax.Array:
     For sharded arrays, the field is transposed between the applications as follows.
     The sharding in Fourier space will be different from the sharding in real space.
 
-    Case I: Pencil decomposition
-
-        Input array is sharded as :math:`(*,N_x/p_x,N_y/p_y,N_z)`
+    Input array is sharded as :math:`(*,N_x/p_x,N_y/p_y,N_z)`
 
         1. Apply 1d-FFT in z-direction
         2. Transpose to :math:`(*,N_x/p_x,N_y,N_z/p_y)`
@@ -41,22 +39,14 @@ def sharded_fft3(u: jax.Array) -> jax.Array:
         4. Transpose to :math:`(*,N_x,N_y/p_x,N_z/p_y)`
         5. Apply 1d-FFT in x-direction
 
-        Output array is sharded as :math:`(*,N_x,N_y/p_x,N_z/p_y)`
-
-    Case II: Slab decomposition
-
-        Input array is sharded as :math:`(*,N_x,N_y,N_z/p_z)`
-
-        1. Apply 2d-FFT in x- and y- direction
-        2. Transpose to :math:`(*,N_x/p_z,N_y,N_z)`
-        3. Apply 1d-FFT in z- direction
-
-        Output array is sharded as :math:`(*,N_x/p_z,N_y,N_z)`
+    Output array is sharded as :math:`(*,N_x,N_y/p_x,N_z/p_y)`
 
     Parameters
     ==========
     u : jax.Array
         tensor to be transformed, rank must be at least 3
+    grid_spec : GridSpec
+        specification of computational grid
 
     Returns
     =======
@@ -68,54 +58,33 @@ def sharded_fft3(u: jax.Array) -> jax.Array:
         # Unsharded array. Just apply the 3d FFT
         return jnp.fft.rfftn(u, axes=(-3, -2, -1))
     else:
-        n_axes = len(mesh.axis_names)
-        if n_axes == 2:
-            # Case I: pencil decomposition
-            px, py = mesh.axis_sizes
-            _, ny, nz = u.shape[-3:]
-            assert nz % py == 0, (
-                "Number of voxels in z-direction needs to be divisible by number of processors in y-direction"
-            )
-            assert ny % px == 0, (
-                "Number of voxels in y-direction needs to be divisible by number of processors in x-direction"
-            )
-            _x, _y = mesh.axis_names
-            out_specs = jax.P(*((u.ndim - 3) * [None] + [None, _x, _y]))
+        # Pencil decomposition
+        px, py = mesh.axis_sizes
+        _, ny, nz = u.shape[-3:]
+        assert ny % px == 0, (
+            "Number of voxels in y-direction needs to be divisible by number of processors in x-direction"
+        )
+        _x, _y = mesh.axis_names
+        out_specs = jax.P(*((u.ndim - 3) * [None] + [None, _x, _y]))
+        nzh = grid_spec.nz // 2 + 1
+        nzh_padded = grid_spec.fourier_extents[-1]
 
-            @jax.shard_map(mesh=mesh, out_specs=out_specs)
-            def _sharded_transform(v):
-                # input has local shape (*,Nx/px, Ny/py, Nz)
-                # FFT in z-direction
-                v = jnp.fft.fft(v, axis=-1)
-                # Transpose to (*,Nx/px,Ny,Nz/py)
-                v = jax.lax.all_to_all(v, _y, -1, -2, tiled=True)
-                # FFT in y-direction
-                v = jnp.fft.fft(v, axis=-2)
-                # Transpose to (*,Nx,Ny/px,Nz/py)
-                v = jax.lax.all_to_all(v, _x, -2, -3, tiled=True)
-                # FFT in x-direction
-                v = jnp.fft.fft(v, axis=-3)
-                return v
-        else:
-            # Case II: Slab decomposition
-            (pz,) = mesh.axis_sizes
-            nx = u.shape[-3]
-            assert nx % pz == 0, (
-                "Number of voxels in x-direction needs to be divisible by number of processors in z-direction"
-            )
-            (_z,) = mesh.axis_names
-            out_specs = jax.P(*((u.ndim - 3) * [None] + [_z, None, None]))
-
-            @jax.shard_map(mesh=mesh, out_specs=out_specs)
-            def _sharded_transform(v):
-                # input has local shape (Nx, Ny, Nz/nz)
-                # FFT in x- and y-direction
-                v = jnp.fft.fftn(v, axes=(-3, -2))
-                # Transpose to (Nx/pz,Ny,Nz)
-                v = jax.lax.all_to_all(v, _z, -3, -1, tiled=True)
-                # FFT in z-direction
-                v = jnp.fft.fft(v, axis=-1)
-                return v
+        @jax.shard_map(mesh=mesh, out_specs=out_specs)
+        def _sharded_transform(v):
+            # input has local shape (*, Nx/px, Ny/py, Nz)
+            # FFT in z-direction to (*, Nx/px, Ny/py, Nz//2+1)
+            v = jnp.fft.rfft(v, axis=-1)
+            # pad in z-direction (*, Nx/px, Ny/py, Nz_padded)
+            v = jnp.pad(v, [(0, 0)] * (v.ndim - 1) + [(0, nzh_padded - nzh)])
+            # Transpose to (*,Nx/px,Ny,Nz_padded/py)
+            v = jax.lax.all_to_all(v, _y, -1, -2, tiled=True)
+            # FFT in y-direction
+            v = jnp.fft.fft(v, axis=-2)
+            # Transpose to (*,Nx,Ny/px,Nz_padded/py)
+            v = jax.lax.all_to_all(v, _x, -2, -3, tiled=True)
+            # FFT in x-direction
+            v = jnp.fft.fft(v, axis=-3)
+            return v
 
         return _sharded_transform(u)
 
@@ -130,9 +99,8 @@ def sharded_ifft3(u: jax.Array, grid_spec: GridSpec) -> jax.Array:
     For sharded arrays, the field is transposed between the applications as follows.
     The sharding in Fourier space will be different from the sharding in real space.
 
-    Case I: Pencil decomposition
 
-        Input array is sharded as :math:`(*,N_x,N_y/p_x,N_z/p_y)`
+    Input array is sharded as :math:`(*,N_x,N_y/p_x,N_z/p_y)`
 
         1. Apply 1d-FFT in x-direction
         2. Transpose to :math:`(*,N_x/x,N_y,N_z/p_y)`
@@ -140,22 +108,15 @@ def sharded_ifft3(u: jax.Array, grid_spec: GridSpec) -> jax.Array:
         4. Transpose to :math:`(*,N_x/p_x,N_y/p_y,N_z)`
         5. Apply 1d-FFT in z-direction
 
-        Output array is sharded as :math:`(*,N_x/p_x,N_y/p_y,N_z)`
+    Output array is sharded as :math:`(*,N_x/p_x,N_y/p_y,N_z)`
 
-    Case II: Slab decomposition
-
-        Input array is sharded as :math:`(*,N_x/p_z,N_y,N_z)`
-
-        1. Apply 1d-FFT in z- direction
-        2. Transpose to :math:`(*,N_x,N_y,N_z/p_z)`
-        3. Apply 2d-FFT in x- and y- direction
-
-        Output array is sharded as :math:`(*,N_x,N_y,N_z/p_z)`
 
     Parameters
     ==========
     u : jax.Array
         tensor to be transformed, rank must be at least 3
+    grid_spec : GridSpec
+        specification of computational grid
 
     Returns
     =======
@@ -167,41 +128,28 @@ def sharded_ifft3(u: jax.Array, grid_spec: GridSpec) -> jax.Array:
         # Unsharded array. Just apply the 3d FFT
         return jnp.fft.irfftn(u, s=grid_spec.extents, axes=(-3, -2, -1))
     else:
-        n_axes = len(mesh.axis_names)
-        if n_axes == 2:
-            # Case I: pencil decomposition
-            _x, _y = mesh.axis_names
-            out_specs = jax.P(*((u.ndim - 3) * [None] + [_x, _y, None]))
+        # Pencil decomposition
+        _x, _y = mesh.axis_names
+        out_specs = jax.P(*((u.ndim - 3) * [None] + [_x, _y, None]))
+        nz = grid_spec.nz
+        nzh = grid_spec.nz // 2 + 1
 
-            @jax.shard_map(mesh=mesh, out_specs=out_specs)
-            def _sharded_transform(v):
-                # input has local shape (*,Nx, Ny/px, Nz/py)
-                # inverse FFT in x-direction
-                v = jnp.fft.ifft(v, axis=-3)
-                # Transpose to (*,Nx/px,Ny,Nz/py)
-                v = jax.lax.all_to_all(v, _x, -3, -2, tiled=True)
-                # inverse FFT in y-direction
-                v = jnp.fft.ifft(v, axis=-2)
-                # Transpose to (*,Nx/px,Ny/py,Nz)
-                v = jax.lax.all_to_all(v, _y, -2, -1, tiled=True)
-                # inverse FFT in z-direction
-                v = jnp.fft.ifft(v, axis=-1)
-                return v
-        else:
-            # Case II: Slab decomposition
-            (_z,) = mesh.axis_names
-            out_specs = jax.P(*((u.ndim - 3) * [None] + [None, None, _z]))
-
-            @jax.shard_map(mesh=mesh, out_specs=out_specs)
-            def _sharded_transform(v):
-                # input has local shape (Nx/nz, Ny, Nz)
-                # inverse FFT in z-direction
-                v = jnp.fft.ifft(v, axis=-1)
-                # Transpose to (Nx,Ny,Nz/z)
-                v = jax.lax.all_to_all(v, _z, -1, -3, tiled=True)
-                # inverse FFT in x- and y-direction
-                v = jnp.fft.ifftn(v, axes=(-3, -2))
-                return v
+        @jax.shard_map(mesh=mesh, out_specs=out_specs)
+        def _sharded_transform(v):
+            # input has local shape (*,Nx,Ny/px,Nz_padded/py)
+            # inverse FFT in x-direction
+            v = jnp.fft.ifft(v, axis=-3)
+            # Transpose to (*,Nx/px,Ny,Nz_padded/py)
+            v = jax.lax.all_to_all(v, _x, -3, -2, tiled=True)
+            # inverse FFT in y-direction
+            v = jnp.fft.ifft(v, axis=-2)
+            # Transpose to (*,Nx/px,Ny/py,Nz_padded)
+            v = jax.lax.all_to_all(v, _y, -2, -1, tiled=True)
+            # remove padding to obtain (*,Nx/px,Ny/py,Nz//2+1)
+            v = v[..., :nzh]
+            # inverse FFT in z-direction
+            v = jnp.fft.irfft(v, n=nz, axis=-1)
+            return v
 
         return _sharded_transform(u)
 
@@ -238,20 +186,23 @@ def get_xi(grid_spec: GridSpec, dtype: jax.typing.DTypeLike = np.float64) -> jax
     mesh = jax.sharding.get_abstract_mesh()
     if mesh.empty:
         spec = jax.P(None, None, None)
-    elif len(mesh.axis_names) == 2:
+    else:
         # Pencil decomposition
         spec = jax.P(None, *mesh.axis_names)
-    else:
-        spec = jax.P(*mesh.axis_names, None, None)
     sin_k = []
     cos_k = []
-    fourier_extents = (grid_spec.nx, grid_spec.ny, grid_spec.nz // 2 + 1)
-    for n, n_fourier, axis in zip(grid_spec.extents, fourier_extents, spec):
+    for dim, (n, n_fourier, axis) in enumerate(
+        zip(grid_spec.extents, grid_spec.fourier_extents, spec)
+    ):
         k = 2 * jnp.pi * jnp.arange(n_fourier, dtype=dtype) / n
         if not mesh.empty:
             k = jax.sharding.reshard(k, jax.P(axis))
-        sin_k.append(jnp.sin(k / 2))
-        cos_k.append(jnp.cos(k / 2))
+        if dim == 2:
+            mask = jnp.where(jnp.arange(n_fourier) < n // 2 + 1, 1, 0)
+        else:
+            mask = 1.0
+        sin_k.append(mask * jnp.sin(k / 2))
+        cos_k.append(mask * jnp.cos(k / 2))
 
     # Grid with tilde(xi)
     xi = jnp.stack(

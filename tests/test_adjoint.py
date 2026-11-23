@@ -369,17 +369,15 @@ def test_vjp_inelastic(grid_spec_small, rng, dtype, depth):
 
 
 @pytest.mark.parallel(nprocs=6)
-@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
 @pytest.mark.parametrize("depth", [0, 2, 4])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_distributed(rng, parallel_decomposition, depth, dtype):
+def test_distributed(rng, depth, dtype):
     """Verify that the adjoint computation works when run in a distributed memory configuration
 
     Compare the results of a sequential run and a run on 6 cores in a distributed
     memory configuration.
 
     :arg rng: random number generator
-    :arg parallel_decomposition: type of parallel decomposition, must be "slab" or "pencil"
     :arg depth: depth of Anderson acceleration
     :arg dtype: data type (single or double precision)
     """
@@ -411,7 +409,7 @@ def test_distributed(rng, parallel_decomposition, depth, dtype):
         )
 
         # ==== Parallel run ====
-        grid_spec_distributed, sharding = get_parallel_gridspec(parallel_decomposition)
+        grid_spec_distributed, sharding = get_parallel_gridspec("pencil")
         with jax.set_mesh(sharding.mesh):
             params_distributed = {
                 key: jax.make_array_from_callback(

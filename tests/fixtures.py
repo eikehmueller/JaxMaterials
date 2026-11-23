@@ -122,7 +122,7 @@ def get_parallel_gridspec(
     Parameters
     ==========
     parallel_decomposition : str | None
-        Type of decomposition, must be either "slab", "pencil" or None
+        Type of decomposition, must be either "pencil" or None
 
     Returns
     =======
@@ -132,10 +132,6 @@ def get_parallel_gridspec(
         grid_spec = get_grid_spec(nx=24, ny=12, nz=6, px=2, py=3)
         mesh = jax.make_mesh((2, 3), axis_names=("x", "y"))
         sharding = jax.sharding.NamedSharding(mesh, jax.P("x", "y", None))
-    elif parallel_decomposition == "slab":
-        grid_spec = get_grid_spec(nx=24, ny=12, nz=6, pz=6)
-        mesh = jax.make_mesh((6,), axis_names=("z",))
-        sharding = jax.sharding.NamedSharding(mesh, jax.P(None, None, "z"))
     elif parallel_decomposition is None:
         grid_spec = get_grid_spec(nx=24, ny=12, nz=6)
         sharding = None

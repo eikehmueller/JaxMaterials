@@ -33,18 +33,16 @@ def test_relative_divergence(grid_spec, rng):
 
 
 @pytest.mark.parallel(nprocs=6)
-@pytest.mark.parametrize("parallel_decomposition", ["slab", "pencil"])
-def test_relative_divergence_sharded(parallel_decomposition, rng):
+def test_relative_divergence_sharded(rng):
     """Verify that the relative divergence used for exit criterion is computed
     consistently in real space and Fourier space for distributed arrays
 
-    :arg parallel_decomposition: parallel decomposition, must by "slab" or "pencil"
     :arg rng: random number generator
     """
     try:
         jax.distributed.initialize(cluster_detection_method="mpi4py")
 
-        grid_spec, sharding = get_parallel_gridspec(parallel_decomposition)
+        grid_spec, sharding = get_parallel_gridspec("pencil")
         jax.set_mesh(sharding.mesh)
         sigma_sharding = sharding.update(spec=jax.P(None, *sharding.spec))
         xi = get_xi(grid_spec)
@@ -52,12 +50,12 @@ def test_relative_divergence_sharded(parallel_decomposition, rng):
         sigma = jax.make_array_from_process_local_data(
             sigma_sharding, local_sigma, global_shape=(6, *grid_spec.extents)
         )
-        sigma_hat = sharded_fft3(sigma)
+        sigma_hat = sharded_fft3(sigma, grid_spec)
 
         rel_div_real = relative_divergence(
             process_allgather(sigma, tiled=True), grid_spec
         )
-        rel_div_fourier = relative_divergence_fourier(sigma_hat, xi, xi, grid_spec)
+        rel_div_fourier = relative_divergence_fourier(sigma_hat, xi, grid_spec)
         tolerance = 1.0e-5
         assert not sigma.is_fully_addressable
         assert not sigma_hat.is_fully_addressable

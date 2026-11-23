@@ -24,7 +24,7 @@ jax.distributed.initialize(cluster_detection_method="mpi4py")
 def distributed_ids(grid_spec):
     nx_local, ny_local, nz_local = grid_spec.local_extents
 
-    i_x, i_y, _ = np.unravel_index(jax.process_index(), grid_spec.pdims)
+    i_x, i_y = np.unravel_index(jax.process_index(), grid_spec.pdims)
 
     X, Y = np.meshgrid(
         grid_spec.dx * (1 / 2 + np.arange(i_x * nx_local, (i_x + 1) * nx_local)),
@@ -102,7 +102,7 @@ with jax.set_mesh(mesh):
 
     # forward solve
     epsilon, sigma = lippmann_schwinger_isotropic(
-        params, epsilon_bar, grid_spec, verbose=2
+        params, epsilon_bar, grid_spec, depth=4, tol=1.0e-4, verbose=2
     )
     if save_to_vtk:
         grid = pv.ImageData(

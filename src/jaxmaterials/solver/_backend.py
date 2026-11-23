@@ -95,21 +95,16 @@ def _print_if_converged_or_stopped(
 def _get_sharding() -> jax.sharding.NamedSharding:
     """Construct sharding for five-dimensional temporary arrays
 
-    Depending on whether the "slab" or "stencil" domain decomposition is used,
-    construct a suitable sharding for five-dimensional temporary arrays such as
+    Construct a suitable sharding for five-dimensional temporary arrays such as
     epsilon and lambda
     """
     mesh = jax.sharding.get_abstract_mesh()
     if mesh.empty:
         specs = jax.P(None, None, None, None, None)
     else:
-        n_axes = len(mesh.axis_names)
-        if n_axes == 2:
-            _x, _y = mesh.axis_names
-            specs = jax.P(None, None, _x, _y, None)
-        else:
-            (_z,) = mesh.axis_names
-            specs = jax.P(None, None, None, None, _z)
+        _x, _y = mesh.axis_names
+        specs = jax.P(None, None, _x, _y, None)
+
     return jax.sharding.NamedSharding(mesh, specs)
 
 
@@ -215,7 +210,7 @@ def _lippmann_schwinger_jax(
     sigma = compute_sigma(epsilon[0, ...], params)
 
     # Fourier transform sigma
-    sigma_hat = sharded_fft3(sigma)
+    sigma_hat = sharded_fft3(sigma, grid_spec)
     rel_error = relative_divergence_fourier(sigma_hat, xi, grid_spec)
     rel_error_0 = rel_error
     mesh = jax.sharding.get_abstract_mesh()
@@ -301,7 +296,7 @@ def _lippmann_schwinger_jax(
         epsilon, residual, sigma, sigma_hat, A_anderson, u_rhs, its, rel_error = state
         # Solve reference problem hat{epsilon}_{kl} = -Gamma^0_{klij} hat{tau}_{ij}
         r_hat = fourier_solve_isotropic(sigma_hat, xizero, ref_params)
-        r = sharded_ifft3(r_hat, grid_spec=grid_spec)
+        r = sharded_ifft3(r_hat, grid_spec)
         if depth > 0:
             residual = jnp.roll(residual, 1, axis=0)
             residual = residual.at[0, ...].set(r)
@@ -330,7 +325,7 @@ def _lippmann_schwinger_jax(
         epsilon = epsilon.at[0, ...].set(jnp.astype(epsilon_tilde, dtype))
         sigma = compute_sigma(epsilon[0, ...], params)
         # Fourier transform sigma
-        sigma_hat = sharded_fft3(sigma)
+        sigma_hat = sharded_fft3(sigma, grid_spec)
         rel_error = relative_divergence_fourier(sigma_hat, xi, grid_spec)
         its += 1
         return (
@@ -512,9 +507,9 @@ def _lippmann_schwinger_adjoint_jax(
             current iteration state ``Lambda, residual, A_anderson, u_rhs, increment_nrm, its``
         """
         Lambda, residual, A_anderson, u_rhs, increment_nrm, its = state
-        Lambda_hat = sharded_fft3(Lambda[0, ...])
+        Lambda_hat = sharded_fft3(Lambda[0, ...], grid_spec)
         Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
-        Theta = sharded_ifft3(Theta_hat, grid_spec=grid_spec)
+        Theta = sharded_ifft3(Theta_hat, grid_spec)
         # Convert Voigt-dual Theta to Euclidean cotangent for vjp, then map back.
         dSigma_depsilon, _ = sigma_vjp(voigt_weights_bcast * Theta)
         dSigma_depsilon = dSigma_depsilon / voigt_weights_bcast
@@ -808,11 +803,9 @@ def _solve_bwd(
         verbose=verbose,
     )
 
-    Lambda_hat = sharded_fft3(Lambda)
+    Lambda_hat = sharded_fft3(Lambda, grid_spec)
     Theta_hat = fourier_solve_isotropic(Lambda_hat, xizero, ref_params)
-    S_star = g_sigma - voigt_weights_bcast * sharded_ifft3(
-        Theta_hat, grid_spec=grid_spec
-    )
+    S_star = g_sigma - voigt_weights_bcast * sharded_ifft3(Theta_hat, grid_spec)
     # Convert back to dual vector with respect to Euclidean inner product.
     g_epsilon_bar = -voigt_weights * jnp.sum(Lambda, axis=(1, 2, 3))
     # Derivative with respect to parameters

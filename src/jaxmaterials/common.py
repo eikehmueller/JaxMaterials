@@ -25,7 +25,6 @@ class GridSpec:
         nz: int,
         px: int = 1,
         py: int = 1,
-        pz: int = 1,
     ) -> None:
         """Initialise instance
 
@@ -47,8 +46,6 @@ class GridSpec:
             number of processes :math:`p_x` in x-direction
         py :
             number of processes :math:`p_y` in y-direction
-        pz :
-            number of processes :math:`p_z` in z-direction
         """
         assert nx > 0
         assert ny > 0
@@ -64,15 +61,11 @@ class GridSpec:
         self._Lz = Lz
         self._px = px
         self._py = py
-        self._pz = pz
         assert nx % px == 0, (
             "Number of voxels in x-direction must be divisible by number of processors in that direction"
         )
         assert ny % py == 0, (
             "Number of voxels in y-direction must be divisible by number of processors in that direction"
-        )
-        assert nz % pz == 0, (
-            "Number of voxels in z-direction must be divisible by number of processors in that direction"
         )
 
     @property
@@ -136,18 +129,28 @@ class GridSpec:
         return (self.nx, self.ny, self.nz)
 
     @property
+    def fourier_extents(self) -> tuple[int, int, int]:
+        """Tuple of global extents :math:`(n_x,n_y,n_z^{padded})` in Fourier space"""
+        nzh = self.nz // 2 + 1
+        # Pad extend in z-direction such that it is guaranteed to be
+        # be a multiple of the number of processors in that direction
+        # after transposition
+        nzh_padded = ((nzh + self._py - 1) // self._py) * self._py
+        return (self.nx, self.ny, nzh_padded)
+
+    @property
     def local_extents(self) -> tuple[int, int, int]:
-        """Tuple of process-local extents :math:`(n_x/p_x,n_y/p_y,n_z/p_z)`"""
+        """Tuple of process-local extents :math:`(n_x/p_x,n_y/p_y,n_z)`"""
         return (
             self.nx // self._px,
             self.ny // self._py,
-            self.nz // self._pz,
+            self.nz,
         )
 
     @property
-    def pdims(self) -> tuple[int, int, int]:
+    def pdims(self) -> tuple[int, int]:
         """Tuple with number of processors in each direction"""
-        return (self._px, self._py, self._pz)
+        return (self._px, self._py)
 
     @property
     def voxel_centers(self) -> np.ndarray:
@@ -172,7 +175,6 @@ def get_grid_spec(
     dz: float | None = None,
     px: int | None = None,
     py: int | None = None,
-    pz: int | None = None,
 ) -> GridSpec:
     """Factory for constructing grid specification
 
@@ -209,8 +211,6 @@ def get_grid_spec(
         number of processes :math:`p_x` in x-direction
     py :
         number of processes :math:`p_y` in y-direction
-    pz :
-        number of processes :math:`p_z` in z-direction
 
     Returns
     =======
@@ -223,10 +223,8 @@ def get_grid_spec(
             isinstance(n, int) and (h is None)
         )
 
-    assert (
-        ((px is None) and (py is None) and (pz is None))
-        or (isinstance(px, int) and isinstance(py, int) and (pz is None))
-        or ((px is None) and (py is None) and isinstance(pz, int))
+    assert ((px is None) and (py is None)) or (
+        isinstance(px, int) and isinstance(py, int)
     )
     assert _valid(nx, dx) and _valid(ny, dy) and _valid(nz, dz)
     _nx = typing.cast(int, nx if dx is None else int(Lx / dx))
@@ -234,5 +232,4 @@ def get_grid_spec(
     _nz = typing.cast(int, nz if dz is None else int(Lz / dz))
     _px = 1 if px is None else px
     _py = 1 if py is None else py
-    _pz = 1 if pz is None else pz
-    return GridSpec(Lx, Ly, Lz, _nx, _ny, _nz, _px, _py, _pz)
+    return GridSpec(Lx, Ly, Lz, _nx, _ny, _nz, _px, _py)
