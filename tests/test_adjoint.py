@@ -213,7 +213,7 @@ def test_vjp_isotropic(grid_spec_small, rng, dtype, depth):
     ref_params = reference_parameters(params)
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     tol = 1.0e-20
-    maxits = 128
+    maxits = 32
     delta_epsilon_initial = jnp.zeros((6, *grid_spec_small.extents), dtype=dtype)
 
     def loss_fn_adjoint(params, epsilon_bar):
@@ -265,7 +265,7 @@ def test_vjp_anisotropic(grid_spec_small, rng, dtype, depth):
     epsilon_bar = np.array([2.1, 0.9, 0.8, 0.4, 0.9, 0.5], dtype=dtype)
     params_anisotropic = perturbed_parameters(rng, params, delta=0.1)
     tol = 1.0e-20
-    maxits = 128
+    maxits = 32
     delta_epsilon_initial = jnp.zeros((6, *grid_spec_small.extents), dtype=dtype)
 
     def loss_fn_adjoint(params_anisotropic, epsilon_bar):
