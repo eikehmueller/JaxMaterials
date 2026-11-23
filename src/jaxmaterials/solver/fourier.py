@@ -200,7 +200,7 @@ def get_xi(grid_spec: GridSpec, dtype: jax.typing.DTypeLike = np.float64) -> jax
         if dim == 2:
             mask = jnp.where(jnp.arange(n_fourier) < n // 2 + 1, 1, 0)
         else:
-            mask = 1.0
+            mask = jnp.ones(n_fourier, dtype=dtype)
         sin_k.append(mask * jnp.sin(k / 2))
         cos_k.append(mask * jnp.cos(k / 2))
 
